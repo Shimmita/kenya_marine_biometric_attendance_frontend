@@ -1,29 +1,44 @@
 import { Box, CircularProgress } from "@mui/material";
 import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
+import { resetClearCurrentUserRedux } from "../../redux/CurrentUser";
 import api from "../../service/Api";
 import coreDataDetails from "../CoreDataDetails";
 
 const { colorPalette } = coreDataDetails;
 
 const AuthCheck = ({ children, redirectIfAuth = false }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const dispatch = useDispatch();
+  const { user, isOnline } = useSelector((state) => state.currentUser);
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
+      // ✅ If Redux already knows user is logged in
+      if (isOnline && user) {
+        setLoading(false);
+        return;
+      }
+
+      // 🔄 Only check backend if Redux says no user
       try {
         const res = await api.get("/valid");
-        setIsAuthenticated(res.data.valid);
-      } catch (err) {
-        setIsAuthenticated(false);
+        if (!res.data.valid) {
+          throw new Error("please login")
+        }
+      } catch {
+        dispatch(resetClearCurrentUserRedux());
       }
+
+      setLoading(false);
     };
 
     checkAuth();
   }, []);
 
-  // ⏳ Loading
-  if (isAuthenticated === null) {
+  if (loading) {
     return (
       <Box
         display="flex"
@@ -38,13 +53,13 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
     );
   }
 
-  // 🔁 If homepage and already logged in → go dashboard
-  if (redirectIfAuth && isAuthenticated) {
+  // 🔁 Homepage redirect if already logged in
+  if (redirectIfAuth && isOnline) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // 🔐 If protected route and NOT logged in → go home
-  if (!redirectIfAuth && !isAuthenticated) {
+  // 🔐 Protected route redirect if not logged in
+  if (!redirectIfAuth && !isOnline) {
     return <Navigate to="/" replace />;
   }
 
