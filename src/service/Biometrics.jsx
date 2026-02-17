@@ -1,66 +1,35 @@
 import api from "./Api";
-import {
-  startRegistration,
-  startAuthentication,
-} from "@simplewebauthn/browser";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 
 /**
- * 🔐 Register fingerprint (ONE TIME)
+ * Register fingerprint — run ONCE per user device.
+ * On success the credential is stored in the DB linked to their account.
  */
 export const registerFingerprint = async () => {
   try {
-    // 1️⃣ Get registration challenge
-    const { data: options } = await api.get(
-      "/biometric/register/challenge"
-    );
-
-    console.log("reg options", options);
-
-    // 2️⃣ Trigger OS fingerprint prompt
+    const { data: options } = await api.get("/biometric/register/challenge");
     const credential = await startRegistration(options);
-
-    console.log(credential)
-
-    // 3️⃣ Verify registration
-    await api.post(
-      "/biometric/register/verify",
-      credential
-    );
-
+    await api.post("/biometric/register/verify", credential);
     return true;
   } catch (err) {
     console.error("Fingerprint registration failed:", err);
-    throw "Fingerprint registration failed";
+    // Surface the server's error message when available
+    throw err?.response?.data?.message || "Fingerprint registration failed";
   }
 };
 
 /**
- * 🔐 Verify fingerprint (EVERY CLOCK-IN)
+ * Verify fingerprint — run before every clock-in / clock-out.
+ * On success the session is marked as biometrically verified for 2 minutes.
  */
-export const verifyFingerprint = async () => {
+export const verifyFingerprint = async (selectedStation) => {
   try {
-    // 1️⃣ Get authentication challenge
-    const { data: options } = await api.get(
-      "/biometric/auth/challenge"
-    );
-
-    console.log('auth options',options)
-
-    // 2️⃣ Trigger fingerprint scan
+    const { data: options } = await api.get("/biometric/auth/challenge");
     const authResponse = await startAuthentication(options);
-
-    console.log("authresponseStartAuth: ",authResponse)
-
-    // 3️⃣ Verify with backend
-    await api.post(
-      "/biometric/auth/verify",
-      authResponse
-    );
-
+    await api.post("/biometric/auth/verify", { ...authResponse, selectedStation });
     return true;
   } catch (err) {
-    console.log(err)
     console.error("Fingerprint verification failed:", err);
-    throw "Fingerprint verification failed";
+    throw err?.response?.data?.message || "clockin/clockout failed, try again";
   }
 };

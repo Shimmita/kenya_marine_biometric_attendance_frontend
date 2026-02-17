@@ -1,6 +1,7 @@
 // Department Structure Content
 import { Card, CardContent, Chip, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { colorPalette } from '../Dashboard';
+import coreDataDetails from '../CoreDataDetails';
+const { colorPalette } = coreDataDetails
 export  default function DepartmentStructureContent() {
     const departments = [
         { name: 'Infose', head: 'Dr. Jane Doe', members: 12, color: colorPalette.oceanBlue },

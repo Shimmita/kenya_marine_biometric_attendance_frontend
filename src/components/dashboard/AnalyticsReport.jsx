@@ -1,8 +1,9 @@
 // Analytics & Reports Content
 import { Download } from '@mui/icons-material';
 import { Box, Button, Card, CardContent, Chip, Grid, Paper, Stack, Typography } from '@mui/material';
-import { colorPalette } from '../Dashboard';
-export  default function AnalyticsReportsContent() {
+import coreDataDetails from '../CoreDataDetails';
+const { colorPalette } = coreDataDetails
+export default function AnalyticsReportsContent() {
     const reports = [
         { title: 'Monthly Attendance Summary', type: 'PDF', date: 'Feb 2024', size: '2.3 MB', color: colorPalette.oceanBlue },
         { title: 'Task Completion Report', type: 'XLSX', date: 'Jan 2024', size: '1.8 MB', color: colorPalette.seafoamGreen },

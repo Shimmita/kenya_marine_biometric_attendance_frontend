@@ -28,7 +28,8 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { colorPalette } from '../Dashboard';
+import coreDataDetails from '../CoreDataDetails';
+const { colorPalette } = coreDataDetails
 
 const TasksActivitiesContent = ({ tasks, setTasks, currentTime }) => {
     const [searchQuery, setSearchQuery] = useState('');

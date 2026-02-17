@@ -1,6 +1,7 @@
 // Leave Management Content
 import { Button, Card, CardContent, Chip, Grid, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { colorPalette } from '../Dashboard';
+import coreDataDetails from '../CoreDataDetails';
+const { colorPalette } = coreDataDetails
 export default function LeaveManagementContent({ currentTime }) {
     const leaveBalance = { annual: 15, sick: 7, casual: 3 };
     const leaveRequests = [
