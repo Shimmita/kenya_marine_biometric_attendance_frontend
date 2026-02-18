@@ -1,7 +1,7 @@
 import {
     AddCircle, AssignmentTurnedIn, Dashboard as DashIcon,
     History, Logout, Menu as MenuIcon, NotificationAddRounded,
-    PhoneLocked, QueryStats,
+    PhoneLocked, QueryStats, Smartphone
 } from '@mui/icons-material';
 import {
     AppBar, Avatar, Box, Button, Chip, Dialog, DialogActions,
@@ -33,10 +33,11 @@ import { useNavigate } from 'react-router-dom';
 import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { userSignOut } from '../service/UserProfile';
+import DownloadMobileAppSection from './dashboard/DownloadMobileApp';
 
 const { colorPalette } = coreDataDetails;
 
-const DRAWER_WIDTH = 350;
+const DRAWER_WIDTH = 330;
 const APPBAR_HEIGHT = 64;
 
 /* ══ ROLE CONSTANTS ════════════════════════════════════════════════════════ */
@@ -148,6 +149,7 @@ const DrawerContent = ({ user, isElevated, isPrivileged, activeTab, pendingCount
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
         { text: 'Notification Panel', icon: <NotificationAddRounded />, color: '#a78bfa' },
+        { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
     ];
     const adminItems = [{ text: 'Organisation Overview', icon: <QueryStats />, color: colorPalette.seafoamGreen }];
     const reqItems = [{ text: 'User Requests', icon: <AssignmentTurnedIn />, color: '#f87171' }];
@@ -315,10 +317,13 @@ const EnhancedDashboard = () => {
             case 'Department Structure': return <DepartmentStructureContent    {...sp} />;
             case 'Leave Management': return <LeaveManagementContent        {...sp} />;
             case 'Notification Panel': return <NotificationManagementContent {...sp} />;
+            case 'Our Mobile App':
+                return <DownloadMobileAppSection />;
             case 'Organisation Overview': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sp} />;
             case 'User Requests': return isPrivileged ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
+
             default: return <DashboardContent {...sp} />;
         }
     };
@@ -335,12 +340,16 @@ const EnhancedDashboard = () => {
         'User Requests': 'User Device Requests',
         'Lost Device': 'Lost Device Request',
         'Add Device': 'Add Clocking Device',
+        'Our Mobile App': 'KMFRI Mobile Application',
+
     };
     const pageSubtitles = {
         'User Requests': 'Review and respond to employee lost-device requests awaiting your approval',
         'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
         'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
         'Organisation Overview': 'Organisation-wide attendance insights for decision making',
+        'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
+
     };
 
     return (

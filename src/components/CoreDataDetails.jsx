@@ -28,14 +28,9 @@ const coreDataDetails = {
         "Polycarp Atunga",
         "Samuel Agwata",
         "Faith Gwanda",
-        "Dr. Emily Johnson",
-        "Prof. Michael Brown",
-        "Dr. Sarah Davis",
-        "Prof. David Wilson",
-        "Dr. Linda Martinez",
-        "Prof. James Anderson",
-        "Dr. Robert Taylor",
-        "Prof. Mary Thomas"
+        "Leonard Opasanjo",
+        "Peter Mutuku",
+        "Lawrence Bruce Owili",
     ],
     colorPalette: {
         deepNavy: '#0A3D62',
@@ -54,7 +49,7 @@ const coreDataDetails = {
         sunsetGradient: 'linear-gradient(135deg, #FF6F61 0%, #FFB400 100%)',
         freshGradient: 'linear-gradient(135deg, #00e5ff 0%, #48C9B0 100%)',
 
-        
+
     },
 
     AvailableStations: [
