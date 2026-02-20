@@ -424,6 +424,7 @@ export default function AttendanceHistoryContent() {
     const [rowsPerPage,    setRowsPerPage]    = useState(10);
 
     const notify = (msg, sev='success') => setSnack({open:true,message:msg,severity:sev});
+    console.log('in the attendance history')
 
     const loadData = async () => {
         setLoading(true); setHistoryLoading(true);

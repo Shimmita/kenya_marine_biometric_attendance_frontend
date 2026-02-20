@@ -2,7 +2,8 @@
 import { Button, Card, CardContent, Chip, Grid, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import coreDataDetails from '../CoreDataDetails';
 const { colorPalette } = coreDataDetails
-export default function LeaveManagementContent({ currentTime }) {
+export default function LeaveManagementContent() {
+
     const leaveBalance = { annual: 15, sick: 7, casual: 3 };
     const leaveRequests = [
         { id: 1, type: 'Annual Leave', startDate: '2024-03-15', endDate: '2024-03-20', days: 5, status: 'pending', reason: 'Family vacation' },

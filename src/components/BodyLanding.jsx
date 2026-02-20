@@ -17,7 +17,9 @@ import { useState } from 'react';
 import { CgMenu } from 'react-icons/cg';
 import { useDispatch } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
+import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
+import { fetchMyDevices } from '../service/DeviceService';
 import { loginUser } from './auth/Login';
 import { registerUser } from './auth/Register';
 import coreDataDetails from './CoreDataDetails';
@@ -99,7 +101,8 @@ const G = {
 };
 
 const ROLES = [
-    { value: 'employee', label: 'Employee', icon: '👔', desc: 'Full-time / Part-time staff' },
+    { value: 'employee', label: 'Employee (Full-Time)', icon: '👔', desc: 'Full-time' },
+    { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
     { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
     { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
 ];
@@ -350,10 +353,12 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                             Select the category that best describes your employment type.
                         </Typography>
                     </Box>
-                    <RoleSelector
-                        selected={formData.role}
-                        onSelect={v => { setFormData(p => ({ ...p, role: v, supervisor: '', employeeId: '' })); setErrors(p => ({ ...p, role: '' })); }}
-                    />
+                    <Stack justifyContent={'center'}>
+                        <RoleSelector
+                            selected={formData.role}
+                            onSelect={v => { setFormData(p => ({ ...p, role: v, supervisor: '', employeeId: '' })); setErrors(p => ({ ...p, role: '' })); }}
+                        />
+                    </Stack>
                     {errors.role && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, p: 1.4, borderRadius: '12px', bgcolor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
                             <Typography variant="caption" color="error" fontWeight={700}>{errors.role}</Typography>
@@ -689,8 +694,15 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
         if (!validate()) return;
         setProcessing(true);
         try {
+            // login the user
             const user = await loginUser(formData.email, formData.password);
             dispatch(updateUserCurrentUserRedux(user));
+
+            // fetch user device, and update device redux
+            const devices = await fetchMyDevices()
+            dispatch(updateUserCurrentDeviceRedux(devices))
+
+            // show snack congrats login
             setOpenSnack(true);
         } catch (err) { alert(err); }
         finally { setProcessing(false); }
@@ -793,7 +805,8 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
                             sx={{ fontSize: { xs: '0.88rem', md: '1rem' }, letterSpacing: 0.35, color: '#fff', cursor: 'pointer', textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
                             {isMdUp ? 'Kenya Marine and Fisheries Research Institute'.toUpperCase() : 'KMFRI Attendance'.toUpperCase()}
                         </Typography>
-                        {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>Digital Attendance Management Platform</Typography>}
+                        {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>
+                            Staff Attendance System</Typography>}
                     </Box>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         {currentView === 'landing' && (
@@ -855,15 +868,11 @@ const GlassStatsCard = ({ value, label, icon, color, delay }) => (
 /* ══ LANDING PAGE ═══════════════════════════════════════════════════════════ */
 const EnhancedLandingPage = () => {
     const [view, setView] = useState('landing');
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     return (
         <Box sx={{ minHeight: '100vh', background: G.meshBg, position: 'relative' }}>
             <EnhancedNavbar onNavigate={setView} currentView={view} />
             <AnimatePresence mode="wait">
-
-
 
                 {/* ══ LANDING ══ */}
                 {view === 'landing' && (
@@ -878,13 +887,14 @@ const EnhancedLandingPage = () => {
                                         <motion.div initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
                                             <Chip label="Digital Attendance Platform" size="small"
                                                 sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
-                                            <Typography variant={isMobile ? 'h3' : 'h2'} component="h1" fontWeight={900}
+                                            <Typography variant={'h5'} fontWeight={900}
                                                 sx={{ color: '#fff', mb: 2, lineHeight: 1.16, textShadow: '0 4px 18px rgba(0,0,0,0.24)' }}>
-                                                Powering KMFRI
-                                                <Box component="span" sx={{ color: '#00e5ff', display: 'block' }}>Workforce Management</Box>
+                                                <Box component="span" sx={{ color: '#00e5ff', display: 'block' }}>
+                                                    KMFRI STAFF ATTENDANCE SYSTEM
+                                                </Box>
                                             </Typography>
                                             <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.80)', mb: 4.5, fontWeight: 400, lineHeight: 1.7, maxWidth: 520 }}>
-                                                A unified digital platform for <Box component="span" sx={{ color: '#00e5ff', fontWeight: 700 }}>all KMFRI staff</Box> — employees, interns, and attachés — to clock in and out with geo-verification and biometric authentication.
+                                                A unified digital platform for all our employees, interns, and attachés — to clock in and out with geo-verification and biometric authentication.
                                             </Typography>
                                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                                 <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}

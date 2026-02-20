@@ -11,7 +11,7 @@ import {
     Tooltip, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
 
@@ -144,7 +144,8 @@ const NavItem = ({ item, isActive, pendingCount, onClick }) => (
 );
 
 /* ══ DRAWER CONTENT ═════════════════════════════════════════════════════════ */
-const DrawerContent = ({ user, isElevated, isPrivileged, activeTab, pendingCount, onTabChange, onLogout, rankMeta }) => {
+// use React.memo to stop double rendering, memoization fix
+const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, pendingCount, onTabChange, onLogout, rankMeta }) => {
     const baseItems = [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
@@ -256,7 +257,7 @@ const DrawerContent = ({ user, isElevated, isPrivileged, activeTab, pendingCount
             </Box>
         </Box>
     );
-};
+});
 
 /* ══ MAIN ═══════════════════════════════════════════════════════════════════ */
 const EnhancedDashboard = () => {
@@ -268,7 +269,6 @@ const EnhancedDashboard = () => {
     const navigate = useNavigate()
 
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
     const [activeTab, setActiveTab] = useState('Clocking Dashboard');
     const [userLocation, setUserLocation] = useState(null);
     const [isWithinGeofence, setIsWithinGeofence] = useState(false);
@@ -280,19 +280,63 @@ const EnhancedDashboard = () => {
     ]);
     const [pendingCount, setPendingCount] = useState(0);
 
-    const refreshPendingCount = useCallback(async () => {
+    console.log("in the parent dashboard")
+
+    const refreshPendingCount = async () => {
         if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
+
         try {
             const data = await fetchAllLostDevices();
             const list = Array.isArray(data) ? data : (data.requests ?? []);
-            setPendingCount(list.filter(r => r.status === 'pending').length);
-        } catch { /* silent */ }
+            setPendingCount(
+                list.filter(r => r.status === 'pending').length
+            );
+        } catch (err) {
+            console.error("Failed to fetch pending requests", err);
+        }
+    };
+
+    // fix of the double rendering
+    useEffect(() => {
+        if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
+
+        let isMounted = true;
+
+        const loadPending = async () => {
+            try {
+                const data = await fetchAllLostDevices();
+                const list = Array.isArray(data) ? data : (data.requests ?? []);
+                if (isMounted) {
+                    setPendingCount(list.filter(r => r.status === 'pending').length);
+                }
+            } catch { }
+        };
+
+        loadPending();
+        const interval = setInterval(loadPending, 60_000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
     }, [user?.rank]);
 
-    useEffect(() => { const t = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(t); }, []);
-    useEffect(() => { refreshPendingCount(); const p = setInterval(refreshPendingCount, 60_000); return () => clearInterval(p); }, [refreshPendingCount]);
 
-    const handleTabChange = tab => { setActiveTab(tab); setMobileOpen(false); if (activeTab === 'User Requests') refreshPendingCount(); };
+
+
+    // cause double rendering 
+    // const handleTabChange = tab => { setActiveTab(tab); setMobileOpen(false); if (activeTab === 'User Requests') refreshPendingCount(); };
+
+    // fix double rendering
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setMobileOpen(false);
+
+        if (tab === 'User Requests') {
+            // optional manual refresh
+            setPendingCount(prev => prev);
+        }
+    };
 
     const isElevated = ELEVATED_RANKS.includes(user?.rank);
     const isPrivileged = PRIVILEGED_RANKS.includes(user?.rank);
@@ -305,10 +349,27 @@ const EnhancedDashboard = () => {
         navigate("/")
     };
 
-    const drawerProps = { user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta, onTabChange: handleTabChange, onLogout: () => setLogoutDialogOpen(true) };
+    // use memo to memoize
+    const drawerProps = useMemo(() => ({
+        user,
+        isElevated,
+        isPrivileged,
+        activeTab,
+        pendingCount,
+        rankMeta,
+        onTabChange: handleTabChange,
+        onLogout: () => setLogoutDialogOpen(true),
+    }), [
+        user,
+        isElevated,
+        isPrivileged,
+        activeTab,
+        pendingCount,
+        rankMeta,
+    ]);
 
     const renderContent = () => {
-        const sp = { currentTime, tasks, setTasks, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence };
+        const sp = { tasks, setTasks, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence };
         switch (activeTab) {
             case 'Clocking Dashboard': return <DashboardContent              {...sp} />;
             case 'Tasks & Activities': return <TasksActivitiesContent        {...sp} />;
@@ -378,7 +439,7 @@ const EnhancedDashboard = () => {
                             {isMobile ? 'KMFRI' : isTablet ? 'KMFRI ATTENDANCE' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
                         </Typography>
                         <Typography variant="caption" sx={{ opacity: 0.6, display: { xs: 'none', sm: 'block' }, fontSize: '0.67rem', color: 'rgba(255,255,255,0.8)' }}>
-                            Digital Attendance Tracking Platform
+                            Staff Attendance System
                         </Typography>
                     </Box>
 

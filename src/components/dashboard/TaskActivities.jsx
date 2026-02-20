@@ -31,7 +31,8 @@ import { useState } from 'react';
 import coreDataDetails from '../CoreDataDetails';
 const { colorPalette } = coreDataDetails
 
-const TasksActivitiesContent = ({ tasks, setTasks, currentTime }) => {
+const TasksActivitiesContent = ({ tasks, setTasks }) => {
+    const currentTime =new Date()
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);

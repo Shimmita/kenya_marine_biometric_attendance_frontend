@@ -18,15 +18,17 @@ import {
     Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
+import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
-import { addNewDevice } from '../../service/DeviceService';
+import { addNewDevice, fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime } from '../util/DateTimeFormater';
 import { calculateDistanceMeters } from '../util/DistanceMeasure';
+import LiveClock from '../util/LiveClock';
 import { detectCurrentDevice } from './AddDevice';
 
 const { AvailableStations, colorPalette } = coreDataDetails;
@@ -393,6 +395,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
     const [userStats, setUserStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
 
+
     /* ── fetch history ── */
     useEffect(() => {
         let alive = true;
@@ -448,9 +451,15 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
             if (updated?.doneBiometric) {
                 const fp = await getDeviceFingerprint();
                 const { deviceName, browser, os } = detectCurrentDevice();
+                // add this current device to the devices in the backend
                 await addNewDevice({ device_name: deviceName, device_os: os, device_browser: browser, device_fingerprint: fp });
                 setBiometricRegistered(true);
+                // fetch all user devices
+                const devices = await fetchMyDevices()
+                // update user redux
                 dispatch(updateUserCurrentUserRedux(await getUserProfile()));
+                // update devices redux
+                dispatch(updateUserCurrentDeviceRedux(devices))
                 notify('Fingerprint registered successfully!');
             } else throw new Error('Biometric registration incomplete.');
         } catch (err) { notify(`${err}`, 'error'); }
@@ -466,8 +475,8 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
             setIsClockedIn(updated.hasClockedIn);
             setIsToClockOut(updated.isToClockOut);
             localStorage.setItem('recent_station', selectedStation.name);
-            // notify(`${updated.name}, you clocked ${updated.hasClockedIn ? 'In' : 'Out'} successfully!`);
-            notify(`Thank you ${updated.name}, you clocked ${updated.hasClockedIn ? 'In' : 'Out'} at ${currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+            const now = new Date();
+            notify(`Thank you ${updated.name}, you clocked ${updated.hasClockedIn ? 'In' : 'Out'} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
         } catch (err) { notify(`${err}`, 'error'); }
         finally { setBiometricLoading(false); }
     };
@@ -560,17 +569,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
 
                                     {/* Clock face */}
                                     <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flexShrink: 0 }}>
-                                        <Typography variant="caption" sx={{ opacity: 0.60, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', display: 'block', mb: 0.5, fontSize: '0.66rem', color: 'rgba(255,255,255,0.85)' }}>
-                                            {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                                        </Typography>
-                                        <motion.div key={currentTime.getMinutes()} initial={{ opacity: 0.7 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                                            <Typography fontWeight={900} sx={{ fontSize: { xs: '4rem', sm: '5.2rem', md: '5.8rem' }, letterSpacing: -3, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: '#fff', textShadow: '0 4px 24px rgba(0,0,0,0.28)' }}>
-                                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </Typography>
-                                        </motion.div>
-                                        <Typography variant="caption" sx={{ opacity: 0.45, letterSpacing: 1, color: 'rgba(255,255,255,0.7)' }}>
-                                            {String(currentTime.getSeconds()).padStart(2, '0')}s
-                                        </Typography>
+                                        <LiveClock />
                                         <Stack direction="row" spacing={1} mt={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" gap={1}>
                                             <Chip
                                                 icon={<LocationOn sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
