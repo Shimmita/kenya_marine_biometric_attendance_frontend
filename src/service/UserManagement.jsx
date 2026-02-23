@@ -69,13 +69,27 @@ export const updateUserStation = async (userId, station) => {
     }
 };
 
+
+export const getAllSupervisors = async () => {
+    try {
+        const res = await api.get(`/all/supervisors`);
+        return res.data;
+    } catch (err) {
+        console.log(err);
+        throw err.response?.data?.message;
+    }
+};
+
+
 export const updateUserSupervisor = async (userId, supervisor) => {
     try {
+        console.log('here try',supervisor)
         const res = await api.put(`/admin/user/${userId}/update-supervisor`, {
-          supervisor
+            supervisor
         });
         return res.data;
     } catch (err) {
+        console.log('here',err)
         console.log(err);
         throw err.response?.data?.message;
     }

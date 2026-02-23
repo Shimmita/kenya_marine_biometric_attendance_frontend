@@ -11,8 +11,8 @@ import {
     combineReducers
 } from "redux";
 
-import currentUserReducer from "./CurrentUser";
 import currentDeviceReducer from "./CurrentDevice";
+import currentUserReducer from "./CurrentUser";
 
 // Configure persist settings
 const persistConfig = {
@@ -24,7 +24,7 @@ const persistConfig = {
 // Combine all reducers
 const rootReducer = combineReducers({
     currentUser: currentUserReducer,
-    currentDevice:currentDeviceReducer
+    currentDevice: currentDeviceReducer,
 });
 
 // Persist the root reducer for caching session states

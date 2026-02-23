@@ -15,6 +15,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import {
+    getAllSupervisors,
     getAllUsers,
     toggleUserActive,
     updateUserDepartment,
@@ -104,7 +105,7 @@ const RANK_ACCENT = {
 
 const RANKS = ["admin", "hr", "supervisor", "ceo", "user"];
 const ROLES = ["employee", "intern", "attachee", "employee-contract"];
-const { availableDepartments,AvailableStations } = coreDataDetails;
+const { availableDepartments, AvailableStations } = coreDataDetails;
 
 
 
@@ -252,7 +253,7 @@ const FilterBar = ({
                 </Box>
 
                 {/* station */}
-               {/*  <Box sx={{ minWidth: 150 }}>
+                {/*  <Box sx={{ minWidth: 150 }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>station</Typography>
                     <FormControl size="small" fullWidth>
                         <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
@@ -312,6 +313,7 @@ const UserManagementContent = () => {
     const [statusFilter, setStatusFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [stationFilter, setStationFilter] = useState("");
+    const [supervisors, setSupervisors] = useState()
 
     const fetchUsers = async () => {
         try {
@@ -326,10 +328,24 @@ const UserManagementContent = () => {
 
     useEffect(() => { fetchUsers(); }, []);
 
-    const supervisors = useMemo(
-        () => users.filter((u) => ["admin", "hr", "ceo", "supervisor"].includes(u.rank)),
-        [users]
-    );
+
+
+    // fetch supervisors and make the updates
+    const fetchSupervisors = async () => {
+        try {
+            const data = await getAllSupervisors();
+            setSupervisors(data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchSupervisors(); }, []);
+
+
+
 
 
     const filteredUsers = useMemo(() => {
@@ -356,14 +372,14 @@ const UserManagementContent = () => {
                         : !user.isAccountActive)
             );
         });
-    }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter,stationFilter]);
+    }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
 
-    const handleToggleActive = async (id) => { try { setUpdatingId(id); await toggleUserActive(id); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleRankChange = async (id, rank) => { try { setUpdatingId(id); await updateUserRank(id, rank); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleRoleChange = async (id, role) => { try { setUpdatingId(id); await updateUserRole(id, role); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleSupervisorChange = async (supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleToggleActive = async (id) => { try { setUpdatingId(id); await toggleUserActive(id); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleRankChange = async (id, rank) => { try { setUpdatingId(id); await updateUserRank(id, rank); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleRoleChange = async (id, role) => { try { setUpdatingId(id); await updateUserRole(id, role); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); fetchSupervisors() } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
 
     if (loading) {
         return (

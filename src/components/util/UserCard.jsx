@@ -17,7 +17,7 @@ import coreDataDetails from "../CoreDataDetails";
 /* ─────────────────────────────────────────────
    COLORS & SHARED STYLES
 ───────────────────────────────────────────── */
-const C = {
+const colorPalette = {
     deepNavy: "#0A3D62",
     oceanBlue: "#005B96",
     marineBlue: "#1a237e",
@@ -42,7 +42,7 @@ const C = {
 };
 
 const glassCard = (elevated = false) => ({
-    background: C.glassBg,
+    background: colorPalette.glassBg,
     borderRadius: "16px",
     boxShadow: elevated
         ? "0 12px 36px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.1)"
@@ -50,14 +50,14 @@ const glassCard = (elevated = false) => ({
 });
 
 const selectSx = {
-    color: C.textPrimary,
+    color: colorPalette.textPrimary,
     fontSize: "0.83rem",
     borderRadius: "10px",
     background: "rgba(0,91,150,0.32)",
     "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,229,255,0.22)" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: C.aquaVibrant },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: C.seafoamGreen },
-    "& .MuiSvgIcon-root": { color: C.cyanFresh },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: colorPalette.aquaVibrant },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: colorPalette.seafoamGreen },
+    "& .MuiSvgIcon-root": { color: colorPalette.cyanFresh },
 };
 
 const menuProps = {
@@ -65,22 +65,22 @@ const menuProps = {
         sx: {
             background: "#05253D",
             borderRadius: "12px",
-            color: C.textPrimary,
+            color: colorPalette.textPrimary,
             willChange: 'transform',
             boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
             "& .MuiMenuItem-root": { fontSize: "0.83rem", py: 0.8 },
-            "& .MuiMenuItem-root:hover": { background: "rgba(0,229,255,0.1)", color: C.aquaVibrant },
-            "& .MuiMenuItem-root.Mui-selected": { background: "rgba(72,201,176,0.14)", color: C.seafoamGreen },
+            "& .MuiMenuItem-root:hover": { background: "rgba(0,229,255,0.1)", color: colorPalette.aquaVibrant },
+            "& .MuiMenuItem-root.Mui-selected": { background: "rgba(72,201,176,0.14)", color: colorPalette.seafoamGreen },
         },
     },
 };
 
 const RANK_ACCENT = {
-    admin: C.warmSand,
+    admin: colorPalette.warmSand,
     hr: "#C97DFF",
-    supervisor: C.seafoamGreen,
-    ceo: C.coralSunset,
-    user: C.cyanFresh,
+    supervisor: colorPalette.seafoamGreen,
+    ceo: colorPalette.coralSunset,
+    user: colorPalette.cyanFresh,
 };
 
 const RANKS = ["admin", "hr", "supervisor", "ceo", "user"];
@@ -96,7 +96,7 @@ export const FieldLabel = ({ children }) => (
         fontWeight: 700,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
-        color: C.cyanFresh,
+        color: colorPalette.cyanFresh,
         mb: 0.5,
         fontFamily: "'Exo 2', sans-serif",
     }}>{children}</Typography>
@@ -105,7 +105,7 @@ export const FieldLabel = ({ children }) => (
 const GradientDivider = () => (
     <Box sx={{
         height: "1px",
-        background: `linear-gradient(90deg, transparent, ${C.aquaVibrant}30, transparent)`,
+        background: `linear-gradient(90deg, transparent, ${colorPalette.aquaVibrant}30, transparent)`,
         my: 1.5,
     }} />
 );
@@ -120,7 +120,7 @@ const UserCard = ({
     isMobile, index, onStationSave
 }) => {
     const [hovered, setHovered] = useState(false);
-    const rankColor = RANK_ACCENT[user.rank] || C.cyanFresh;
+    const rankColor = RANK_ACCENT[user.rank] || colorPalette.cyanFresh;
     const isUpdating = updatingId === user._id;
 
 
@@ -137,11 +137,11 @@ const UserCard = ({
                 sx={{
                     ...glassCard(),
                     p: { xs: 2, md: 2.5 },
-                    borderColor: hovered ? C.glassBorderHover : C.glassBorder,
+                    borderColor: hovered ? colorPalette.glassBorderHover : colorPalette.glassBorder,
                     transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                     willChange: 'transform',
                     boxShadow: hovered
-                        ? `0 8px 28px rgba(0,0,0,0.4), 0 0 0 1px ${C.aquaVibrant}28`
+                        ? `0 8px 28px rgba(0,0,0,0.4), 0 0 0 1px ${colorPalette.aquaVibrant}28`
                         : "0 4px 22px rgba(0,0,0,0.32)",
                 }}
             >
@@ -171,19 +171,19 @@ const UserCard = ({
                                 bottom: 1, right: 1,
                                 width: 11, height: 11,
                                 borderRadius: "50%",
-                                background: user.isAccountActive ? C.seafoamGreen : C.coralSunset,
+                                background: user.isAccountActive ? colorPalette.seafoamGreen : colorPalette.coralSunset,
                                 border: "2px solid #051C2E",
                                 boxShadow: user.isAccountActive
-                                    ? `0 0 5px ${C.seafoamGreen}AA`
-                                    : `0 0 5px ${C.coralSunset}AA`,
+                                    ? `0 0 5px ${colorPalette.seafoamGreen}AA`
+                                    : `0 0 5px ${colorPalette.coralSunset}AA`,
                             }} />
                         </Box>
 
                         <Box>
-                            <Typography sx={{ fontWeight: 'bold', color: C.textPrimary, lineHeight: 1.25 }}>
+                            <Typography sx={{ fontWeight: 'bold', color: colorPalette.textPrimary, lineHeight: 1.25 }}>
                                 {user.name?.toUpperCase()}
                             </Typography>
-                            <Typography variant="body2" sx={{ color: C.textSecondary, mb: 0.7, }}>
+                            <Typography variant="body2" sx={{ color: colorPalette.textSecondary, mb: 0.7, }}>
                                 {user.email}
                             </Typography>
                             <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
@@ -200,24 +200,24 @@ const UserCard = ({
                                     height: 22,
                                     fontSize: "0.68rem",
                                     background: "rgba(0,229,255,0.18)",
-                                    color: C.aquaVibrant,
-                                    border: `1px solid ${C.aquaVibrant}48`,
+                                    color: colorPalette.aquaVibrant,
+                                    border: `1px solid ${colorPalette.aquaVibrant}48`,
                                 }} />
                                 <Chip label={user.department || "No Dept"} size="small" sx={{
                                     height: 22,
                                     fontSize: "0.68rem",
                                     background: "rgba(135,206,235,0.18)",
-                                    color: C.skyBlue,
-                                    border: `1px solid ${C.skyBlue}48`,
+                                    color: colorPalette.skyBlue,
+                                    border: `1px solid ${colorPalette.skyBlue}48`,
                                 }} />
 
-                                <Chip label={user.station?.name || "No Dept"} size="small" sx={{
+                                {/* <Chip label={user.station?.name || "No Dept"} size="small" sx={{
                                     height: 22,
                                     fontSize: "0.68rem",
                                     background: "rgba(135,206,235,0.18)",
                                     color: C.skyBlue,
                                     border: `1px solid ${C.cloudWhite}48`,
-                                }} />
+                                }} /> */}
                             </Stack>
                         </Box>
                     </Stack>
@@ -233,13 +233,13 @@ const UserCard = ({
                             px: 1.3, py: 0.5,
                             borderRadius: "8px",
                             background: "rgba(0,91,150,0.42)",
-                            border: `1px solid ${C.glassBorder}`,
+                            border: `1px solid ${colorPalette.glassBorder}`,
                             textAlign: isMobile ? "left" : "right",
                         }}>
-                            <Typography sx={{ fontSize: "0.57rem", color: C.textMuted, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                            <Typography sx={{ fontSize: "0.57rem", color: colorPalette.textMuted, letterSpacing: "0.05em", textTransform: "uppercase" }}>
                                 Supervisor
                             </Typography>
-                            <Typography sx={{ fontSize: "0.7rem", color: C.seafoamGreen, fontWeight: 800, fontFamily: "'Exo 2', sans-serif" }}>
+                            <Typography sx={{ fontSize: "0.7rem", color: colorPalette.seafoamGreen, fontWeight: 800, fontFamily: "'Exo 2', sans-serif" }}>
                                 {user.supervisor?.name || "none"}
                             </Typography>
                         </Box>
@@ -248,13 +248,13 @@ const UserCard = ({
                             px: 1.2, py: 0.4,
                             borderRadius: "8px",
                             background: user.isAccountActive ? "rgba(72,201,176,0.12)" : "rgba(255,111,97,0.12)",
-                            border: `1px solid ${user.isAccountActive ? C.seafoamGreen : C.coralSunset}42`,
+                            border: `1px solid ${user.isAccountActive ? colorPalette.seafoamGreen : colorPalette.coralSunset}42`,
                         }}>
                             <Typography sx={{
                                 fontSize: "0.72rem",
                                 fontWeight: 'bold',
                                 letterSpacing: "0.04em",
-                                color: user.isAccountActive ? C.seafoamGreen : C.coralSunset,
+                                color: user.isAccountActive ? colorPalette.seafoamGreen : colorPalette.coralSunset,
                             }}>
                                 {user.isAccountActive ? "● Active" : "● Inactive"}
                             </Typography>
@@ -274,7 +274,7 @@ const UserCard = ({
                             <Select value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                 {RANKS.map((r) => (
                                     <MenuItem key={r} value={r}>
-                                        <Box component="span" sx={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: RANK_ACCENT[r] || C.cyanFresh, mr: 1 }} />
+                                        <Box component="span" sx={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: RANK_ACCENT[r] || colorPalette.cyanFresh, mr: 1 }} />
                                         {r}
                                     </MenuItem>
                                 ))}
@@ -297,7 +297,7 @@ const UserCard = ({
                         <FieldLabel>Department</FieldLabel>
                         <FormControl size="small" sx={{ minWidth: 185 }}>
                             <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                <MenuItem value="" sx={{ color: C.textMuted }}><em>Select Dept.</em></MenuItem>
+                                <MenuItem value="" sx={{ color: colorPalette.textMuted }}><em>Select Dept.</em></MenuItem>
                                 {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                             </Select>
                         </FormControl>
@@ -308,22 +308,24 @@ const UserCard = ({
                         <FieldLabel>Supervisor</FieldLabel>
                         <FormControl size="small" sx={{ minWidth: 185 }}>
                             <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                <MenuItem value={user?.supervisor} sx={{ color: C.textMuted }}>{user?.supervisor}</MenuItem>
-                                {supervisors.filter((supervisor) => supervisor!== user?.name).map((supervisor) => (
+                                <MenuItem value={user?.supervisor} sx={{ color: colorPalette.textMuted }}>{user?.supervisor}</MenuItem>
+                                {supervisors?.filter((supervisor) => supervisor?.email!== user?.email).map((supervisor) => (
                                     <MenuItem key={supervisor._id} value={supervisor}>{supervisor?.name}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
                     </Box>
 
+                    
+
                     {/* station */}
                     <Box>
                         <FieldLabel>Station</FieldLabel>
                         <FormControl size="small" sx={{ minWidth: 185 }}>
-                            <Select value={user?.station?.name || null} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                                <MenuItem value={user?.station?.name} sx={{ color: C.textMuted }}>{user?.station?.name}</MenuItem>
+                            <Select value={user?.station || "none"} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value={user?.station} sx={{ color: colorPalette.textMuted }}>{user?.station}</MenuItem>
                                 {AvailableStations.map((s) => (
-                                    <MenuItem key={s?.name} value={s}>{s?.name}</MenuItem>
+                                    <MenuItem key={s?.name} value={s.name}>{s?.name}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
@@ -347,8 +349,8 @@ const UserCard = ({
                                 textTransform: "uppercase",
                                 minWidth: 112,
                                 background: user.isAccountActive
-                                    ? `linear-gradient(135deg, ${C.coralSunset}, #e74c3c)`
-                                    : `linear-gradient(135deg, ${C.seafoamGreen}, #1abc9c)`,
+                                    ? `linear-gradient(135deg, ${colorPalette.coralSunset}, #e74c3c)`
+                                    : `linear-gradient(135deg, ${colorPalette.seafoamGreen}, #1abc9c)`,
                                 color: "#fff",
                                 boxShadow: user.isAccountActive
                                     ? `0 4px 16px rgba(255,92,74,0.45)`

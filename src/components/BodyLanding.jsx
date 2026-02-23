@@ -1,29 +1,31 @@
 import {
     Analytics,
     ArrowBack, ArrowForward,
-    Badge, Business, CalendarToday, CheckCircle, Close,
-    Email, Fingerprint, GroupWork, LocationOn, Lock, Numbers,
-    Person, PersonAdd, Phone, PhoneIphone, Schedule, Security,
-    SupervisorAccount, TrendingUp, Visibility, VisibilityOff, Work,
-    WorkRounded,
+    CheckCircle, Close,
+    Email, Fingerprint, GroupWork, LocationOn, Lock,
+    PersonAdd, Phone, PhoneIphone, Schedule, Security,
+    TrendingUp, Visibility, VisibilityOff, Work
 } from '@mui/icons-material';
 import {
     Alert, AppBar, Avatar, Box, Button, Card, Chip, CircularProgress,
-    Collapse, Container, Divider, Grid, IconButton, InputAdornment,
-    Menu, MenuItem, Paper, Snackbar, Stack, TextField, Toolbar,
-    Tooltip, Typography, useMediaQuery, useTheme,
+    Container, Divider, Grid, IconButton, InputAdornment,
+    Menu, MenuItem,
+    Snackbar, Stack, TextField, Toolbar,
+    Tooltip, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
-import {CgMenu} from 'react-icons/cg';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CgMenu } from 'react-icons/cg';
 import { useDispatch } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
+import { getAllSupervisors } from '../service/UserManagement';
 import { loginUser } from './auth/Login';
 import { registerUser } from './auth/Register';
 import coreDataDetails from './CoreDataDetails';
+import { PersonalDetailsStep, ReviewDetailStep, RoleDetailsStep, SecurityDetailStep, WorkDetailsStep } from './util/RegistrationUtils';
 
 const { colorPalette, availableDepartments: departments, availableSupervisors: supervisors, genders, AvailableStations } = coreDataDetails;
 
@@ -141,8 +143,18 @@ const AmbientOrbs = () => (
     </>
 );
 
+
+// variants used in the registration form
+
+/* ── slide variants ── */
+const variants = {
+    enter: dir => ({ opacity: 0, x: dir * 48 }),
+    center: () => ({ opacity: 1, x: 0 }),
+    exit: dir => ({ opacity: 0, x: dir * -48 }),
+};
+
 /* ══ STEP PROGRESS INDICATOR ════════════════════════════════════════════════ */
-const StepProgress = ({ current, total, steps }) => (
+const StepProgress = React.memo(({ current, total, steps }) => (
     <Box sx={{ mb: 3.5 }}>
         {/* Step dots + connector line */}
         <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
@@ -224,37 +236,9 @@ const StepProgress = ({ current, total, steps }) => (
             </Typography>
         </Box>
     </Box>
-);
+));
 
-/* ══ ROLE SELECTOR ══════════════════════════════════════════════════════════ */
-const RoleSelector = ({ selected, onSelect }) => (
-    <Grid container spacing={1.8}>
-        {ROLES.map(r => {
-            const active = selected === r.value;
-            return (
-                <Grid item xs={4} key={r.value}>
-                    <Paper onClick={() => onSelect(r.value)} elevation={0} sx={{
-                        p: { xs: 1.8, sm: 2.5 }, borderRadius: '18px', cursor: 'pointer', textAlign: 'center',
-                        border: `2px solid ${active ? colorPalette.oceanBlue : 'rgba(10,61,98,0.10)'}`,
-                        bgcolor: active ? `${colorPalette.oceanBlue}0e` : 'rgba(10,61,98,0.02)',
-                        boxShadow: active ? `0 4px 20px ${colorPalette.oceanBlue}22` : 'none',
-                        transition: 'all 0.22s ease',
-                        '&:hover': { borderColor: colorPalette.oceanBlue, bgcolor: `${colorPalette.oceanBlue}07`, transform: 'translateY(-2px)' },
-                        willChange: 'transform',
-                    }}>
-                        <Typography sx={{ fontSize: { xs: '1.8rem', sm: '2rem' }, lineHeight: 1, mb: 0.8 }}>{r.icon}</Typography>
-                        <Typography variant="subtitle2" fontWeight={800} sx={{ display: 'block', color: active ? colorPalette.oceanBlue : colorPalette.deepNavy, mb: 0.3 }}>
-                            {r.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.disabled" sx={{ display: { xs: 'none', sm: 'block' }, fontSize: '0.65rem', lineHeight: 1.4 }}>
-                            {r.desc}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            );
-        })}
-    </Grid>
-);
+
 
 /* ══ REVIEW SUMMARY ROW ════════════════════════════════════════════════════ */
 const ReviewRow = ({ label, value, accent }) => (
@@ -268,6 +252,8 @@ const ReviewRow = ({ label, value, accent }) => (
     </Stack>
 );
 
+
+
 /* ══ MULTI-STEP REGISTER FORM ══════════════════════════════════════════════ */
 const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
     const [step, setStep] = useState(0);
@@ -276,6 +262,27 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
     const [openSnack, setOpenSnack] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
+    // fetch all supervisors
+    const [allSupervisors, setAllSupervisors] = useState()
+
+    const fetchSupervisors = useCallback(async () => {
+        try {
+            setProcessing(true);
+            const data = await getAllSupervisors();
+            if (data?.length) {
+                setAllSupervisors(data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setProcessing(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchSupervisors(); }, []);
+
+
+
     const [formData, setFormData] = useState({
         role: '', name: '', phone: '', email: '', gender: '',
         department: '', supervisor: '', employeeId: '',
@@ -283,14 +290,26 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
     });
     const [errors, setErrors] = useState({});
 
-    const isEmployee = formData.role === 'employee';
-    const needsSupervisor = formData.role === 'intern' || formData.role === 'attachee';
+    const isEmployee = useMemo(
+        () => formData.role === 'employee',
+        [formData.role]
+    );
+
+
+
     const tf = G.lightInput;
 
-    const handle = field => e => {
-        setFormData(p => ({ ...p, [field]: e.target.value }));
-        if (errors[field]) setErrors(p => ({ ...p, [field]: '' }));
-    };
+    const handle = useCallback(
+        (field) => (e) => {
+            const value = e.target.value;
+            setFormData((p) => ({ ...p, [field]: value }));
+
+            if (errors[field]) {
+                setErrors((p) => ({ ...p, [field]: '' }));
+            }
+        },
+        []
+    );
 
     /* ── per-step validation ── */
     const validateStep = () => {
@@ -308,7 +327,6 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
             if (!formData.department) e.department = 'Department is required';
             if (!formData.station) e.station = 'Main clocking station is required';
             if (isEmployee && !formData.employeeId) e.employeeId = 'Employee ID is required';
-            if (needsSupervisor && !formData.supervisor) e.supervisor = 'Supervisor is required';
         }
         if (step === 3) {
             if (!formData.password) e.password = 'Password is required';
@@ -344,229 +362,73 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
         window.location.reload();
     };
 
-    /* ── slide variants ── */
-    const variants = {
-        enter: dir => ({ opacity: 0, x: dir * 48 }),
-        center: () => ({ opacity: 1, x: 0 }),
-        exit: dir => ({ opacity: 0, x: dir * -48 }),
-    };
 
     /* ── step content ── */
-    const renderStep = () => {
+    const renderStep = useMemo(() => {
         switch (step) {
 
-            /* ─ Step 0: Role ─ */
-            case 0: return (
-                <Stack spacing={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
-                            What's your role at KMFRI?
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Select the category that best describes your employment type.
-                        </Typography>
-                    </Box>
-                    <Stack justifyContent={'center'}>
-                        <RoleSelector
-                            selected={formData.role}
-                            onSelect={v => { setFormData(p => ({ ...p, role: v, supervisor: '', employeeId: '' })); setErrors(p => ({ ...p, role: '' })); }}
-                        />
-                    </Stack>
-                    {errors.role && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, p: 1.4, borderRadius: '12px', bgcolor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
-                            <Typography variant="caption" color="error" fontWeight={700}>{errors.role}</Typography>
-                        </Box>
-                    )}
-                </Stack>
-            );
+            case 0:
+                return (
+                    <RoleDetailsStep
+                        formData={formData}
+                        errors={errors}
+                        setFormData={setFormData}
+                        setErrors={setErrors}
+                    />
+                );
 
-            /* ─ Step 1: Personal Info ─ */
-            case 1: return (
-                <Stack spacing={2.5}>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
-                            Personal Information
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Tell us a little about yourself.
-                        </Typography>
-                    </Box>
-                    <TextField fullWidth required label="Full Name" placeholder="John Doe"
-                        value={formData.name} onChange={handle('name')} error={!!errors.name} helperText={errors.name}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Badge sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                    <TextField fullWidth required label="Phone Number" placeholder="+254 700 123 456"
-                        value={formData.phone} onChange={handle('phone')} error={!!errors.phone} helperText={errors.phone}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Phone sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                    <TextField fullWidth required label="Email Address" type="email" placeholder="john.doe@kmfri.go.ke"
-                        value={formData.email} onChange={handle('email')} error={!!errors.email} helperText={errors.email}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                    <TextField select fullWidth required label="Gender"
-                        value={formData.gender} onChange={handle('gender')} error={!!errors.gender} helperText={errors.gender}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Person sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
-                        {genders.map(g => <MenuItem key={g} value={g}>{g}</MenuItem>)}
-                    </TextField>
-                </Stack>
-            );
+            case 1:
+                return (
+                    <PersonalDetailsStep
+                        formData={formData}
+                        errors={errors}
+                        handle={handle}
+                        tf={G.lightInput}
+                    />
+                );
 
-            /* ─ Step 2: Work Details ─ */
-            case 2: return (
-                <Stack spacing={2.5}>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
-                            Work Details
-                        </Typography>
+            case 2:
+                return (
+                    <WorkDetailsStep
+                        formData={formData}
+                        errors={errors}
+                        handle={handle}
+                        isEmployee={isEmployee}
+                        allSupervisors={allSupervisors}
+                        tf={G.lightInput}
+                    />
+                );
 
-                        <Typography variant="body2" color="text.secondary">
-                            Your main station and placement information.
-                        </Typography>
-                    </Box>
-                    <TextField select fullWidth required label="Station"
-                        value={formData.station} onChange={handle('station')} error={!!errors.station} helperText={errors.station}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Business sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
-                        {AvailableStations.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
-                    </TextField>
-                    <TextField select fullWidth required label="Department"
-                        value={formData.department} onChange={handle('department')} error={!!errors.department} helperText={errors.department}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><WorkRounded sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
-                        {departments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                    </TextField>
-                    <Collapse in={isEmployee}>
-                        <TextField fullWidth required={isEmployee} label="Employee ID" placeholder="e.g. KMFRI-2024-001"
-                            value={formData.employeeId} onChange={handle('employeeId')} error={!!errors.employeeId}
-                            helperText={errors.employeeId || 'Your official employment number (not National ID)'}
-                            InputProps={{ startAdornment: <InputAdornment position="start"><Numbers sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                    </Collapse>
-                    <Collapse in={needsSupervisor}>
-                        <Stack spacing={2.5}>
-                            <TextField select fullWidth required={needsSupervisor} label="Assigned Supervisor"
-                                value={formData.supervisor} onChange={handle('supervisor')} error={!!errors.supervisor} helperText={errors.supervisor}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><SupervisorAccount sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
-                                {supervisors.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                            </TextField>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-                                <TextField fullWidth label="Valid From" type="date"
-                                    value={formData.startDate} onChange={handle('startDate')} InputLabelProps={{ shrink: true }}
-                                    InputProps={{ startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                                <Typography variant="body2" fontWeight={700} color="text.disabled" sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>to</Typography>
-                                <TextField fullWidth label="Valid Until" type="date"
-                                    value={formData.endDate} onChange={handle('endDate')} InputLabelProps={{ shrink: true }}
-                                    InputProps={{ startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-                            </Stack>
-                        </Stack>
-                    </Collapse>
-                </Stack>
-            );
+            case 3:
+                return (
+                    <SecurityDetailStep
+                        formData={formData}
+                        errors={errors}
+                        handle={handle}
+                        tf={G.lightInput}
+                        showPassword={showPassword}
+                        setShowPassword={setShowPassword}
+                    />
+                );
 
-            /* ─ Step 3: Security ─ */
-            case 3: return (
-                <Stack spacing={2.5}>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
-                            Account Security
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Create a strong password to secure your account.
-                        </Typography>
-                    </Box>
-                    {/* Password strength hint */}
-                    <Box sx={{ p: 1.8, borderRadius: '14px', bgcolor: `${colorPalette.oceanBlue}06`, border: `1px solid ${colorPalette.oceanBlue}18` }}>
-                        <Stack direction="row" spacing={1} alignItems="flex-start">
-                            <Security sx={{ color: colorPalette.oceanBlue, fontSize: '1.05rem', mt: 0.15, flexShrink: 0 }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.76rem' }}>
-                                Use at least <strong>6 characters</strong> including a mix of letters, numbers, and symbols for a strong password.
-                            </Typography>
-                        </Stack>
-                    </Box>
-                    <TextField fullWidth required label="Create Password" placeholder="Minimum 6 characters"
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password} onChange={handle('password')} error={!!errors.password} helperText={errors.password}
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                            endAdornment: <InputAdornment position="end">
-                                <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
-                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                            </InputAdornment>,
-                        }} sx={tf} />
-                    {/* password strength bar */}
-                    {formData.password.length > 0 && (() => {
-                        const len = formData.password.length;
-                        const strength = len < 6 ? 1 : len < 10 ? 2 : len < 14 ? 3 : 4;
-                        const colors = ['#ef4444', '#f59e0b', colorPalette.seafoamGreen, colorPalette.oceanBlue];
-                        const labels = ['Weak', 'Fair', 'Good', 'Strong'];
-                        return (
-                            <Box>
-                                <Stack direction="row" spacing={0.6} mb={0.6}>
-                                    {[1, 2, 3, 4].map(i => (
-                                        <Box key={i} sx={{ flex: 1, height: 4, borderRadius: 99, bgcolor: i <= strength ? colors[strength - 1] : 'rgba(10,61,98,0.10)', transition: 'background 0.3s' }} />
-                                    ))}
-                                </Stack>
-                                <Typography variant="caption" fontWeight={700} sx={{ color: colors[strength - 1], fontSize: '0.68rem' }}>
-                                    {labels[strength - 1]} password
-                                </Typography>
-                            </Box>
-                        );
-                    })()}
-                </Stack>
-            );
+            case 4:
+                return (
+                    <ReviewDetailStep
+                        formData={formData}
+                        isEmployee={isEmployee}
+                    />
+                );
 
-            /* ─ Step 4: Review ─ */
-            case 4: return (
-                <Stack spacing={2.5}>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
-                            Review Your Information
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Please confirm everything looks correct before submitting.
-                        </Typography>
-                    </Box>
-
-                    {/* Summary card */}
-                    <Box sx={{ borderRadius: '18px', p: 2.5, bgcolor: `${colorPalette.oceanBlue}05`, border: `1px solid ${colorPalette.oceanBlue}14` }}>
-                        {/* Role badge */}
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                            {ROLES.find(r => r.value === formData.role) && (() => {
-                                const role = ROLES.find(r => r.value === formData.role);
-                                return (
-                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 2, py: 0.8, borderRadius: '12px', bgcolor: `${colorPalette.oceanBlue}0e`, border: `1.5px solid ${colorPalette.oceanBlue}28` }}>
-                                        <Typography sx={{ fontSize: '1.2rem' }}>{role.icon}</Typography>
-                                        <Box>
-                                            <Typography variant="subtitle2" fontWeight={900} color={colorPalette.oceanBlue}>{role.label}</Typography>
-                                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.62rem' }}>{role.desc}</Typography>
-                                        </Box>
-                                    </Box>
-                                );
-                            })()}
-                        </Box>
-
-                        <Stack spacing={0}>
-                            <ReviewRow label="Full Name" value={formData.name} />
-                            <ReviewRow label="Phone" value={formData.phone} />
-                            <ReviewRow label="Email" value={formData.email} />
-                            <ReviewRow label="Gender" value={formData.gender} />
-                            <ReviewRow label="Department" value={formData.department} />
-                            {isEmployee && <ReviewRow label="Employee ID" value={formData.employeeId} />}
-                            {needsSupervisor && <ReviewRow label="Supervisor" value={formData.supervisor} />}
-                            {needsSupervisor && formData.startDate && <ReviewRow label="Valid From" value={formData.startDate} />}
-                            {needsSupervisor && formData.endDate && <ReviewRow label="Valid Until" value={formData.endDate} />}
-                            <ReviewRow label="Password" value="••••••••" accent={colorPalette.seafoamGreen} />
-                        </Stack>
-                    </Box>
-
-                    {/* notice */}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.5, borderRadius: '12px', bgcolor: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}>
-                        <CheckCircle sx={{ color: '#22c55e', fontSize: '1rem', mt: 0.18, flexShrink: 0 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.65, fontSize: '0.75rem' }}>
-                            By submitting you agree to KMFRI's terms. Your account will be reviewed and activated within 1 business day.
-                        </Typography>
-                    </Box>
-                </Stack>
-            );
-
-            default: return null;
+            default:
+                return null;
         }
-    };
+    }, [step,
+        formData,
+        errors,
+        handle,
+        isEmployee,
+        allSupervisors,
+        showPassword]);
 
     return (
         <motion.div
@@ -610,10 +472,10 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                 <Box sx={{ minHeight: { xs: 220, sm: 240 }, overflow: 'hidden', position: 'relative' }}>
                     <AnimatePresence mode="wait" custom={direction}>
                         <motion.div key={step} custom={direction}
-                            style={{ willChange: 'transform, opacity' }}
+                            style={{ willChange: 'transform, ' }}
                             variants={variants} initial="enter" animate="center" exit="exit"
                             transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}>
-                            {renderStep()}
+                            {renderStep}
                         </motion.div>
                     </AnimatePresence>
                 </Box>
@@ -681,10 +543,10 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                 </Typography>
             </Card>
 
-            <Snackbar open={openSnack} autoHideDuration={1400} onClose={handleCloseSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Snackbar open={openSnack} autoHideDuration={1000} onClose={handleCloseSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
                 <Alert onClose={handleCloseSnack} severity="success" icon={<CheckCircle />}
                     sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)', boxShadow: '0 8px 28px rgba(72,201,176,0.32)' }}>
-                    Registration successful!.
+                    successfully
                 </Alert>
             </Snackbar>
         </motion.div>
