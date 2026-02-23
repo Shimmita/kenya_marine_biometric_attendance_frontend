@@ -309,8 +309,8 @@ const UserCard = ({
                         <FormControl size="small" sx={{ minWidth: 185 }}>
                             <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                 <MenuItem value={user?.supervisor} sx={{ color: C.textMuted }}>{user?.supervisor}</MenuItem>
-                                {supervisors.filter((supervisor) => supervisor!== user.name).map((supervisor) => (
-                                    <MenuItem key={supervisor._id} value={supervisor}>{supervisor.name}</MenuItem>
+                                {supervisors.filter((supervisor) => supervisor!== user?.name).map((supervisor) => (
+                                    <MenuItem key={supervisor._id} value={supervisor}>{supervisor?.name}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
@@ -320,10 +320,10 @@ const UserCard = ({
                     <Box>
                         <FieldLabel>Station</FieldLabel>
                         <FormControl size="small" sx={{ minWidth: 185 }}>
-                            <Select value={user?.station.name || null} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                                <MenuItem value={user?.station.name} sx={{ color: C.textMuted }}>{user?.station.name}</MenuItem>
+                            <Select value={user?.station?.name || null} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value={user?.station?.name} sx={{ color: C.textMuted }}>{user?.station?.name}</MenuItem>
                                 {AvailableStations.map((s) => (
-                                    <MenuItem key={s.name} value={s}>{s.name}</MenuItem>
+                                    <MenuItem key={s?.name} value={s}>{s?.name}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
