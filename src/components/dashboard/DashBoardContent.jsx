@@ -114,7 +114,7 @@ const Reveal = ({ children, delay = 0, y = 20 }) => {
     const ref = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-40px' });
     return (
-        <motion.div ref={ref} initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}}
+        <motion.div style={{ willChange: 'transform, opacity' }} ref={ref} initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.52, delay, ease: [0.22, 1, 0.36, 1] }}>
             {children}
         </motion.div>
@@ -183,7 +183,7 @@ const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, pro
                     <Box sx={{ height: 6, borderRadius: 99, bgcolor: `${accent}14`, overflow: 'hidden' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(Number(progress), 100)}%` }}
                             transition={{ duration: 1, ease: [0.4, 0, 0.2, 1], delay: 0.3 }}
-                            style={{ height: '100%', background: accent, borderRadius: 99 }} />
+                            style={{ height: '100%', background: accent, borderRadius: 99, willChange: 'transform, opacity' }} />
                     </Box>
                     <Typography variant="caption" color="text.disabled" sx={{ mt: 0.4, display: 'block' }}>{progress}%</Typography>
                 </Box>
@@ -596,7 +596,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                         {/* Step 0: verify location */}
                                         <AnimatePresence mode="wait">
                                             {clockStepIndex === 0 && (
-                                                <motion.div key="loc" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="loc" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
                                                     <Button variant="outlined" fullWidth startIcon={<LocationOn />} onClick={requestLocation}
                                                         sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.35)', py: 1.5, borderRadius: '14px', fontWeight: 800, letterSpacing: 0.4, backdropFilter: 'blur(8px)', bgcolor: 'rgba(255,255,255,0.07)', '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' } }}>
                                                         Verify Location
@@ -606,7 +606,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
 
                                             {/* Step 1: register fingerprint */}
                                             {clockStepIndex === 1 && (
-                                                <motion.div key="fp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="fp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
                                                     <Box sx={{ p: 2.5, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)', border: '1px dashed rgba(255,255,255,0.30)', backdropFilter: 'blur(8px)' }}>
                                                         <Stack spacing={1.5} alignItems="center" textAlign="center">
                                                             <Box sx={{ width: 48, height: 48, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.18)' }}>
@@ -630,7 +630,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
 
                                             {/* Step 2: clock in/out */}
                                             {clockStepIndex === 2 && (
-                                                <motion.div key="clock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="clock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
                                                     <Button variant="contained" fullWidth onClick={handleClockInClockOut} disabled={biometricLoading}
                                                         startIcon={biometricLoading ? <CircularProgress size={15} sx={{ color: colorPalette.deepNavy }} /> : <Fingerprint />}
                                                         sx={{
@@ -684,7 +684,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                                         </Stack>
                                                     </TableCell></TableRow>
                                                     : recentAttendance.map((row, idx) => (
-                                                        <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04, duration: 0.25 }} style={{ display: 'table-row' }}>
+                                                        <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04, duration: 0.25 }} style={{ display: 'table-row', willChange: 'transform, opacity' }}>
                                                             <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, fontSize: '0.82rem', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.date}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>

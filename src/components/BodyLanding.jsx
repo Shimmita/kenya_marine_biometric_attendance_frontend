@@ -5,6 +5,7 @@ import {
     Email, Fingerprint, GroupWork, LocationOn, Lock, Numbers,
     Person, PersonAdd, Phone, PhoneIphone, Schedule, Security,
     SupervisorAccount, TrendingUp, Visibility, VisibilityOff, Work,
+    WorkRounded,
 } from '@mui/icons-material';
 import {
     Alert, AppBar, Avatar, Box, Button, Card, Chip, CircularProgress,
@@ -14,7 +15,7 @@ import {
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
-import { CgMenu } from 'react-icons/cg';
+import {CgMenu} from 'react-icons/cg';
 import { useDispatch } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
@@ -24,7 +25,7 @@ import { loginUser } from './auth/Login';
 import { registerUser } from './auth/Register';
 import coreDataDetails from './CoreDataDetails';
 
-const { colorPalette, availableDepartments: departments, availableSupervisors: supervisors, genders } = coreDataDetails;
+const { colorPalette, availableDepartments: departments, availableSupervisors: supervisors, genders, AvailableStations } = coreDataDetails;
 
 /* ══ GLASS DESIGN TOKENS ═══════════════════════════════════════════════════ */
 const G = {
@@ -42,6 +43,7 @@ const G = {
         WebkitBackdropFilter: 'blur(20px) saturate(170%)',
         border: '1px solid rgba(255,255,255,0.16)',
         boxShadow: '0 8px 32px rgba(6,28,50,0.30), inset 0 1px 0 rgba(255,255,255,0.14)',
+        willChange: 'transform',
     },
     surfaceHover: {
         background: 'rgba(255,255,255,0.14)',
@@ -53,6 +55,7 @@ const G = {
         WebkitBackdropFilter: 'blur(28px) saturate(190%)',
         border: '1px solid rgba(255,255,255,0.20)',
         boxShadow: '0 16px 48px rgba(6,28,50,0.36), inset 0 1px 0 rgba(255,255,255,0.18)',
+        willChange: 'transform',
     },
     nav: {
         background: 'rgba(5,24,46,0.70)',
@@ -60,6 +63,7 @@ const G = {
         WebkitBackdropFilter: 'blur(24px) saturate(200%)',
         borderBottom: '1px solid rgba(255,255,255,0.09)',
         boxShadow: '0 4px 28px rgba(0,0,0,0.22)',
+        willChange: 'transform',
     },
     ghostBtn: {
         background: 'rgba(255,255,255,0.10)',
@@ -67,6 +71,7 @@ const G = {
         WebkitBackdropFilter: 'blur(12px)',
         border: '1px solid rgba(255,255,255,0.26)',
         color: '#fff',
+        willChange: 'transform',
     },
     formCard: {
         background: 'rgba(255,255,255,0.88)',
@@ -74,6 +79,7 @@ const G = {
         WebkitBackdropFilter: 'blur(44px) saturate(220%)',
         border: '1px solid rgba(255,255,255,0.60)',
         boxShadow: '0 32px 80px rgba(6,28,50,0.30), inset 0 1px 0 rgba(255,255,255,0.70)',
+        willChange: 'transform, opacity',
     },
     glassInput: {
         '& .MuiOutlinedInput-root': {
@@ -89,6 +95,7 @@ const G = {
         '& .MuiInputLabel-root.Mui-focused': { color: '#00e5ff' },
         '& .MuiInputAdornment-root svg': { color: 'rgba(255,255,255,0.42)' },
         '& .MuiFormHelperText-root.Mui-error': { color: '#ff8a80' },
+        willChange: 'transform, opacity',
     },
     lightInput: {
         '& .MuiOutlinedInput-root': {
@@ -127,7 +134,8 @@ const AmbientOrbs = () => (
         ].map(({ s, t, l, r, bot, c, b }, i) => (
             <Box key={i} sx={{
                 position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
-                top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)`
+                top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)`,
+                willChange: 'transform',
             }} />
         ))}
     </>
@@ -147,6 +155,7 @@ const StepProgress = ({ current, total, steps }) => (
                 transform: 'translateY(-50%)',
                 width: `${Math.min(((current) / (total - 1)) * 90, 90)}%`,
                 transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
+                willChange: 'transform',
             }} />
 
             {/* Step dots */}
@@ -157,6 +166,7 @@ const StepProgress = ({ current, total, steps }) => (
                     return (
                         <Stack key={step.id} alignItems="center" spacing={0.8} sx={{ flex: 1 }}>
                             <motion.div
+                                style={{ willChange: 'transform, opacity' }}
                                 animate={{ scale: active ? 1.18 : 1 }}
                                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
                                 <Box sx={{
@@ -176,6 +186,7 @@ const StepProgress = ({ current, total, steps }) => (
                                             : '2px solid rgba(10,61,98,0.13)',
                                     boxShadow: active ? `0 0 0 5px ${colorPalette.oceanBlue}18, 0 6px 20px ${colorPalette.oceanBlue}35` : done ? `0 4px 14px ${colorPalette.oceanBlue}30` : 'none',
                                     transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
+                                    willChange: 'transform, opacity',
                                 }}>
                                     {done
                                         ? <CheckCircle sx={{ fontSize: 17, color: '#fff' }} />
@@ -229,6 +240,7 @@ const RoleSelector = ({ selected, onSelect }) => (
                         boxShadow: active ? `0 4px 20px ${colorPalette.oceanBlue}22` : 'none',
                         transition: 'all 0.22s ease',
                         '&:hover': { borderColor: colorPalette.oceanBlue, bgcolor: `${colorPalette.oceanBlue}07`, transform: 'translateY(-2px)' },
+                        willChange: 'transform',
                     }}>
                         <Typography sx={{ fontSize: { xs: '1.8rem', sm: '2rem' }, lineHeight: 1, mb: 0.8 }}>{r.icon}</Typography>
                         <Typography variant="subtitle2" fontWeight={800} sx={{ display: 'block', color: active ? colorPalette.oceanBlue : colorPalette.deepNavy, mb: 0.3 }}>
@@ -267,7 +279,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
     const [formData, setFormData] = useState({
         role: '', name: '', phone: '', email: '', gender: '',
         department: '', supervisor: '', employeeId: '',
-        password: '', startDate: '', endDate: '',
+        password: '', startDate: '', endDate: '', station: ''
     });
     const [errors, setErrors] = useState({});
 
@@ -294,6 +306,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
         }
         if (step === 2) {
             if (!formData.department) e.department = 'Department is required';
+            if (!formData.station) e.station = 'Main clocking station is required';
             if (isEmployee && !formData.employeeId) e.employeeId = 'Employee ID is required';
             if (needsSupervisor && !formData.supervisor) e.supervisor = 'Supervisor is required';
         }
@@ -402,13 +415,19 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                         <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} mb={0.5}>
                             Work Details
                         </Typography>
+
                         <Typography variant="body2" color="text.secondary">
-                            Your department and placement information.
+                            Your main station and placement information.
                         </Typography>
                     </Box>
+                    <TextField select fullWidth required label="Station"
+                        value={formData.station} onChange={handle('station')} error={!!errors.station} helperText={errors.station}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Business sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
+                        {AvailableStations.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
+                    </TextField>
                     <TextField select fullWidth required label="Department"
                         value={formData.department} onChange={handle('department')} error={!!errors.department} helperText={errors.department}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Business sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
+                        InputProps={{ startAdornment: <InputAdornment position="start"><WorkRounded sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf}>
                         {departments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                     </TextField>
                     <Collapse in={isEmployee}>
@@ -555,11 +574,13 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.97 }}
             transition={{ duration: 0.44, ease: [0.4, 0, 0.2, 1] }}
+            style={{ willChange: 'transform, opacity' }}
         >
             <Card elevation={0} sx={{
                 ...G.formCard, p: { xs: 3, md: 4.5 },
                 maxWidth: { xs: '100%', sm: 540 },
                 width: '100%', mx: 'auto', borderRadius: '28px',
+                willChange: 'transform',
             }}>
                 {/* ── Close ── */}
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
@@ -589,6 +610,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                 <Box sx={{ minHeight: { xs: 220, sm: 240 }, overflow: 'hidden', position: 'relative' }}>
                     <AnimatePresence mode="wait" custom={direction}>
                         <motion.div key={step} custom={direction}
+                            style={{ willChange: 'transform, opacity' }}
                             variants={variants} initial="enter" animate="center" exit="exit"
                             transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}>
                             {renderStep()}
@@ -611,6 +633,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                                 bgcolor: 'rgba(10,61,98,0.03)',
                                 '&:hover': { borderColor: colorPalette.oceanBlue, bgcolor: `${colorPalette.oceanBlue}06` },
                                 transition: 'all 0.2s ease',
+                                willChange: 'transform',
                             }}>
                             Back
                         </Button>
@@ -627,6 +650,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                                 boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`,
                                 transition: 'all 0.24s ease',
                                 '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' },
+                                willChange: 'transform',
                             }}>
                             {step === 0 ? 'Get Started' : 'Continue'}
                         </Button>
@@ -640,6 +664,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                                 boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`,
                                 transition: 'all 0.24s ease',
                                 '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' },
+                                willChange: 'transform',
                             }}>
                             {processing ? 'Submitting…' : 'Complete Registration'}
                         </Button>
@@ -716,6 +741,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
     return (
         <motion.div
+            style={{ willChange: 'transform, opacity' }}
             initial={{ opacity: 0, y: 32, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.97 }}
@@ -844,7 +870,7 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
 
 /* ══ LANDING SECTION COMPONENTS ═════════════════════════════════════════════ */
 const GlassFeatureCard = ({ icon, title, description, color, delay }) => (
-    <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay }} style={{ height: '100%' }}>
+    <motion.div style={{ willChange: 'transform, opacity', height: '100%' }} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay }} >
         <Box sx={{ ...G.surface, borderRadius: '22px', p: 3.5, height: '100%', transition: 'all 0.3s ease', '&:hover': { ...G.surfaceHover, transform: 'translateY(-8px)' } }}>
             <Box sx={{ width: 58, height: 58, borderRadius: '16px', background: `linear-gradient(135deg,${color}ee,${color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2.5, boxShadow: `0 8px 22px ${color}45` }}>
                 {icon}
@@ -856,7 +882,7 @@ const GlassFeatureCard = ({ icon, title, description, color, delay }) => (
 );
 
 const GlassStatsCard = ({ value, label, icon, color, delay }) => (
-    <motion.div initial={{ opacity: 0, scale: 0.82 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay }}>
+    <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, scale: 0.82 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay }}>
         <Box sx={{ ...G.surface, borderRadius: '20px', p: { xs: 2.5, sm: 3 }, textAlign: 'center', transition: 'all 0.26s ease', '&:hover': { ...G.surfaceHover, transform: 'translateY(-6px)' } }}>
             <Box sx={{ display: 'inline-flex', p: 1.4, borderRadius: '12px', background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', color, mb: 1.5 }}>{icon}</Box>
             <Typography variant="h3" fontWeight={900} sx={{ color: '#fff', lineHeight: 1, textShadow: `0 0 28px ${color}80` }}>{value}</Typography>
@@ -876,7 +902,7 @@ const EnhancedLandingPage = () => {
 
                 {/* ══ LANDING ══ */}
                 {view === 'landing' && (
-                    <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.42 }}>
+                    <motion.div style={{ willChange: 'transform, opacity' }} key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.42 }}>
 
                         {/* Hero */}
                         <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 8, md: 12 }, position: 'relative', overflow: 'hidden' }}>
@@ -884,7 +910,7 @@ const EnhancedLandingPage = () => {
                             <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                                 <Grid container spacing={5} alignItems="center">
                                     <Grid item xs={12} md={6}>
-                                        <motion.div initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
+                                        <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
                                             <Chip label="Digital Attendance Platform" size="small"
                                                 sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
                                             <Typography variant={'h5'} fontWeight={900}
@@ -909,7 +935,7 @@ const EnhancedLandingPage = () => {
                                         </motion.div>
                                     </Grid>
                                     <Grid item xs={12} md={6}>
-                                        <motion.div initial={{ opacity: 0, scale: 0.84 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.75, delay: 0.16 }}>
+                                        <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, scale: 0.84 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.75, delay: 0.16 }}>
                                             <Box sx={{ ...G.surfaceStrong, borderRadius: '24px', p: { xs: 3, md: 3.5 } }}>
                                                 <Typography variant="subtitle2" fontWeight={900} sx={{ color: 'rgba(255,255,255,0.42)', mb: 2, letterSpacing: 1.3, textTransform: 'uppercase', fontSize: '0.62rem' }}>
                                                     Platform Capabilities
@@ -923,7 +949,7 @@ const EnhancedLandingPage = () => {
                                                         { icon: <Work />, text: 'Task & Activity Management', color: colorPalette.coralSunset },
                                                     ].map((item, i) => (
                                                         <motion.div key={i} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.28 + i * 0.08 }}>
-                                                            <Box sx={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', p: 1.6, borderRadius: '13px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.12)', transform: 'translateX(5px)' } }}>
+                                                            <Box sx={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', p: 1.6, borderRadius: '13px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.12)', transform: 'translateX(5px)', willChange: 'transform', } }}>
                                                                 <Box sx={{ p: 0.85, borderRadius: '10px', mr: 1.8, background: `${item.color}1e`, border: `1px solid ${item.color}2e`, color: item.color, display: 'flex', flexShrink: 0 }}>{item.icon}</Box>
                                                                 <Typography fontWeight={700} sx={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.875rem' }}>{item.text}</Typography>
                                                             </Box>
@@ -952,7 +978,7 @@ const EnhancedLandingPage = () => {
                         {/* Mobile App */}
                         <Box sx={{ pb: { xs: 8, md: 10 }, position: 'relative', zIndex: 1 }}>
                             <Container maxWidth="lg">
-                                <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+                                <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
                                     <Box sx={{ ...G.surfaceStrong, borderRadius: '28px', p: { xs: 4, md: 6 }, textAlign: 'center' }}>
                                         <Box sx={{ width: 120, height: 120, borderRadius: '28px', mx: 'auto', mb: 3, background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 20px 60px ${colorPalette.oceanBlue}55` }}>
                                             <PhoneIphone sx={{ fontSize: 64, color: '#fff' }} />
@@ -1011,7 +1037,7 @@ const EnhancedLandingPage = () => {
                             </Box>
                             <Grid container spacing={3}>
                                 {[
-                                    { icon: <LocationOn sx={{ fontSize: 28, color: '#fff' }} />, title: 'Geo-Verified Check-ins', description: 'Automatic location verification ensures authentic clock-ins within 1.2km of any KMFRI station — no proxy sign-ins.', color: colorPalette.seafoamGreen, delay: 0.08 },
+                                    { icon: <LocationOn sx={{ fontSize: 28, color: '#fff' }} />, title: 'Geo-Verified Check-ins', description: 'Automatic location verification ensures authentic clock-ins within 500M of any KMFRI station — no proxy sign-ins.', color: colorPalette.seafoamGreen, delay: 0.08 },
                                     { icon: <Fingerprint sx={{ fontSize: 28, color: '#fff' }} />, title: 'Biometric Security', description: 'One-time fingerprint registration unlocks secure, fast authentication at all KMFRI stations across all sites.', color: colorPalette.cyanFresh, delay: 0.16 },
                                     { icon: <Analytics sx={{ fontSize: 28, color: '#fff' }} />, title: 'Instant Reports', description: 'Download detailed PDF attendance reports with one click — ready for supervisor review or HR audit at any time.', color: colorPalette.warmSand, delay: 0.24 },
                                 ].map(f => <Grid item xs={12} md={4} key={f.title}><GlassFeatureCard {...f} /></Grid>)}
@@ -1069,7 +1095,7 @@ const EnhancedLandingPage = () => {
 
                 {/* ══ AUTH VIEWS ══ */}
                 {view !== 'landing' && (
-                    <motion.div key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
+                    <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
                         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', pt: { xs: 10, md: 13 }, pb: { xs: 6, md: 8 }, position: 'relative', overflow: 'hidden' }}>
                             <AmbientOrbs />
                             <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>

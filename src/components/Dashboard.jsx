@@ -1,39 +1,39 @@
 import {
     AddCircle, AssignmentTurnedIn, Dashboard as DashIcon,
     History, Logout, Menu as MenuIcon, NotificationAddRounded,
-    PhoneLocked, QueryStats, Smartphone
+    PhoneLocked, QueryStats, Smartphone,
+    SupervisorAccount
 } from '@mui/icons-material';
 import {
-    AppBar, Avatar, Box, Button, Chip, Dialog, DialogActions,
+    AppBar, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogTitle,
     Drawer, IconButton,
     List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
     Tooltip, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import KMFRILogo from '../assets/kmfri.png';
-
-import AnalyticsReportsContent from './dashboard/AnalyticsReport';
-import AttendanceHistoryContent from './dashboard/AttendanceHistory';
-import DashboardContent from './dashboard/DashBoardContent';
-import DepartmentStructureContent from './dashboard/DepartmentStructure';
-import LeaveManagementContent from './dashboard/LeaveManagement';
-import NotificationManagementContent from './dashboard/NotificationManagement';
-import OverallAttendanceStats from './dashboard/OverallAttendance';
-import TasksActivitiesContent from './dashboard/TaskActivities';
-
-import coreDataDetails from './CoreDataDetails';
-import AddDeviceContent from './dashboard/AddDevice';
-import LostDeviceContent from './dashboard/LostDevice';
-import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
-
 import { useNavigate } from 'react-router-dom';
+import KMFRILogo from '../assets/kmfri.png';
 import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { userSignOut } from '../service/UserProfile';
-import DownloadMobileAppSection from './dashboard/DownloadMobileApp';
+import coreDataDetails from './CoreDataDetails';
+import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
+import UserManagementContent from './dashboard/UserManagementContent';
+const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
+const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
+const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
+const AttendanceHistoryContent = lazy(() => import('./dashboard/AttendanceHistory'));
+const DepartmentStructureContent = lazy(() => import('./dashboard/DepartmentStructure'));
+const LeaveManagementContent = lazy(() => import('./dashboard/LeaveManagement'));
+const NotificationManagementContent = lazy(() => import('./dashboard/NotificationManagement'));
+const OverallAttendanceStats = lazy(() => import('./dashboard/OverallAttendance'));
+const TasksActivitiesContent = lazy(() => import('./dashboard/TaskActivities'));
+
+const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
+const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -60,45 +60,62 @@ const G = {
     `,
     nav: {
         background: 'rgba(5,24,46,0.82)',
-        backdropFilter: 'blur(28px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(28px) saturate(200%)',
+        backdropFilter: 'blur(14px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(200%)',
         borderBottom: '1px solid rgba(255,255,255,0.09)',
         boxShadow: '0 4px 28px rgba(0,0,0,0.28)',
     },
     surface: {
         background: 'rgba(255,255,255,0.07)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         border: '1px solid rgba(255,255,255,0.13)',
         boxShadow: '0 4px 20px rgba(6,28,50,0.22), inset 0 1px 0 rgba(255,255,255,0.10)',
     },
     sidebarBg: {
         background: 'rgba(5,20,42,0.78)',
         backdropFilter: 'blur(32px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
         borderRight: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '4px 0 32px rgba(0,0,0,0.24)',
     },
     dialog: {
         background: 'rgba(255,255,255,0.90)',
-        backdropFilter: 'blur(40px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+        backdropFilter: 'blur(20px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(200%)',
         border: '1px solid rgba(255,255,255,0.65)',
         boxShadow: '0 24px 64px rgba(10,61,98,0.22)',
     },
 };
 
 /* ══ AMBIENT ORBS (sidebar depth) ══════════════════════════════════════════ */
-const SidebarOrbs = () => (
+const SidebarOrbs = React.memo(() => (
     <>
         {[
             { s: 180, t: -30, l: -40, c: 'rgba(0,140,200,0.12)', b: 48 },
             { s: 140, bot: -20, r: -30, c: 'rgba(0,185,175,0.10)', b: 40 },
         ].map(({ s, t, l, r, bot, c, b }, i) => (
-            <Box key={i} sx={{ position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0, top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)` }} />
+            <Box
+                key={i}
+                sx={{
+                    position: 'absolute',
+                    width: s,
+                    height: s,
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                    top: t,
+                    left: l,
+                    right: r,
+                    bottom: bot,
+                    borderRadius: '50%',
+                    background: c,
+                    filter: `blur(${b}px)`,
+                    willChange: 'transform', // helps GPU compositing
+                }}
+            />
         ))}
     </>
-);
+));
 
 /* ══ SECTION LABEL ══════════════════════════════════════════════════════════ */
 const SectionLabel = ({ children }) => (
@@ -113,7 +130,7 @@ const SectionLabel = ({ children }) => (
 );
 
 /* ══ NAV ITEM ═══════════════════════════════════════════════════════════════ */
-const NavItem = ({ item, isActive, pendingCount, onClick }) => (
+const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
     <motion.div whileHover={{ x: isActive ? 0 : 4 }} transition={{ type: 'spring', stiffness: 440, damping: 34 }}>
         <ListItem button onClick={onClick} sx={{
             borderRadius: '14px', mb: 0.5, px: 1.4, py: 1,
@@ -141,7 +158,7 @@ const NavItem = ({ item, isActive, pendingCount, onClick }) => (
             </Box>
         </ListItem>
     </motion.div>
-);
+));
 
 /* ══ DRAWER CONTENT ═════════════════════════════════════════════════════════ */
 // use React.memo to stop double rendering, memoization fix
@@ -152,7 +169,7 @@ const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, p
         { text: 'Notification Panel', icon: <NotificationAddRounded />, color: '#a78bfa' },
         { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
     ];
-    const adminItems = [{ text: 'Organisation Overview', icon: <QueryStats />, color: colorPalette.seafoamGreen }];
+    const adminItems = [{ text: 'Organisation Overview', icon: <QueryStats />, color: colorPalette.seafoamGreen }, { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' }];
     const reqItems = [{ text: 'User Requests', icon: <AssignmentTurnedIn />, color: '#f87171' }];
     const techItems = [
         { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
@@ -168,7 +185,7 @@ const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, p
                 <Box sx={{
                     borderRadius: '18px', p: 2.2, position: 'relative', overflow: 'hidden',
                     background: 'rgba(255,255,255,0.07)',
-                    backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                    backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                     border: '1px solid rgba(255,255,255,0.13)',
                     boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
                 }}>
@@ -181,7 +198,7 @@ const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, p
                             background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
                             border: '2px solid rgba(255,255,255,0.22)',
                             color: '#fff', fontWeight: 900, fontSize: '0.95rem',
-                            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
                             boxShadow: '0 4px 16px rgba(0,0,0,0.24)',
                         }}>
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
@@ -280,21 +297,8 @@ const EnhancedDashboard = () => {
     ]);
     const [pendingCount, setPendingCount] = useState(0);
 
-    console.log("in the parent dashboard")
 
-    const refreshPendingCount = async () => {
-        if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
 
-        try {
-            const data = await fetchAllLostDevices();
-            const list = Array.isArray(data) ? data : (data.requests ?? []);
-            setPendingCount(
-                list.filter(r => r.status === 'pending').length
-            );
-        } catch (err) {
-            console.error("Failed to fetch pending requests", err);
-        }
-    };
 
     // fix of the double rendering
     useEffect(() => {
@@ -384,6 +388,8 @@ const EnhancedDashboard = () => {
             case 'User Requests': return isPrivileged ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
+            case 'User Management':
+                return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
 
             default: return <DashboardContent {...sp} />;
         }
@@ -402,6 +408,7 @@ const EnhancedDashboard = () => {
         'Lost Device': 'Lost Device Request',
         'Add Device': 'Add Clocking Device',
         'Our Mobile App': 'KMFRI Mobile Application',
+        'User Management': 'User Management & Administration',
 
     };
     const pageSubtitles = {
@@ -449,7 +456,7 @@ const EnhancedDashboard = () => {
                             background: 'rgba(0,220,255,0.18)',
                             border: '2px solid rgba(255,255,255,0.28)',
                             color: '#fff', fontWeight: 900, fontSize: '0.82rem',
-                            cursor: 'pointer', backdropFilter: 'blur(8px)',
+                            cursor: 'pointer', backdropFilter: 'blur(4px)',
                             '&:hover': { background: 'rgba(0,220,255,0.28)' },
                             transition: 'all 0.2s',
                         }}>
@@ -489,7 +496,7 @@ const EnhancedDashboard = () => {
                 position: 'relative',
             }}>
                 <AnimatePresence mode="wait">
-                    <motion.div key={activeTab}
+                    <motion.div style={{ willChange: 'transform, opacity' }} key={activeTab}
                         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}>
 
@@ -512,8 +519,13 @@ const EnhancedDashboard = () => {
                                 </Typography>
                             )}
                         </Box>
-
-                        {renderContent()}
+                        <Suspense fallback={<Stack height={'80vh'} width={'100%'} justifyContent={'center'}>
+                            <Box display={'flex'} justifyContent={'center'} alignItems={'center'}>
+                                <CircularProgress size={20} />
+                            </Box>
+                        </Stack>}>
+                            {renderContent()}
+                        </Suspense>
                     </motion.div>
                 </AnimatePresence>
             </Box>
@@ -521,7 +533,7 @@ const EnhancedDashboard = () => {
             {/* ── Logout dialog ── */}
             <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}
                 PaperProps={{ sx: { ...G.dialog, borderRadius: '24px', p: 1, maxWidth: 420, width: '100%' } }}
-                BackdropProps={{ sx: { backdropFilter: 'blur(6px)', bgcolor: 'rgba(6,28,50,0.30)' } }}>
+                BackdropProps={{ sx: { backdropFilter: 'blur(3px)', bgcolor: 'rgba(6,28,50,0.30)' } }}>
                 <DialogTitle sx={{ fontWeight: 900, color: colorPalette.deepNavy, pb: 0.5 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         <Box sx={{ width: 40, height: 40, borderRadius: '13px', bgcolor: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
