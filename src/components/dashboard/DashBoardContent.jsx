@@ -14,6 +14,7 @@ import {
 import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
     Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
@@ -394,6 +395,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
     const [recentAttendance, setRecentAttendance] = useState([]);
     const [userStats, setUserStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
+    const navigate = useNavigate()
 
 
     /* ── fetch history ── */
@@ -468,6 +470,7 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
 
     const handleClockInClockOut = async () => {
         try {
+
             setBiometricLoading(true);
             await verifyFingerprint(selectedStation.name);
             const updated = await getUserProfile();
@@ -477,7 +480,10 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
             localStorage.setItem('recent_station', selectedStation.name);
             const now = new Date();
             notify(`Thank you ${updated.name}, you clocked ${updated.hasClockedIn ? 'In' : 'Out'} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-        } catch (err) { notify(`${err}`, 'error'); }
+        } catch (err) {
+           
+            notify(`${err}`, 'error');
+        }
         finally { setBiometricLoading(false); }
     };
 

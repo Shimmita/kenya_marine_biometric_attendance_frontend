@@ -21,9 +21,19 @@ export const fetchAllLeaves = async () => {
     }
 };
 
-export const updateLeave = async (id, payload) => {
+export const fetchAllLeavesAdmin = async () => {
     try {
-        const { data } = await api.put(`/leave/${id}`, payload);
+        const { data } = await api.get("admin/all/leaves");
+        return data;
+    } catch (err) {
+        console.error("Fetching leaves failed:", err);
+        throw err?.response?.data?.message || "Failed to fetch leaves";
+    }
+};
+
+export const updateLeaveAdmin = async (id, payload) => {
+    try {
+        const { data } = await api.put(`admin/leave/${id}`, payload);
         return data;
     } catch (err) {
         console.error("Updating leave failed:", err);
