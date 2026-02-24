@@ -1,7 +1,11 @@
 import {
-    AddCircle, AssignmentTurnedIn, Dashboard as DashIcon,
-    History, Logout, Menu as MenuIcon, NotificationAddRounded,
-    PhoneLocked, QueryStats, Smartphone,
+    AddCircle,
+    CircleNotificationsRounded, Dashboard as DashIcon,
+    EmojiPeopleRounded,
+    History, Logout, MarkEmailReadRounded, Menu as MenuIcon,
+    PhoneLocked, QueryStats,
+    SensorOccupiedRounded,
+    Smartphone,
     SupervisorAccount
 } from '@mui/icons-material';
 import {
@@ -20,8 +24,9 @@ import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
-import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 import UserManagementContent from './dashboard/UserManagementContent';
+import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
+import AdminLeaveManager from './dashboard/AdminLeaveManager';
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -162,15 +167,20 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
 
 /* ══ DRAWER CONTENT ═════════════════════════════════════════════════════════ */
 // use React.memo to stop double rendering, memoization fix
-const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, pendingCount, onTabChange, onLogout, rankMeta }) => {
+const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, rankMeta }) => {
     const baseItems = [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-        { text: 'Notification Panel', icon: <NotificationAddRounded />, color: '#a78bfa' },
+        { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
         { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
+        { text: 'Request Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+
     ];
-    const adminItems = [{ text: 'Organisation Overview', icon: <QueryStats />, color: colorPalette.seafoamGreen }, { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' }];
-    const reqItems = [{ text: 'User Requests', icon: <AssignmentTurnedIn />, color: '#f87171' }];
+    const adminItems = [
+        { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
+        { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
+        { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+        { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray }];
     const techItems = [
         { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
         { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
@@ -246,12 +256,7 @@ const DrawerContent = React.memo(({ user, isElevated, isPrivileged, activeTab, p
                         {adminItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
                     </List>
                 </>)}
-                {isPrivileged && (<>
-                    <SectionLabel>User Requests</SectionLabel>
-                    <List disablePadding>
-                        {reqItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
-                    </List>
-                </>)}
+
                 <SectionLabel>Technical Help</SectionLabel>
                 <List disablePadding>
                     {techItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
@@ -328,8 +333,6 @@ const EnhancedDashboard = () => {
 
 
 
-    // cause double rendering 
-    // const handleTabChange = tab => { setActiveTab(tab); setMobileOpen(false); if (activeTab === 'User Requests') refreshPendingCount(); };
 
     // fix double rendering
     const handleTabChange = (tab) => {
@@ -380,12 +383,13 @@ const EnhancedDashboard = () => {
             case 'Attendance History': return <AttendanceHistoryContent      {...sp} />;
             case 'Analytics & Reports': return <AnalyticsReportsContent       {...sp} />;
             case 'Department Structure': return <DepartmentStructureContent    {...sp} />;
-            case 'Leave Management': return <LeaveManagementContent        {...sp} />;
+            case 'Request Leave': return <LeaveManagementContent        {...sp} />;
+            case 'Leave Management': return <AdminLeaveManager      {...sp} />;
             case 'Notification Panel': return <NotificationManagementContent {...sp} />;
             case 'Our Mobile App':
                 return <DownloadMobileAppSection />;
-            case 'Organisation Overview': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sp} />;
-            case 'User Requests': return isPrivileged ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
+            case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sp} />;
+            case 'All User Requests': return isElevated ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management':
@@ -398,13 +402,14 @@ const EnhancedDashboard = () => {
     const pageTitles = {
         'Clocking Dashboard': `Welcome back, ${user?.name?.split(' ')[0] || 'User'} 👋`,
         'Attendance History': 'Attendance History',
-        'Organisation Overview': 'Organisation Overview',
+        'Organisations Stats': 'Organisation Overview',
         'Tasks & Activities': 'Tasks & Activities',
         'Analytics & Reports': 'Analytics & Reports',
         'Department Structure': 'Department Structure',
-        'Leave Management': 'Leave Management',
+        'Request Leave': 'Request and Manage Your Leave',
+        'Leave Management': 'Administration Leave Management',
         'Notification Panel': 'Notification Management',
-        'User Requests': 'User Device Requests',
+        'All User Requests': 'User Device Requests',
         'Lost Device': 'Lost Device Request',
         'Add Device': 'Add Clocking Device',
         'Our Mobile App': 'KMFRI Mobile Application',
@@ -412,11 +417,12 @@ const EnhancedDashboard = () => {
 
     };
     const pageSubtitles = {
-        'User Requests': 'Review and respond to employee lost-device requests awaiting your approval',
+        'All User Requests': 'Review and respond to employee lost-device requests awaiting your approval',
         'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
         'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
         'Organisation Overview': 'Organisation-wide attendance insights for decision making',
         'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
+        'Leave Management': 'Under developement, central location to manage all leaves from kmfri employess, interns and attachees',
 
     };
 
