@@ -33,6 +33,12 @@ export default function LeaveManagementContent() {
     const [leaveRequests, setLeaveRequests] = useState([]);
     const [filter, setFilter] = useState("all");
     const [loading, setLoading] = useState(false);
+    const [dateError, setDateError] = useState({
+        startDate: "",
+        endDate: ""
+    });
+
+    const today = new Date().toISOString().split("T")[0];
 
     // redux access user state
     const { user } = useSelector(s => s.currentUser);
@@ -46,11 +52,50 @@ export default function LeaveManagementContent() {
     });
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+
+        let errors = { ...dateError };
+
+        if (name === "startDate") {
+            if (value < today) {
+                errors.startDate = "Start date cannot be in the past";
+            } else {
+                errors.startDate = "";
+            }
+
+            // Reset endDate if invalid
+            if (formData.endDate && value > formData.endDate) {
+                errors.endDate = "End date cannot be before start date";
+            } else {
+                errors.endDate = "";
+            }
+        }
+
+        if (name === "endDate") {
+            if (value < formData.startDate) {
+                errors.endDate = "End date cannot be before start date";
+            } else {
+                errors.endDate = "";
+            }
+        }
+
+        setDateError(errors);
+        setFormData({ ...formData, [name]: value });
     };
+
     const handleSubmit = async () => {
-        if (!formData.type || !formData.startDate || !formData.endDate) {
-            alert("Please fill all fields");
+        if (formData.startDate < today) {
+            alert("Start date cannot be in the past");
+            return;
+        }
+
+        if (formData.endDate < formData.startDate) {
+            alert("End date cannot be before start date");
+            return;
+        }
+
+        if (dateError.startDate || dateError.endDate) {
+            alert("Please fix date errors before submitting");
             return;
         }
 
@@ -317,7 +362,11 @@ export default function LeaveManagementContent() {
             </Grid>
 
             {/* MODAL */}
-            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={open} onClose={() => {
+                if (!loading) {
+                    setOpen(false)
+                }
+            }} maxWidth="sm" fullWidth>
                 <DialogTitle fontWeight={800}>Request Leave</DialogTitle>
                 <DialogContent sx={{ px: { xs: 1, sm: 2, md: 3 } }}>
                     <Stack spacing={3} sx={{ mt: 2 }}>
@@ -340,25 +389,39 @@ export default function LeaveManagementContent() {
                             type="date"
                             name="startDate"
                             InputLabelProps={{ shrink: true }}
+                            inputProps={{ min: today }}
                             fullWidth
                             value={formData.startDate}
                             onChange={handleChange}
+                            error={!!dateError.startDate}
+                            helperText={dateError.startDate}
                         />
 
                         <TextField
                             label="End Date"
                             type="date"
                             name="endDate"
+                            disabled={!formData.startDate}
                             InputLabelProps={{ shrink: true }}
+                            inputProps={{ min: formData.startDate || today }}
                             fullWidth
                             value={formData.endDate}
                             onChange={handleChange}
+                            error={!!dateError.endDate}
+                            helperText={dateError.endDate}
                         />
 
                         <Button
                             variant="contained"
                             onClick={handleSubmit}
-                            disabled={loading}
+                            disabled={
+                                loading ||
+                                !formData.type ||
+                                !formData.startDate ||
+                                !formData.endDate ||
+                                dateError.startDate ||
+                                dateError.endDate
+                            }
                             sx={{
                                 bgcolor: colorPalette.oceanBlue,
                                 borderRadius: 3,

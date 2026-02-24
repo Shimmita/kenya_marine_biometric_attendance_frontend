@@ -13,7 +13,7 @@ export const createLeave = async (payload) => {
 
 export const fetchAllLeaves = async () => {
     try {
-        const { data } = await api.get("/all/leaves");
+        const { data } = await api.get("user/all/leaves");
         return data;
     } catch (err) {
         console.error("Fetching leaves failed:", err);
