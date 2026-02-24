@@ -1,83 +1,375 @@
-// Leave Management Content
-import { Button, Card, CardContent, Chip, Grid, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import coreDataDetails from '../CoreDataDetails';
-const { colorPalette } = coreDataDetails
-export default function LeaveManagementContent() {
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    Grid,
+    MenuItem,
+    Stack,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    TextField,
+    Typography
+} from "@mui/material";
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { createLeave, deleteLeave, fetchAllLeaves } from "../../service/LeaveService";
+import coreDataDetails from "../CoreDataDetails";
+const { colorPalette } = coreDataDetails;
 
-    const leaveBalance = { annual: 15, sick: 7, casual: 3 };
-    const leaveRequests = [
-        { id: 1, type: 'Annual Leave', startDate: '2024-03-15', endDate: '2024-03-20', days: 5, status: 'pending', reason: 'Family vacation' },
-        { id: 2, type: 'Sick Leave', startDate: '2024-02-10', endDate: '2024-02-11', days: 2, status: 'approved', reason: 'Medical checkup' },
-        { id: 3, type: 'Casual Leave', startDate: '2024-01-28', endDate: '2024-01-28', days: 1, status: 'approved', reason: 'Personal matter' }
-    ];
+export default function LeaveManagementContent() {
+    const [open, setOpen] = useState(false);
+    const [leaveRequests, setLeaveRequests] = useState([]);
+    const [filter, setFilter] = useState("all");
+    const [loading, setLoading] = useState(false);
+
+    // redux access user state
+    const { user } = useSelector(s => s.currentUser);
+
+
+    const [formData, setFormData] = useState({
+        type: "",
+        startDate: "",
+        endDate: "",
+        email: "",
+    });
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+    const handleSubmit = async () => {
+        if (!formData.type || !formData.startDate || !formData.endDate) {
+            alert("Please fill all fields");
+            return;
+        }
+
+        try {
+            const payload = {
+                ...formData,
+                email: user?.email
+            };
+
+
+            const response = await createLeave(payload);
+
+            if (!response) {
+                throw new Error("No response from server");
+            }
+
+            const updated = await fetchAllLeaves();
+            setLeaveRequests(Array.isArray(updated) ? updated : []);
+
+            setOpen(false);
+
+            setFormData({
+                type: "",
+                startDate: "",
+                endDate: "",
+                email: "",
+            });
+
+        } catch (err) {
+            console.error("Submit failed:", err);
+            alert(typeof err === "string" ? err : "Failed to submit leave");
+        } finally {
+            setLoading(false)
+        }
+    };
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const data = await fetchAllLeaves();
+                setLeaveRequests(Array.isArray(data) ? data : []);
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                alert("Failed to load leaves");
+                setLeaveRequests([]);
+            }
+        };
+
+        loadData();
+    }, []);
+
+    const calculateDays = (start, end) => {
+        if (!start || !end) return 0;
+        const diff = new Date(end) - new Date(start);
+        return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+    };
+
+    const filteredLeaves =
+        filter === "all"
+            ? leaveRequests
+            : leaveRequests.filter((leave) => leave.status === filter);
+
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Delete this leave request?")) return;
+
+        try {
+            await deleteLeave(id);
+            const updated = await fetchAllLeaves();
+            setLeaveRequests(updated);
+        } catch (err) {
+            alert("Failed to delete leave");
+        }
+    };
 
     return (
-        <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-                <Card elevation={0} sx={{ borderRadius: 4, background: colorPalette.oceanGradient, color: 'white', p: 4, textAlign: 'center' }}>
-                    <Typography variant="h6" fontWeight="800" sx={{ mb: 1 }}>Annual Leave Balance</Typography>
-                    <Typography variant="h1" fontWeight="900">{leaveBalance.annual}</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>Days Remaining</Typography>
-                </Card>
-            </Grid>
-            {[
-                { label: 'Sick Leave', value: leaveBalance.sick, color: colorPalette.warmSand },
-                { label: 'Casual Leave', value: leaveBalance.casual, color: colorPalette.cyanFresh }
-            ].map((leave, idx) => (
-                <Grid item xs={12} md={4} key={idx}>
-                    <Card elevation={0} sx={{ borderRadius: 4, border: `2px solid ${leave.color}30`, bgcolor: `${leave.color}10`, p: 4, textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight="800" color={leave.color} sx={{ mb: 1 }}>{leave.label}</Typography>
-                        <Typography variant="h1" fontWeight="900" color={leave.color}>{leave.value}</Typography>
-                        <Typography variant="body2" color="text.secondary">Days Remaining</Typography>
-                    </Card>
-                </Grid>
-            ))}
+        <Grid container spacing={3} sx={{
+            width: "100%",
+            m: 0
+        }}>
+            <Grid item xs={12} sx={{ width: "100%" }}>
+                <Card
+                    elevation={0}
+                    sx={{
+                        borderRadius: 4,
+                        border: `1px solid ${colorPalette.softGray}`,
+                        background: "linear-gradient(to bottom, #ffffff, #fafcff)"
+                    }}
+                >
+                    <CardContent sx={{
+                        p: 2
+                    }}>
 
-            <Grid item xs={12}>
-                <Card elevation={0} sx={{ borderRadius: 4, border: `1px solid ${colorPalette.softGray}` }}>
-                    <CardContent>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-                            <Typography variant="h6" fontWeight="800" color={colorPalette.deepNavy}>Leave Requests</Typography>
-                            <Button variant="contained" sx={{ bgcolor: colorPalette.oceanBlue, borderRadius: 3, textTransform: 'none', fontWeight: 700 }}>Request Leave</Button>
+                        {/* HEADER */}
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            justifyContent="space-between"
+                            alignItems={{ xs: "flex-start", sm: "center" }}
+                            spacing={2}
+                            sx={{ mb: 3 }}
+                        >
+                            <Box>
+                                <Typography
+                                    variant="h6"
+                                    fontWeight="800"
+                                    color={colorPalette.deepNavy}
+                                >
+                                    Leave Requests
+                                </Typography>
+
+                                <Typography
+                                    variant="body2"
+                                    sx={{ color: "text.secondary", mt: 0.5 }}
+                                >
+                                    Manage and track your submitted leave applications
+                                </Typography>
+                            </Box>
+
+                            <Button
+                                variant="contained"
+                                onClick={() => setOpen(true)}
+                                sx={{
+                                    bgcolor: colorPalette.oceanBlue,
+                                    borderRadius: 3,
+                                    textTransform: "none",
+                                    fontWeight: 700,
+                                    px: 3,
+                                    boxShadow: `0 8px 20px ${colorPalette.oceanBlue}30`,
+                                    "&:hover": {
+                                        bgcolor: colorPalette.oceanBlue
+                                    }
+                                }}
+                            >
+                                Request Leave
+                            </Button>
                         </Stack>
-                        <TableContainer>
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                                        <TableCell sx={{ fontWeight: 700 }}>Start Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 700 }}>End Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 700 }}>Days</TableCell>
-                                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {leaveRequests.map((req) => (
-                                        <TableRow key={req.id}>
-                                            <TableCell><Typography fontWeight={600}>{req.type}</Typography></TableCell>
-                                            <TableCell>{new Date(req.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
-                                            <TableCell>{new Date(req.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
-                                            <TableCell>{req.days} days</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={req.status}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: req.status === 'approved' ? `${colorPalette.seafoamGreen}20` : req.status === 'pending' ? `${colorPalette.warmSand}20` : `${colorPalette.coralSunset}20`,
-                                                        color: req.status === 'approved' ? colorPalette.seafoamGreen : req.status === 'pending' ? colorPalette.warmSand : colorPalette.coralSunset,
-                                                        fontWeight: 600,
-                                                        textTransform: 'capitalize'
-                                                    }}
-                                                />
-                                            </TableCell>
+
+                        <Divider sx={{ mb: 1 }} />
+
+                        <Box>
+                            <Tabs
+                                value={filter}
+                                onChange={(e, newValue) => setFilter(newValue)}
+                                textColor="primary"
+                                indicatorColor="primary"
+                                sx={{
+                                    "& .MuiTab-root": {
+                                        textTransform: "none",
+                                        fontWeight: 700
+                                    }
+                                }}
+                            >
+                                <Tab label="All" value="all" />
+                                <Tab label="Pending" value="pending" />
+                                <Tab label="Approved" value="approved" />
+                                <Tab label="Rejected" value="rejected" />
+                            </Tabs>
+                        </Box>
+                        <Divider sx={{ mb: 1 }} />
+
+                        {/* EMPTY STATE */}
+                        {filteredLeaves.length === 0 ? (
+                            <Box
+                                sx={{
+                                    textAlign: "center",
+                                    py: 6,
+                                    opacity: 0.8
+                                }}
+                            >
+                                <Typography variant="h6" fontWeight={700}>
+                                    No Leave Requests Yet
+                                </Typography>
+                                <Typography variant="body2" sx={{ mt: 1 }}>
+                                    Click "Request Leave" to submit your first application.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Start</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>End</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Days</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                                    </TableHead>
+
+                                    <TableBody>
+                                        {filteredLeaves.map((req) => (
+                                            <TableRow
+                                                key={req._id}
+                                                sx={{
+                                                    transition: "0.2s ease",
+                                                    "&:hover": {
+                                                        backgroundColor: `${colorPalette.softGray}20`
+                                                    }
+                                                }}
+                                            >
+                                                <TableCell>
+                                                    <Typography
+                                                        fontWeight={600}
+                                                        sx={{ textTransform: "capitalize" }}
+                                                    >
+                                                        {req.type}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    {new Date(req.startDate).toLocaleDateString()}
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    {new Date(req.endDate).toLocaleDateString()}
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    {calculateDays(req.startDate, req.endDate)} days
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <Chip
+                                                        label={req.status}
+                                                        size="small"
+                                                        sx={{
+                                                            px: 1,
+                                                            fontWeight: 700,
+                                                            textTransform: "capitalize",
+                                                            borderRadius: 2,
+                                                            bgcolor:
+                                                                req.status === "approved"
+                                                                    ? `${colorPalette.seafoamGreen}20`
+                                                                    : req.status === "pending"
+                                                                        ? `${colorPalette.warmSand}20`
+                                                                        : `${colorPalette.coralSunset}20`,
+                                                            color:
+                                                                req.status === "approved"
+                                                                    ? colorPalette.seafoamGreen
+                                                                    : req.status === "pending"
+                                                                        ? colorPalette.warmSand
+                                                                        : colorPalette.coralSunset,
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() => handleDelete(req._id)}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
                     </CardContent>
                 </Card>
             </Grid>
+
+            {/* MODAL */}
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle fontWeight={800}>Request Leave</DialogTitle>
+                <DialogContent sx={{ px: { xs: 1, sm: 2, md: 3 } }}>
+                    <Stack spacing={3} sx={{ mt: 2 }}>
+                        <TextField
+                            select
+                            label="Leave Type"
+                            name="type"
+                            fullWidth
+                            value={formData.type}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="maternity">Maternity</MenuItem>
+                            <MenuItem value="sick">Sick</MenuItem>
+                            <MenuItem value="compasion">Compassion</MenuItem>
+                            <MenuItem value="casual">Casual</MenuItem>
+                        </TextField>
+
+                        <TextField
+                            label="Start Date"
+                            type="date"
+                            name="startDate"
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            value={formData.startDate}
+                            onChange={handleChange}
+                        />
+
+                        <TextField
+                            label="End Date"
+                            type="date"
+                            name="endDate"
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            value={formData.endDate}
+                            onChange={handleChange}
+                        />
+
+                        <Button
+                            variant="contained"
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            sx={{
+                                bgcolor: colorPalette.oceanBlue,
+                                borderRadius: 3,
+                                fontWeight: 700
+                            }}
+                        >
+                            {loading ? "Submitting..." : "Submit Request"}
+                        </Button>
+                    </Stack>
+                </DialogContent>
+            </Dialog>
         </Grid>
     );
-};
+}
