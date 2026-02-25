@@ -1,5 +1,6 @@
 import {
     AddCircle,
+    ChevronLeft, ChevronRight,
     CircleNotificationsRounded, Dashboard as DashIcon,
     EmojiPeopleRounded,
     History, InsightsRounded, Logout, MarkEmailReadRounded, Menu as MenuIcon,
@@ -38,7 +39,6 @@ const NotificationManagementContent = lazy(() => import('./dashboard/Notificatio
 const OverallAttendanceStats = lazy(() => import('./dashboard/OverallAttendance'));
 const TasksActivitiesContent = lazy(() => import('./dashboard/TaskActivities'));
 const HelpSupport = lazy(() => import('./dashboard/HelpSupport'));
-
 const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
@@ -46,9 +46,9 @@ const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const { colorPalette } = coreDataDetails;
 
 const DRAWER_WIDTH = 330;
+const DRAWER_COLLAPSED_WIDTH = 72;
 const APPBAR_HEIGHT = 64;
 
-/* ══ ROLE CONSTANTS ════════════════════════════════════════════════════════ */
 const ELEVATED_RANKS = ['admin', 'hr', 'supervisor', 'ceo'];
 const PRIVILEGED_RANKS = ['admin', 'hr', 'supervisor'];
 const RANK_META = {
@@ -56,7 +56,6 @@ const RANK_META = {
     ceo: { label: 'CEO' }, user: { label: 'Employee' },
 };
 
-/* ══ GLASS TOKENS (dark — matches landing page) ════════════════════════════ */
 const G = {
     meshBg: `
         radial-gradient(ellipse at 12% 18%, rgba(0,130,190,0.52) 0%, transparent 46%),
@@ -96,36 +95,21 @@ const G = {
     },
 };
 
-/* ══ AMBIENT ORBS (sidebar depth) ══════════════════════════════════════════ */
 const SidebarOrbs = React.memo(() => (
     <>
         {[
             { s: 180, t: -30, l: -40, c: 'rgba(0,140,200,0.12)', b: 48 },
             { s: 140, bot: -20, r: -30, c: 'rgba(0,185,175,0.10)', b: 40 },
         ].map(({ s, t, l, r, bot, c, b }, i) => (
-            <Box
-                key={i}
-                sx={{
-                    position: 'absolute',
-                    width: s,
-                    height: s,
-                    pointerEvents: 'none',
-                    zIndex: 0,
-                    top: t,
-                    left: l,
-                    right: r,
-                    bottom: bot,
-                    borderRadius: '50%',
-                    background: c,
-                    filter: `blur(${b}px)`,
-                    willChange: 'transform', // helps GPU compositing
-                }}
-            />
+            <Box key={i} sx={{
+                position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
+                top: t, left: l, right: r, bottom: bot, borderRadius: '50%',
+                background: c, filter: `blur(${b}px)`, willChange: 'transform',
+            }} />
         ))}
     </>
 ));
 
-/* ══ SECTION LABEL ══════════════════════════════════════════════════════════ */
 const SectionLabel = ({ children }) => (
     <Box sx={{ px: 1.5, pt: 2.2, pb: 0.6 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
@@ -137,7 +121,118 @@ const SectionLabel = ({ children }) => (
     </Box>
 );
 
-/* ══ NAV ITEM ═══════════════════════════════════════════════════════════════ */
+/* ══ COLLAPSED ICON ITEM — premium animated icon-only nav ══════════════════ */
+const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) => {
+    const [hovered, setHovered] = useState(false);
+
+    return (
+        <Tooltip title={item.text} placement="right" arrow
+            componentsProps={{
+                tooltip: {
+                    sx: {
+                        bgcolor: 'rgba(5,20,42,0.96)', color: '#fff', fontWeight: 700,
+                        fontSize: '0.78rem', borderRadius: '10px', px: 1.5, py: 0.7,
+                        border: `1px solid ${item.color}44`,
+                        boxShadow: `0 4px 20px rgba(0,0,0,0.40), 0 0 12px ${item.color}22`,
+                        backdropFilter: 'blur(8px)',
+                    }
+                },
+                arrow: { sx: { color: 'rgba(5,20,42,0.96)' } }
+            }}>
+            <Box
+                onClick={onClick}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                sx={{
+                    position: 'relative', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', mx: 'auto', mb: 0.5,
+                    width: 46, height: 46, borderRadius: '14px',
+                    cursor: 'pointer', overflow: 'hidden',
+                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                    transform: hovered ? 'scale(1.14) translateY(-1px)' : 'scale(1)',
+                    // Active state: glowing background
+                    background: isActive
+                        ? `linear-gradient(135deg, ${item.color}cc, ${item.color}77)`
+                        : hovered
+                            ? `${item.color}22`
+                            : 'transparent',
+                    boxShadow: isActive
+                        ? `0 4px 18px ${item.color}55, 0 0 0 1px ${item.color}44, inset 0 1px 0 rgba(255,255,255,0.18)`
+                        : hovered
+                            ? `0 6px 24px ${item.color}33, 0 0 16px ${item.color}22`
+                            : 'none',
+                    border: isActive
+                        ? `1px solid ${item.color}66`
+                        : hovered
+                            ? `1px solid ${item.color}33`
+                            : '1px solid transparent',
+                }}>
+
+                {/* Ripple shimmer on hover */}
+                {hovered && !isActive && (
+                    <Box sx={{
+                        position: 'absolute', inset: 0, borderRadius: '14px',
+                        background: `radial-gradient(circle at 50% 50%, ${item.color}33 0%, transparent 70%)`,
+                        animation: 'pulseGlow 0.9s ease-in-out infinite alternate',
+                        '@keyframes pulseGlow': {
+                            from: { opacity: 0.5, transform: 'scale(0.95)' },
+                            to: { opacity: 1, transform: 'scale(1.05)' }
+                        },
+                        pointerEvents: 'none',
+                    }} />
+                )}
+
+                {/* Icon */}
+                <Box sx={{
+                    position: 'relative', zIndex: 1,
+                    color: isActive ? 'rgba(255,255,255,0.95)' : hovered ? item.color : 'rgba(255,255,255,0.45)',
+                    transition: 'color 0.18s ease, filter 0.18s ease',
+                    filter: (isActive || hovered) ? `drop-shadow(0 0 6px ${item.color}88)` : 'none',
+                    display: 'flex',
+                    '& svg': {
+                        fontSize: 20,
+                        transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                        transform: hovered ? 'rotate(-6deg) scale(1.1)' : 'rotate(0deg) scale(1)',
+                    }
+                }}>
+                    {item.icon}
+                </Box>
+
+                {/* Badge for pending requests */}
+                {item.text === 'User Requests' && pendingCount > 0 && (
+                    <Box sx={{
+                        position: 'absolute', top: 4, right: 4, width: 8, height: 8,
+                        borderRadius: '50%', bgcolor: '#f87171',
+                        boxShadow: '0 0 6px rgba(248,113,113,0.8)',
+                        animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
+                        '@keyframes ping': {
+                            '75%, 100%': { transform: 'scale(1.8)', opacity: 0 }
+                        }
+                    }} />
+                )}
+            </Box>
+        </Tooltip>
+    );
+});
+
+/* ══ ACTIVE INDICATOR LINE (bottom underline for collapsed active item) ════ */
+const ActiveLine = ({ color }) => (
+    <motion.div
+        layoutId="activeUnderline"
+        initial={{ scaleX: 0, opacity: 0 }}
+        animate={{ scaleX: 1, opacity: 1 }}
+        exit={{ scaleX: 0, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+        style={{
+            position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)',
+            width: 24, height: 3, borderRadius: 999,
+            background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+            boxShadow: `0 0 8px ${color}88`,
+        }}
+    />
+);
+
+/* ══ FULL NAV ITEM ══════════════════════════════════════════════════════════ */
 const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
     <motion.div whileHover={{ x: isActive ? 0 : 4 }} transition={{ type: 'spring', stiffness: 440, damping: 34 }}>
         <ListItem button onClick={onClick} sx={{
@@ -168,16 +263,114 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
     </motion.div>
 ));
 
-/* ══ DRAWER CONTENT ═════════════════════════════════════════════════════════ */
-// use React.memo to stop double rendering, memoization fix
-const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, rankMeta }) => {
+/* ══ COLLAPSED DRAWER CONTENT ═══════════════════════════════════════════════ */
+const CollapsedDrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
+    <Box sx={{
+        height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        position: 'relative', overflow: 'hidden', ...G.sidebarBg,
+        pt: 1.5, pb: 2,
+    }}>
+        <SidebarOrbs />
+
+        {/* Expand trigger */}
+        <Tooltip title="Expand sidebar" placement="right">
+            <Box
+                onClick={onExpand}
+                sx={{
+                    position: 'relative', zIndex: 1, mb: 2,
+                    width: 40, height: 40, borderRadius: '12px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(255,255,255,0.06)',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                        background: 'rgba(0,220,255,0.14)',
+                        border: '1px solid rgba(0,220,255,0.32)',
+                        boxShadow: '0 4px 16px rgba(0,220,255,0.2)',
+                        transform: 'scale(1.08)',
+                    },
+                }}>
+                <ChevronRight sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 20 }} />
+            </Box>
+        </Tooltip>
+
+        {/* Avatar mini */}
+        <Tooltip title={user?.name || 'User'} placement="right">
+            <Avatar sx={{
+                width: 36, height: 36, mb: 2.5, flexShrink: 0, zIndex: 1,
+                background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
+                border: '2px solid rgba(255,255,255,0.22)',
+                color: '#fff', fontWeight: 900, fontSize: '0.78rem',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                cursor: 'default',
+            }}>
+                {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
+            </Avatar>
+        </Tooltip>
+
+        {/* Divider */}
+        <Box sx={{ width: 32, height: '1px', bgcolor: 'rgba(255,255,255,0.10)', mb: 1.5, zIndex: 1 }} />
+
+        {/* Icons list */}
+        <Box sx={{
+            flex: 1, overflowY: 'auto', overflowX: 'hidden',
+            width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+            px: 0.5, pb: 1, zIndex: 1,
+            '&::-webkit-scrollbar': { display: 'none' },
+        }}>
+            {allItems.map((item) => (
+                <Box key={item.text} sx={{ position: 'relative', width: 46, mb: 0.5 }}>
+                    <CollapsedNavItem
+                        item={item}
+                        isActive={activeTab === item.text}
+                        pendingCount={pendingCount}
+                        onClick={() => onTabChange(item.text)}
+                    />
+                    <AnimatePresence>
+                        {activeTab === item.text && <ActiveLine color={item.color} />}
+                    </AnimatePresence>
+                </Box>
+            ))}
+        </Box>
+
+        {/* Divider */}
+        <Box sx={{ width: 32, height: '1px', bgcolor: 'rgba(255,255,255,0.10)', mb: 1.5, zIndex: 1 }} />
+
+        {/* Logout icon */}
+        <Tooltip title="Log Out" placement="right">
+            <Box
+                onClick={onLogout}
+                sx={{
+                    zIndex: 1, width: 46, height: 46, borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', border: '1px solid rgba(239,68,68,0.15)',
+                    background: 'rgba(239,68,68,0.07)',
+                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                    '&:hover': {
+                        background: 'rgba(239,68,68,0.20)',
+                        border: '1px solid rgba(239,68,68,0.40)',
+                        boxShadow: '0 4px 20px rgba(239,68,68,0.30)',
+                        transform: 'scale(1.1) translateY(-1px)',
+                        '& svg': { transform: 'rotate(-12deg) scale(1.1)' }
+                    },
+                }}>
+                <Logout sx={{
+                    color: 'rgba(251,113,113,0.88)', fontSize: 19,
+                    transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                }} />
+            </Box>
+        </Tooltip>
+    </Box>
+));
+
+/* ══ FULL DRAWER CONTENT ════════════════════════════════════════════════════ */
+const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse }) => {
     const baseItems = [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
         { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
         { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
         { text: 'Request Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
-
     ];
     const adminItems = [
         { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
@@ -189,8 +382,7 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
     const techItems = [
         { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
         { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
-        { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' }, // ✅ ADD THIS
-
+        { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
     ];
 
     return (
@@ -206,9 +398,29 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                     border: '1px solid rgba(255,255,255,0.13)',
                     boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
                 }}>
-                    {/* decorative blobs */}
                     <Box sx={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', bgcolor: 'rgba(0,220,255,0.07)', pointerEvents: 'none' }} />
                     <Box sx={{ position: 'absolute', bottom: -22, left: 10, width: 90, height: 90, borderRadius: '50%', bgcolor: 'rgba(0,185,175,0.06)', pointerEvents: 'none' }} />
+
+                    {/* Collapse button inside profile card */}
+                    <Tooltip arrow title="Collapse sidebar" placement="right" >
+                        <Box onClick={onCollapse} sx={{
+                            position: 'absolute', top: 15, right: 10, zIndex: 2,
+                            width: 26, height: 26, borderRadius: '8px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', background: 'rgba(255,255,255,0.07)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                background: 'rgba(0,220,255,0.14)',
+                                border: '1px solid rgba(0,220,255,0.30)',
+                                boxShadow: '0 2px 10px rgba(0,220,255,0.18)',
+                                transform: 'scale(1.1)',
+                            }
+                        }}>
+                            <ChevronLeft  sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 16,}} />
+                        </Box>
+                    </Tooltip>
+
                     <Stack direction="row" alignItems="center" spacing={1.4} sx={{ position: 'relative', zIndex: 1 }}>
                         <Avatar sx={{
                             width: 44, height: 44, flexShrink: 0,
@@ -263,7 +475,6 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                         {adminItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
                     </List>
                 </>)}
-
                 <SectionLabel>Technical Help</SectionLabel>
                 <List disablePadding>
                     {techItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
@@ -295,9 +506,10 @@ const EnhancedDashboard = () => {
     const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
     const { user } = useSelector(s => s.currentUser);
     const dispatch = useDispatch();
-    const navigate = useNavigate()
+    const navigate = useNavigate();
 
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('Clocking Dashboard');
     const [userLocation, setUserLocation] = useState(null);
     const [isWithinGeofence, setIsWithinGeofence] = useState(false);
@@ -309,47 +521,25 @@ const EnhancedDashboard = () => {
     ]);
     const [pendingCount, setPendingCount] = useState(0);
 
-
-
-
-    // fix of the double rendering
     useEffect(() => {
         if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
-
         let isMounted = true;
-
         const loadPending = async () => {
             try {
                 const data = await fetchAllLostDevices();
                 const list = Array.isArray(data) ? data : (data.requests ?? []);
-                if (isMounted) {
-                    setPendingCount(list.filter(r => r.status === 'pending').length);
-                }
+                if (isMounted) setPendingCount(list.filter(r => r.status === 'pending').length);
             } catch { }
         };
-
         loadPending();
         const interval = setInterval(loadPending, 60_000);
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
+        return () => { isMounted = false; clearInterval(interval); };
     }, [user?.rank]);
 
-
-
-
-
-    // fix double rendering
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         setMobileOpen(false);
-
-        if (tab === 'User Requests') {
-            // optional manual refresh
-            setPendingCount(prev => prev);
-        }
+        if (tab === 'User Requests') setPendingCount(prev => prev);
     };
 
     const isElevated = ELEVATED_RANKS.includes(user?.rank);
@@ -360,53 +550,61 @@ const EnhancedDashboard = () => {
         await userSignOut();
         dispatch(resetClearCurrentUserRedux());
         setLogoutDialogOpen(false);
-        navigate("/")
+        navigate("/");
     };
 
-    // use memo to memoize
+    // All nav items flattened — used for collapsed icon rail
+    const allNavItems = useMemo(() => {
+        const base = [
+            { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
+            { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
+            { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
+            { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
+            { text: 'Request Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+        ];
+        const admin = isElevated ? [
+            { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
+            { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
+            { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+            { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
+            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite },
+        ] : [];
+        const tech = [
+            { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
+            { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
+            { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
+        ];
+        return [...base, ...admin, ...tech];
+    }, [isElevated]);
+
     const drawerProps = useMemo(() => ({
-        user,
-        isElevated,
-        isPrivileged,
-        activeTab,
-        pendingCount,
-        rankMeta,
+        user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta,
         onTabChange: handleTabChange,
         onLogout: () => setLogoutDialogOpen(true),
-    }), [
-        user,
-        isElevated,
-        isPrivileged,
-        activeTab,
-        pendingCount,
-        rankMeta,
-    ]);
+        onCollapse: () => setSidebarCollapsed(true),
+    }), [user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta]);
+
+    const currentDrawerWidth = sidebarCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
 
     const renderContent = () => {
         const sp = { tasks, setTasks, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence };
         switch (activeTab) {
-            case 'Clocking Dashboard': return <DashboardContent              {...sp} />;
-            case 'Tasks & Activities': return <TasksActivitiesContent        {...sp} />;
-            case 'Attendance History': return <AttendanceHistoryContent      {...sp} />;
-            case 'Analytics & Reports': return <AnalyticsReportsContent       {...sp} />;
-            case 'Department Structure': return <DepartmentStructureContent    {...sp} />;
-            case 'Request Leave': return <LeaveManagementContent        {...sp} />;
-            case 'Leave Management': return <AdminLeaveManager      {...sp} />;
+            case 'Clocking Dashboard': return <DashboardContent {...sp} />;
+            case 'Tasks & Activities': return <TasksActivitiesContent {...sp} />;
+            case 'Attendance History': return <AttendanceHistoryContent {...sp} />;
+            case 'Analytics & Reports': return <AnalyticsReportsContent {...sp} />;
+            case 'Department Structure': return <DepartmentStructureContent {...sp} />;
+            case 'Request Leave': return <LeaveManagementContent {...sp} />;
+            case 'Leave Management': return <AdminLeaveManager {...sp} />;
             case 'Notification Panel': return <NotificationManagementContent {...sp} />;
-            case 'Our Mobile App':
-                return <DownloadMobileAppSection />;
+            case 'Our Mobile App': return <DownloadMobileAppSection />;
             case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sp} />;
             case 'All User Requests': return isElevated ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
-            case 'User Management':
-                return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
-
-            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />; // ✅ added
-
-            case 'Help & Support':
-                return <HelpSupport />;
-
+            case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
+            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />;
+            case 'Help & Support': return <HelpSupport />;
             default: return <DashboardContent {...sp} />;
         }
     };
@@ -428,8 +626,6 @@ const EnhancedDashboard = () => {
         'User Management': 'User Management & Administration',
         'Help & Support': 'Help & Support Center',
         'Feedback Statistics': 'Feedback Statistics Overview',
-
-
     };
     const pageSubtitles = {
         'All User Requests': 'Review and respond to employee lost-device requests awaiting your approval',
@@ -437,11 +633,9 @@ const EnhancedDashboard = () => {
         'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
         'Organisation Overview': 'Organisation-wide attendance insights for decision making',
         'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
-        'Leave Management': 'Under developement, central location to manage all leaves from kmfri employess, interns and attachees',
+        'Leave Management': 'Central location to manage all leaves from kmfri employess, interns and attachees',
         'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
         'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
-
-
     };
 
     return (
@@ -491,7 +685,14 @@ const EnhancedDashboard = () => {
             </AppBar>
 
             {/* ── Sidebar ── */}
-            <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
+            <Box
+                component="nav"
+                sx={{
+                    width: { md: currentDrawerWidth },
+                    flexShrink: { md: 0 },
+                    transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
+                }}>
+                {/* Mobile temporary drawer */}
                 <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)}
                     ModalProps={{ keepMounted: true }}
                     sx={{
@@ -500,31 +701,78 @@ const EnhancedDashboard = () => {
                     }}>
                     <DrawerContent {...drawerProps} />
                 </Drawer>
-                <Drawer variant="permanent"
+
+                {/* Desktop permanent drawer — animated width */}
+                <Drawer
+                    variant="permanent"
                     sx={{
                         display: { xs: 'none', md: 'block' },
-                        '& .MuiDrawer-paper': { width: DRAWER_WIDTH, mt: `${APPBAR_HEIGHT}px`, height: `calc(100% - ${APPBAR_HEIGHT}px)`, border: 'none', bgcolor: 'transparent' }
+                        '& .MuiDrawer-paper': {
+                            width: currentDrawerWidth,
+                            mt: `${APPBAR_HEIGHT}px`,
+                            height: `calc(100% - ${APPBAR_HEIGHT}px)`,
+                            border: 'none',
+                            bgcolor: 'transparent',
+                            overflow: 'hidden',
+                            transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
+                        }
                     }}
                     open>
-                    <DrawerContent {...drawerProps} />
+                    <AnimatePresence mode="wait" initial={false}>
+                        {sidebarCollapsed ? (
+                            <motion.div
+                                key="collapsed"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                style={{ height: '100%' }}
+                            >
+                                <CollapsedDrawerContent
+                                    user={user}
+                                    isElevated={isElevated}
+                                    activeTab={activeTab}
+                                    pendingCount={pendingCount}
+                                    onTabChange={handleTabChange}
+                                    onLogout={() => setLogoutDialogOpen(true)}
+                                    onExpand={() => setSidebarCollapsed(false)}
+                                    allItems={allNavItems}
+                                />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="expanded"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                style={{ height: '100%' }}
+                            >
+                                <DrawerContent {...drawerProps} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </Drawer>
             </Box>
 
             {/* ── Main content ── */}
-            <Box component="main" sx={{
-                flexGrow: 1, p: { xs: 2, sm: 2.5, md: 3.5 },
-                mt: `${APPBAR_HEIGHT}px`,
-                width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
-                minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
-                boxSizing: 'border-box',
-                position: 'relative',
-            }}>
+            <Box
+                component="main"
+                sx={{
+                    flexGrow: 1,
+                    p: { xs: 2, sm: 2.5, md: 3.5 },
+                    mt: `${APPBAR_HEIGHT}px`,
+                    width: { xs: '100%', md: `calc(100% - ${currentDrawerWidth}px)` },
+                    minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
+                    boxSizing: 'border-box',
+                    position: 'relative',
+                    transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
+                }}>
                 <AnimatePresence mode="wait">
                     <motion.div style={{ willChange: 'transform, opacity' }} key={activeTab}
                         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}>
 
-                        {/* page title */}
                         <Box sx={{ mb: 3.5 }}>
                             <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
                                 <Typography variant="h5" fontWeight={900} sx={{
@@ -543,11 +791,14 @@ const EnhancedDashboard = () => {
                                 </Typography>
                             )}
                         </Box>
-                        <Suspense fallback={<Stack height={'80vh'} width={'100%'} justifyContent={'center'}>
-                            <Box display={'flex'} justifyContent={'center'} alignItems={'center'}>
-                                <CircularProgress size={20} />
-                            </Box>
-                        </Stack>}>
+
+                        <Suspense fallback={
+                            <Stack height={'80vh'} width={'100%'} justifyContent={'center'}>
+                                <Box display={'flex'} justifyContent={'center'} alignItems={'center'}>
+                                    <CircularProgress size={20} />
+                                </Box>
+                            </Stack>
+                        }>
                             {renderContent()}
                         </Suspense>
                     </motion.div>
