@@ -2,11 +2,12 @@ import {
     AddCircle,
     CircleNotificationsRounded, Dashboard as DashIcon,
     EmojiPeopleRounded,
-    History, Logout, MarkEmailReadRounded, Menu as MenuIcon,
+    History, InsightsRounded, Logout, MarkEmailReadRounded, Menu as MenuIcon,
     PhoneLocked, QueryStats,
     SensorOccupiedRounded,
     Smartphone,
-    SupervisorAccount
+    SupervisorAccount,
+    SupportAgentRounded
 } from '@mui/icons-material';
 import {
     AppBar, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
@@ -24,9 +25,9 @@ import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
+import AdminLeaveManager from './dashboard/AdminLeaveManager';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
-import AdminLeaveManager from './dashboard/AdminLeaveManager';
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -36,9 +37,11 @@ const LeaveManagementContent = lazy(() => import('./dashboard/LeaveManagement'))
 const NotificationManagementContent = lazy(() => import('./dashboard/NotificationManagement'));
 const OverallAttendanceStats = lazy(() => import('./dashboard/OverallAttendance'));
 const TasksActivitiesContent = lazy(() => import('./dashboard/TaskActivities'));
+const HelpSupport = lazy(() => import('./dashboard/HelpSupport'));
 
 const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
+const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -180,10 +183,14 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
         { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
         { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
         { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
-        { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray }];
+        { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
+        { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite }
+    ];
     const techItems = [
         { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
         { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
+        { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' }, // ✅ ADD THIS
+
     ];
 
     return (
@@ -395,6 +402,11 @@ const EnhancedDashboard = () => {
             case 'User Management':
                 return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
 
+            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />; // ✅ added
+
+            case 'Help & Support':
+                return <HelpSupport />;
+
             default: return <DashboardContent {...sp} />;
         }
     };
@@ -414,6 +426,9 @@ const EnhancedDashboard = () => {
         'Add Device': 'Add Clocking Device',
         'Our Mobile App': 'KMFRI Mobile Application',
         'User Management': 'User Management & Administration',
+        'Help & Support': 'Help & Support Center',
+        'Feedback Statistics': 'Feedback Statistics Overview',
+
 
     };
     const pageSubtitles = {
@@ -423,6 +438,9 @@ const EnhancedDashboard = () => {
         'Organisation Overview': 'Organisation-wide attendance insights for decision making',
         'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
         'Leave Management': 'Under developement, central location to manage all leaves from kmfri employess, interns and attachees',
+        'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
+        'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
+
 
     };
 

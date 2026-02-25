@@ -4,6 +4,7 @@ import {
     Card,
     CardContent,
     Chip,
+    CircularProgress,
     Dialog,
     DialogContent,
     DialogTitle,
@@ -100,6 +101,7 @@ export default function LeaveManagementContent() {
         }
 
         try {
+            setLoading(true)
             const payload = {
                 ...formData,
                 email: user?.email
@@ -414,6 +416,7 @@ export default function LeaveManagementContent() {
                         <Button
                             variant="contained"
                             onClick={handleSubmit}
+                            startIcon={loading && <CircularProgress size={10} />}
                             disabled={
                                 loading ||
                                 !formData.type ||

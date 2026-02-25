@@ -20,7 +20,10 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Typography
+    Typography,
+    FormControl,
+    Select,
+    MenuItem,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { fetchAllLeavesAdmin, updateLeaveAdmin } from "../../service/LeaveService";
@@ -89,7 +92,7 @@ export default function AdminLeaveManager() {
                             direction={{ xs: "column", sm: "row" }}
                             justifyContent="space-between"
                             alignItems={{ xs: "flex-start", sm: "center" }}
-                            spacing={2}
+                            spacing={2} K
                             sx={{ mb: 3 }}
                         >
                             <Box>
@@ -199,30 +202,82 @@ export default function AdminLeaveManager() {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {req.status === "pending" && (
-                                                        <Stack direction="row" spacing={1}>
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                color="success"
-                                                                onClick={() =>
-                                                                    setConfirmation({ open: true, leaveId: req._id, action: "approved" })
+                                                    <FormControl size="small" fullWidth>
+                                                        <Select
+                                                            value={req.status === "pending" ? "" : req.status}
+                                                            displayEmpty
+                                                            disabled={req.status !== "pending"}
+                                                            renderValue={(selected) => {
+                                                                if (!selected) {
+                                                                    return (
+                                                                        <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                                                                            Select Action
+                                                                        </Typography>
+                                                                    );
                                                                 }
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                color="error"
-                                                                onClick={() =>
-                                                                    setConfirmation({ open: true, leaveId: req._id, action: "rejected" })
-                                                                }
-                                                            >
-                                                                Reject
-                                                            </Button>
-                                                        </Stack>
-                                                    )}
+
+                                                                return (
+                                                                    <Chip
+                                                                        label={selected}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            px: 1,
+                                                                            fontWeight: 700,
+                                                                            textTransform: "capitalize",
+                                                                            borderRadius: 2,
+                                                                            bgcolor:
+                                                                                selected === "approved"
+                                                                                    ? `${colorPalette.seafoamGreen}20`
+                                                                                    : `${colorPalette.coralSunset}20`,
+                                                                            color:
+                                                                                selected === "approved"
+                                                                                    ? colorPalette.seafoamGreen
+                                                                                    : colorPalette.coralSunset,
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            }}
+                                                            onChange={(e) =>
+                                                                setConfirmation({
+                                                                    open: true,
+                                                                    leaveId: req._id,
+                                                                    action: e.target.value,
+                                                                })
+                                                            }
+                                                            sx={{
+                                                                borderRadius: 3,
+                                                                "& .MuiOutlinedInput-notchedOutline": {
+                                                                    borderColor: colorPalette.softGray,
+                                                                },
+                                                            }}
+                                                        >
+                                                            <MenuItem value="approved">
+                                                                <Chip
+                                                                    label="Approve"
+                                                                    size="small"
+                                                                    sx={{
+                                                                        fontWeight: 700,
+                                                                        borderRadius: 2,
+                                                                        bgcolor: `${colorPalette.seafoamGreen}20`,
+                                                                        color: colorPalette.seafoamGreen,
+                                                                    }}
+                                                                />
+                                                            </MenuItem>
+
+                                                            <MenuItem value="rejected">
+                                                                <Chip
+                                                                    label="Reject"
+                                                                    size="small"
+                                                                    sx={{
+                                                                        fontWeight: 700,
+                                                                        borderRadius: 2,
+                                                                        bgcolor: `${colorPalette.coralSunset}20`,
+                                                                        color: colorPalette.coralSunset,
+                                                                    }}
+                                                                />
+                                                            </MenuItem>
+                                                        </Select>
+                                                    </FormControl>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
