@@ -1,7 +1,8 @@
 import {
     AccessTime, BusinessCenter, CalendarMonth, CheckCircle,
     EmojiEvents, FiberManualRecord, Fingerprint, History,
-    InfoOutlined, LocationOn, QueryStats, TrendingDown, TrendingUp, WorkHistory,
+    InfoOutlined, LocationOn, QueryStats,
+    WorkHistory
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Chip, CircularProgress,
@@ -16,7 +17,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
-    Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
+    Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, RadialBar,
+    RadialBarChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
@@ -35,7 +37,7 @@ import { detectCurrentDevice } from './AddDevice';
 const { AvailableStations, colorPalette } = coreDataDetails;
 const GEOFENCE_RADIUS_METERS = 500000;
 
-/* ══ GLASS TOKENS (light content area) ════════════════════════════════════ */
+/* ══ GLASS TOKENS ══════════════════════════════════════════════════════════ */
 const G = {
     card: {
         background: 'rgba(255,255,255,0.72)',
@@ -52,7 +54,7 @@ const G = {
         boxShadow: '0 8px 32px rgba(10,61,98,0.12), inset 0 1px 0 rgba(255,255,255,0.90)',
     },
     tinted: (accent) => ({
-        background: `rgba(255,255,255,0.62)`,
+        background: 'rgba(255,255,255,0.62)',
         backdropFilter: 'blur(16px) saturate(160%)',
         WebkitBackdropFilter: 'blur(16px) saturate(160%)',
         border: `1px solid ${accent}28`,
@@ -66,7 +68,6 @@ const G = {
             '&.Mui-focused fieldset': { borderColor: colorPalette.oceanBlue, borderWidth: 2 },
         },
     },
-    /* dark clock card — matches landing page dark surface */
     clockBg: 'linear-gradient(140deg, #061e30 0%, #0a3560 42%, #073a52 68%, #052840 100%)',
     glassInput: {
         '& .MuiOutlinedInput-root': {
@@ -115,7 +116,8 @@ const Reveal = ({ children, delay = 0, y = 20 }) => {
     const ref = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-40px' });
     return (
-        <motion.div style={{ willChange: 'transform, opacity' }} ref={ref} initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}}
+        <motion.div style={{ willChange: 'transform, opacity' }} ref={ref}
+            initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.52, delay, ease: [0.22, 1, 0.36, 1] }}>
             {children}
         </motion.div>
@@ -126,7 +128,11 @@ const Reveal = ({ children, delay = 0, y = 20 }) => {
 const GlassTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
-        <Box sx={{ background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', border: '1px solid rgba(10,61,98,0.12)', borderRadius: '14px', px: 2, py: 1.5, boxShadow: '0 10px 32px rgba(10,61,98,0.16)', minWidth: 120 }}>
+        <Box sx={{
+            background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(10,61,98,0.12)', borderRadius: '14px',
+            px: 2, py: 1.5, boxShadow: '0 10px 32px rgba(10,61,98,0.16)', minWidth: 120
+        }}>
             {label && <Typography variant="caption" fontWeight={800} color={colorPalette.deepNavy} sx={{ display: 'block', mb: 0.5 }}>{label}</Typography>}
             {payload.map((p, i) => (
                 <Stack key={i} direction="row" alignItems="center" spacing={1} sx={{ mt: 0.3 }}>
@@ -148,54 +154,373 @@ const SectionLabel = ({ children, accent, chip }) => (
     </Stack>
 );
 
-/* ══ GLASS STAT CARD ═══════════════════════════════════════════════════════ */
-const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, progress }) => (
-    <Box sx={{
-        ...G.card, p: 2.5, height: '100%', borderRadius: '20px', position: 'relative', overflow: 'hidden',
-        transition: 'all 0.26s ease',
-        '&:hover': { transform: 'translateY(-5px)', boxShadow: `0 16px 42px rgba(10,61,98,0.16)` },
-        '&::after': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '20px 20px 0 0', background: `linear-gradient(90deg,${accent},${accent}66)` },
-        '&::before': { content: '""', position: 'absolute', top: -24, right: -24, width: 84, height: 84, borderRadius: '50%', background: `${accent}10`, zIndex: 0 },
-    }}>
-        <Stack spacing={1.5} sx={{ position: 'relative', zIndex: 1 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Box sx={{ width: 44, height: 44, borderRadius: '14px', bgcolor: `${accent}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${accent}22` }}>
-                    {icon}
-                </Box>
-                {trend != null && (
-                    <Chip size="small"
-                        icon={trend >= 0 ? <TrendingUp sx={{ fontSize: '0.78rem !important', color: '#22c55e !important' }} /> : <TrendingDown sx={{ fontSize: '0.78rem !important', color: '#ef4444 !important' }} />}
-                        label={trendLabel || `${Math.abs(trend)}%`}
-                        sx={{ height: 22, fontSize: '0.7rem', fontWeight: 800, bgcolor: trend >= 0 ? '#22c55e18' : '#ef444418', color: trend >= 0 ? '#16a34a' : '#dc2626', borderRadius: '8px', '& .MuiChip-label': { px: 0.8 } }}
-                    />
-                )}
-            </Stack>
-            <Box>
-                <Typography variant="h4" fontWeight={900} sx={{ color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                    {value ?? <Skeleton width={55} />}
-                </Typography>
-                <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', mt: 0.3 }}>
-                    {label}
-                </Typography>
-                {subtitle && <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 0.2 }}>{subtitle}</Typography>}
-            </Box>
-            {progress != null && (
-                <Box>
-                    <Box sx={{ height: 6, borderRadius: 99, bgcolor: `${accent}14`, overflow: 'hidden' }}>
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(Number(progress), 100)}%` }}
-                            transition={{ duration: 1, ease: [0.4, 0, 0.2, 1], delay: 0.3 }}
-                            style={{ height: '100%', background: accent, borderRadius: 99, willChange: 'transform, opacity' }} />
-                    </Box>
-                    <Typography variant="caption" color="text.disabled" sx={{ mt: 0.4, display: 'block' }}>{progress}%</Typography>
-                </Box>
-            )}
-        </Stack>
-    </Box>
-);
+/* ══ RADIAL GAUGE CHART CARD ════════════════════════════════════════════════
+   For percentage metrics: Punctuality, Attendance Rate
+   Uses RadialBarChart with a gauge arc from 0–100%
+════════════════════════════════════════════════════════════════════════════ */
+const RadialGaugeCard = ({ label, value, accent, icon, description, loading }) => {
+    const numVal = parseFloat(value) || 0;
+    const data = [{ name: label, value: numVal, fill: accent }];
 
-/* ══ CHARTS SECTION ════════════════════════════════════════════════════════ */
+    const trendColor = numVal >= 90 ? '#22c55e' : numVal >= 75 ? '#f59e0b' : '#ef4444';
+    const trendText = numVal >= 90 ? 'Excellent' : numVal >= 75 ? 'Good' : 'Needs improvement';
+
+    return (
+        <Box sx={{
+            ...G.card, borderRadius: '20px', p: 2.2, height: '100%',
+            position: 'relative', overflow: 'hidden',
+            transition: 'all 0.26s ease',
+            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
+            '&::after': {
+                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                borderRadius: '20px 20px 0 0',
+                background: `linear-gradient(90deg, ${accent}, ${accent}55)`,
+            },
+        }}>
+            {loading ? (
+                <Skeleton variant="rounded" height={180} sx={{ borderRadius: '16px' }} />
+            ) : (
+                <Stack spacing={0.5} alignItems="center">
+                    {/* Label + icon */}
+                    <Stack direction="row" alignItems="center" spacing={0.8} sx={{ alignSelf: 'flex-start', width: '100%' }}>
+                        <Box sx={{
+                            width: 30, height: 30, borderRadius: '9px',
+                            bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                            {icon}
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
+                                sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
+                                {label}
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.58rem', color: trendColor, fontWeight: 700 }}>
+                                {trendText}
+                            </Typography>
+                        </Box>
+                    </Stack>
+
+                    {/* Radial chart with center value */}
+                    <Box sx={{ position: 'relative', width: '100%' }}>
+                        <ResponsiveContainer width="100%" height={130}>
+                            <RadialBarChart
+                                cx="50%" cy="80%"
+                                innerRadius="55%" outerRadius="90%"
+                                startAngle={180} endAngle={0}
+                                data={data}
+                                barSize={14}
+                            >
+                                {/* Track */}
+                                <RadialBar
+                                    dataKey="value"
+                                    cornerRadius={8}
+                                    background={{ fill: `${accent}15` }}
+                                    clockWise
+                                />
+                            </RadialBarChart>
+                        </ResponsiveContainer>
+                        {/* Center overlay */}
+                        <Box sx={{
+                            position: 'absolute', bottom: 6, left: '50%',
+                            transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none'
+                        }}>
+                            <Typography fontWeight={900} sx={{ fontSize: '1.5rem', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                                {numVal}<span style={{ fontSize: '0.75rem', opacity: 0.75 }}>%</span>
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Description */}
+                    <Typography variant="caption" color="text.secondary" textAlign="center"
+                        sx={{ fontSize: '0.68rem', lineHeight: 1.45, mt: 0.2 }}>
+                        {description}
+                    </Typography>
+
+                    {/* Progress bar underneath */}
+                    <Box sx={{ width: '100%', mt: 0.5 }}>
+                        <Box sx={{ height: 5, borderRadius: 99, bgcolor: `${accent}14`, overflow: 'hidden' }}>
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(numVal, 100)}%` }}
+                                transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1], delay: 0.4 }}
+                                style={{ height: '100%', background: `linear-gradient(90deg, ${accent}, ${accent}88)`, borderRadius: 99 }}
+                            />
+                        </Box>
+                    </Box>
+                </Stack>
+            )}
+        </Box>
+    );
+};
+
+/* ══ DONUT COUNT CARD ═══════════════════════════════════════════════════════
+   For count metrics: Days Present, Absent, Half Days, Late Arrivals
+   Uses PieChart donut showing value vs total working days
+════════════════════════════════════════════════════════════════════════════ */
+const DonutCountCard = ({ label, value, total = 22, accent, trackColor, icon, description, loading, subtitle }) => {
+    const numVal = parseInt(value) || 0;
+    const remainder = Math.max(total - numVal, 0);
+
+    const data = [
+        { name: label, value: numVal, fill: accent },
+        { name: 'Remaining', value: remainder, fill: trackColor || `${accent}18` },
+    ];
+
+    const renderInnerLabel = ({ cx, cy }) => (
+        <>
+            <text x={cx} y={cy - 6} textAnchor="middle" fill={accent} fontWeight={900} fontSize={20} fontVariantNumeric="tabular-nums">{numVal}</text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontWeight={700} fontSize={9.5}>of {total}</text>
+        </>
+    );
+
+    const pct = total > 0 ? ((numVal / total) * 100).toFixed(0) : 0;
+
+    return (
+        <Box sx={{
+            ...G.card, borderRadius: '20px', p: 2.2, height: '100%',
+            position: 'relative', overflow: 'hidden',
+            transition: 'all 0.26s ease',
+            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
+            '&::after': {
+                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                borderRadius: '20px 20px 0 0',
+                background: `linear-gradient(90deg, ${accent}, ${accent}55)`,
+            },
+            '&::before': {
+                content: '""', position: 'absolute', top: -24, right: -24,
+                width: 70, height: 70, borderRadius: '50%', background: `${accent}0c`, zIndex: 0
+            },
+        }}>
+            {loading ? (
+                <Skeleton variant="rounded" height={190} sx={{ borderRadius: '16px' }} />
+            ) : (
+                <Stack spacing={0.5} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
+                    {/* Header */}
+                    <Stack direction="row" alignItems="center" spacing={0.8} sx={{ alignSelf: 'flex-start', width: '100%' }}>
+                        <Box sx={{
+                            width: 30, height: 30, borderRadius: '9px',
+                            bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                            {icon}
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
+                                sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
+                                {label}
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.58rem', color: 'rgba(100,116,139,0.8)', fontWeight: 600 }}>
+                                {subtitle || `${pct}% of working days`}
+                            </Typography>
+                        </Box>
+                    </Stack>
+
+                    {/* Donut chart */}
+                    <ResponsiveContainer width="100%" height={130}>
+                        <PieChart>
+                            <defs>
+                                <linearGradient id={`donut-grad-${label.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={accent} stopOpacity={1} />
+                                    <stop offset="100%" stopColor={accent} stopOpacity={0.65} />
+                                </linearGradient>
+                            </defs>
+                            <Pie
+                                data={data}
+                                cx="50%" cy="50%"
+                                innerRadius="52%" outerRadius="78%"
+                                paddingAngle={3}
+                                dataKey="value"
+                                animationBegin={100}
+                                animationDuration={900}
+                                stroke="none"
+                                labelLine={false}
+                                label={renderInnerLabel}
+                            >
+                                <Cell fill={`url(#donut-grad-${label.replace(/\s/g, '')})`} />
+                                <Cell fill={trackColor || `${accent}15`} />
+                            </Pie>
+                            <RTooltip content={<GlassTooltip />} />
+                        </PieChart>
+                    </ResponsiveContainer>
+
+                    {/* Description */}
+                    <Typography variant="caption" color="text.secondary" textAlign="center"
+                        sx={{ fontSize: '0.67rem', lineHeight: 1.45 }}>
+                        {description}
+                    </Typography>
+                </Stack>
+            )}
+        </Box>
+    );
+};
+
+/* ══ WEEKLY HOURS BAR CARD ═══════════════════════════════════════════════════
+   Horizontal segmented bar vs 40h target with per-day breakdown feel
+════════════════════════════════════════════════════════════════════════════ */
+const WeeklyHoursCard = ({ value, loading }) => {
+    const numVal = parseFloat(value) || 0;
+    const target = 40;
+    const pct = Math.min((numVal / target) * 100, 100).toFixed(0);
+    const remaining = Math.max(target - numVal, 0).toFixed(1);
+    const accent = colorPalette.oceanBlue;
+
+    // Simulate daily distribution for the bar chart
+    const dailyData = [
+        { day: 'Mon', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
+        { day: 'Tue', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
+        { day: 'Wed', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
+        { day: 'Thu', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
+        { day: 'Fri', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
+    ];
+
+    const statusColor = numVal >= 38 ? '#22c55e' : numVal >= 28 ? '#f59e0b' : '#ef4444';
+    const statusText = numVal >= 38 ? 'On track ✓' : numVal >= 28 ? 'In progress' : 'Behind target';
+
+    return (
+        <Box sx={{
+            ...G.card, borderRadius: '20px', p: 2.2,
+            position: 'relative', overflow: 'hidden',
+            transition: 'all 0.26s ease',
+            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
+            '&::after': {
+                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                borderRadius: '20px 20px 0 0',
+                background: `linear-gradient(90deg, ${accent}, ${colorPalette.aquaVibrant})`,
+            },
+        }}>
+            {loading ? <Skeleton variant="rounded" height={180} sx={{ borderRadius: '16px' }} /> : (
+                <Stack spacing={1.5}>
+                    {/* Header */}
+                    <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                        <Stack direction="row" alignItems="center" spacing={0.8}>
+                            <Box sx={{
+                                width: 30, height: 30, borderRadius: '9px',
+                                bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <AccessTime sx={{ color: accent, fontSize: '0.95rem' }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
+                                    sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
+                                    Weekly Hours
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontSize: '0.58rem', color: statusColor, fontWeight: 700 }}>
+                                    {statusText}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                        <Box sx={{ textAlign: 'right' }}>
+                            <Typography fontWeight={900} sx={{ fontSize: '1.4rem', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                                {numVal}<span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700 }}>h</span>
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#94a3b8' }}>/ {target}h target</Typography>
+                        </Box>
+                    </Stack>
+
+                    {/* Estimated daily hours bar chart */}
+                    <ResponsiveContainer width="100%" height={80}>
+                        <BarChart data={dailyData} margin={{ top: 2, right: 2, left: -30, bottom: 0 }} barCategoryGap="20%">
+                            <defs>
+                                <linearGradient id="weekHrsGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={colorPalette.aquaVibrant} stopOpacity={0.95} />
+                                    <stop offset="100%" stopColor={colorPalette.oceanBlue} stopOpacity={0.55} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                            <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 10]} />
+                            <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
+                            {/* Target line as reference bar */}
+                            <Bar dataKey={() => 9} fill="rgba(10,61,98,0.08)" radius={[3, 3, 0, 0]} name="Daily target (9h)" animationDuration={400} />
+                            <Bar dataKey="hours" fill="url(#weekHrsGrad)" radius={[5, 5, 0, 0]} name="Hours" animationDuration={900} animationBegin={200} />
+                        </BarChart>
+                    </ResponsiveContainer>
+
+                    {/* Segmented progress track */}
+                    <Stack spacing={0.5}>
+                        <Stack direction="row" justifyContent="space-between">
+                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.63rem' }}>{pct}% complete</Typography>
+                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.63rem' }}>{remaining}h remaining</Typography>
+                        </Stack>
+                        <Box sx={{ height: 7, borderRadius: 99, bgcolor: `${accent}12`, overflow: 'hidden' }}>
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 1.3, ease: [0.4, 0, 0.2, 1], delay: 0.3 }}
+                                style={{
+                                    height: '100%',
+                                    background: `linear-gradient(90deg, ${colorPalette.oceanBlue}, ${colorPalette.aquaVibrant})`,
+                                    borderRadius: 99,
+                                }}
+                            />
+                        </Box>
+                    </Stack>
+
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.67rem', lineHeight: 1.45 }}>
+                        Track your weekly logged hours against the standard 40-hour work schedule.
+                    </Typography>
+                </Stack>
+            )}
+        </Box>
+    );
+};
+
+/* ══ COMBINED OVERVIEW BARCHART ═════════════════════════════════════════════
+   All 4 day-count metrics in one grouped bar for quick at-a-glance comparison
+════════════════════════════════════════════════════════════════════════════ */
+const AttendanceOverviewBar = ({ m, loading }) => {
+    const data = [
+        { name: 'Present', value: m?.presentDays || 0, fill: colorPalette.seafoamGreen },
+        { name: 'Absent', value: m?.absentDays || 0, fill: colorPalette.coralSunset },
+        { name: 'Half Days', value: m?.halfDays || 0, fill: '#f59e0b' },
+        { name: 'Late', value: m?.lateDays || 0, fill: '#8b5cf6' },
+    ];
+
+    return (
+        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.5 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                    <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.aquaVibrant }} />
+                    <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Monthly At-a-Glance</Typography>
+                    <Chip label={new Date().toLocaleString('default', { month: 'short' })} size="small"
+                        sx={{ height: 20, fontSize: '0.63rem', fontWeight: 700, bgcolor: `${colorPalette.aquaVibrant}12`, color: colorPalette.aquaVibrant, borderRadius: '6px' }} />
+                </Stack>
+            </Stack>
+            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>
+                Side-by-side comparison of all attendance day categories this month
+            </Typography>
+            {loading ? <Skeleton variant="rounded" height={150} sx={{ borderRadius: '12px' }} /> : (
+                <ResponsiveContainer width="100%" height={145}>
+                    <BarChart data={data} layout="vertical" margin={{ top: 0, right: 36, left: 4, bottom: 0 }}>
+                        <defs>
+                            {[colorPalette.seafoamGreen, colorPalette.coralSunset, '#f59e0b', '#8b5cf6'].map((c, i) => (
+                                <linearGradient key={i} id={`ovGrad${i}`} x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor={c} stopOpacity={0.92} />
+                                    <stop offset="100%" stopColor={c} stopOpacity={0.55} />
+                                </linearGradient>
+                            ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <YAxis type="category" dataKey="name"
+                            tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                            axisLine={false} tickLine={false} width={62} />
+                        <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
+                        <Bar dataKey="value" radius={[0, 8, 8, 0]} name="Days" animationDuration={900} animationBegin={200}
+                            label={{ position: 'right', fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}>
+                            {data.map((_, i) => <Cell key={i} fill={`url(#ovGrad${i})`} />)}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            )}
+        </Box>
+    );
+};
+
+/* ══ CHARTS SECTION (left column) ══════════════════════════════════════════ */
 const DashboardCharts = ({ stats, history }) => {
-    /* ── Pie: attendance status split ── */
     const pieData = (() => {
         const counts = { Present: 0, Halfday: 0, Late: 0 };
         history.forEach(r => {
@@ -210,36 +535,29 @@ const DashboardCharts = ({ stats, history }) => {
         ].filter(d => d.value > 0);
     })();
 
-    /* ── Bar: daily hours last 7 days ── */
     const barData = [...history].slice(0, 7).reverse().map(r => ({
         date: r.date?.slice(0, 5) || '',
         hours: r.hours !== '—' ? parseFloat(r.hours) : 0,
         target: 9,
     }));
 
-    /* ── Bar: weekly summary tiles ── */
-    const w = stats?.weekly;
-    const m = stats?.monthly;
-    const summaryBar = [
-        { name: 'Present', value: m?.presentDays || 0, fill: colorPalette.seafoamGreen },
-        { name: 'Halfday', value: m?.halfDays || 0, fill: '#f59e0b' },
-        { name: 'Absent', value: m?.absentDays || 0, fill: colorPalette.coralSunset },
-        { name: 'Late', value: m?.lateDays || 0, fill: '#8b5cf6' },
-    ];
-
     const renderDonutLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
         if (percent < 0.1) return null;
         const R = Math.PI / 180;
         const r = innerRadius + (outerRadius - innerRadius) * 0.56;
-        return <text x={cx + r * Math.cos(-midAngle * R)} y={cy + r * Math.sin(-midAngle * R)} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={900}>{`${(percent * 100).toFixed(0)}%`}</text>;
+        return (
+            <text x={cx + r * Math.cos(-midAngle * R)} y={cy + r * Math.sin(-midAngle * R)}
+                fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={900}>
+                {`${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
     };
 
     return (
         <Box mb={0} sx={{ position: 'relative', zIndex: 1 }}>
             <Reveal><SectionLabel accent={colorPalette.cyanFresh} chip="7-day view">At-a-Glance Charts</SectionLabel></Reveal>
             <Grid container spacing={2.5}>
-
-                {/* ── Donut ── */}
+                {/* Donut */}
                 <Grid item xs={12} sm={5}>
                     <Reveal delay={0}>
                         <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
@@ -247,7 +565,7 @@ const DashboardCharts = ({ stats, history }) => {
                                 <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.seafoamGreen }} />
                                 <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Week Status Split</Typography>
                             </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Last 7 clocking records</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Your last Last 7 clocking records from</Typography>
                             <Box sx={{ position: 'relative' }}>
                                 <ResponsiveContainer width="100%" height={190}>
                                     <PieChart>
@@ -259,23 +577,36 @@ const DashboardCharts = ({ stats, history }) => {
                                                 </radialGradient>
                                             ))}
                                         </defs>
-                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={84}
-                                            paddingAngle={4} dataKey="value"
-                                            animationBegin={200} animationDuration={900}
-                                            stroke="rgba(255,255,255,0.55)" strokeWidth={2.5}
-                                            labelLine={false} label={renderDonutLabel}>
-                                            {pieData.map((_, i) => <Cell key={i} fill={`url(#dg${i})`} />)}
+                                        <Pie
+                                            data={pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={55}
+                                            outerRadius={80}
+                                            paddingAngle={8}      /* Added more space to highlight the rounded ends */
+                                            cornerRadius={10}     /* This creates the rounded "pill" effect */
+                                            dataKey="value"
+                                            stroke="none"         /* Removes the thin white gap for a cleaner look */
+                                            label={renderDonutLabel}
+                                            labelLine={false}
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell
+                                                    key={`cell-${index}`}
+                                                    fill={`url(#dg${index})`}
+                                                    style={{ outline: 'none' }} // Prevents focus borders in some browsers
+                                                />
+                                            ))}
                                         </Pie>
                                         <RTooltip content={<GlassTooltip />} />
                                     </PieChart>
                                 </ResponsiveContainer>
-                                {/* centre */}
                                 <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
                                     <Typography variant="h5" fontWeight={900} color={colorPalette.deepNavy} sx={{ lineHeight: 1 }}>{history.length}</Typography>
                                     <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.65rem' }}>Records</Typography>
                                 </Box>
                             </Box>
-                            <Stack spacing={0.8} mt={0.5}>
+                            <Stack direction={'row'} justifyContent={'center'} spacing={2} mt={0.5}>
                                 {pieData.map(item => (
                                     <Stack key={item.name} direction="row" alignItems="center" justifyContent="space-between">
                                         <Stack direction="row" alignItems="center" spacing={1}>
@@ -290,7 +621,7 @@ const DashboardCharts = ({ stats, history }) => {
                     </Reveal>
                 </Grid>
 
-                {/* ── Daily Hours Bar ── */}
+                {/* Daily Hours Bar */}
                 <Grid item xs={12} sm={7}>
                     <Reveal delay={0.08}>
                         <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
@@ -329,40 +660,6 @@ const DashboardCharts = ({ stats, history }) => {
                         </Box>
                     </Reveal>
                 </Grid>
-
-                {/* ── Monthly Summary Bar ── */}
-                <Grid item xs={12}>
-                    <Reveal delay={0.14}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
-                            <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                                <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: '#f59e0b' }} />
-                                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Monthly Breakdown</Typography>
-                                <Chip label={new Date().toLocaleString('default', { month: 'long' })} size="small" sx={{ height: 20, fontSize: '0.63rem', fontWeight: 700, bgcolor: '#f59e0b14', color: '#d97706', borderRadius: '6px' }} />
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Days present, halfday, absent and late arrivals this month</Typography>
-                            <ResponsiveContainer width="100%" height={130}>
-                                <BarChart data={summaryBar} layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 0 }}>
-                                    <defs>
-                                        {[colorPalette.seafoamGreen, '#f59e0b', colorPalette.coralSunset, '#8b5cf6'].map((c, i) => (
-                                            <linearGradient key={i} id={`sbGrad${i}`} x1="0" y1="0" x2="1" y2="0">
-                                                <stop offset="0%" stopColor={c} stopOpacity={0.9} />
-                                                <stop offset="100%" stopColor={c} stopOpacity={0.6} />
-                                            </linearGradient>
-                                        ))}
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" horizontal={false} />
-                                    <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }} axisLine={false} tickLine={false} width={56} />
-                                    <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
-                                    <Bar dataKey="value" radius={[0, 8, 8, 0]} name="Days" animationDuration={900} animationBegin={200}
-                                        label={{ position: 'right', fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}>
-                                        {summaryBar.map((_, i) => <Cell key={i} fill={`url(#sbGrad${i})`} />)}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Box>
-                    </Reveal>
-                </Grid>
             </Grid>
         </Box>
     );
@@ -380,7 +677,7 @@ const statusCfg = {
 };
 
 /* ══ MAIN COMPONENT ════════════════════════════════════════════════════════ */
-const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence }) => {
+const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence }) => {
     const dispatch = useDispatch();
     const theme = useTheme();
     const { user } = useSelector(s => s.currentUser);
@@ -395,10 +692,8 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
     const [recentAttendance, setRecentAttendance] = useState([]);
     const [userStats, setUserStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
-    const navigate = useNavigate()
+    const navigate = useNavigate();
 
-
-    /* ── fetch history ── */
     useEffect(() => {
         let alive = true;
         fetchClockingHistory(7).then(records => {
@@ -415,15 +710,15 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
         return () => { alive = false; };
     }, [isClockedIn]);
 
-    /* ── fetch stats ── */
     useEffect(() => {
         let alive = true;
         setStatsLoading(true);
-        fetchAttendanceStats().then(data => { if (alive) { setUserStats(data); setStatsLoading(false); } }).catch(() => { if (alive) setStatsLoading(false); });
+        fetchAttendanceStats()
+            .then(data => { if (alive) { setUserStats(data); setStatsLoading(false); } })
+            .catch(() => { if (alive) setStatsLoading(false); });
         return () => { alive = false; };
     }, []);
 
-    /* ── location ── */
     const requestLocation = () => {
         if (!navigator.geolocation) { notify('Geolocation not supported.', 'error'); return; }
         navigator.geolocation.getCurrentPosition(
@@ -438,13 +733,11 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
     };
     useEffect(() => { requestLocation(); }, [selectedStation.name]); // eslint-disable-line
 
-    /* ── step logic ── */
     const clockStepIndex = !userLocation || !isWithinGeofence ? 0 : !biometricRegistered ? 1 : 2;
     const locationLabel = userLocation
         ? isWithinGeofence ? 'Within KMFRI Premises ✓' : 'Outside Premises'
         : 'Location not verified';
 
-    /* ── biometrics ── */
     const handleRegisterFingerprint = async () => {
         try {
             setBiometricLoading(true);
@@ -453,15 +746,11 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
             if (updated?.doneBiometric) {
                 const fp = await getDeviceFingerprint();
                 const { deviceName, browser, os } = detectCurrentDevice();
-                // add this current device to the devices in the backend
                 await addNewDevice({ device_name: deviceName, device_os: os, device_browser: browser, device_fingerprint: fp });
                 setBiometricRegistered(true);
-                // fetch all user devices
-                const devices = await fetchMyDevices()
-                // update user redux
+                const devices = await fetchMyDevices();
                 dispatch(updateUserCurrentUserRedux(await getUserProfile()));
-                // update devices redux
-                dispatch(updateUserCurrentDeviceRedux(devices))
+                dispatch(updateUserCurrentDeviceRedux(devices));
                 notify('Fingerprint registered successfully!');
             } else throw new Error('Biometric registration incomplete.');
         } catch (err) { notify(`${err}`, 'error'); }
@@ -470,7 +759,6 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
 
     const handleClockInClockOut = async () => {
         try {
-
             setBiometricLoading(true);
             await verifyFingerprint(selectedStation.name);
             const updated = await getUserProfile();
@@ -481,16 +769,16 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
             const now = new Date();
             notify(`Thank you ${updated.name}, you clocked ${updated.hasClockedIn ? 'In' : 'Out'} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
         } catch (err) {
-           
             notify(`${err}`, 'error');
-        }
-        finally { setBiometricLoading(false); }
+        } finally { setBiometricLoading(false); }
     };
 
     const m = userStats?.monthly;
     const w = userStats?.weekly;
 
-    /* ══ RENDER ════════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════════════════════════
+       RENDER
+    ═══════════════════════════════════════════════════════════════════════ */
     return (
         <Box sx={{ width: '100%', position: 'relative' }}>
             <AmbientOrbs />
@@ -530,7 +818,6 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                             </Grid>
                         ))}
                     </Grid>
-                    {/* progress dots */}
                     <Stack direction="row" spacing={1} mt={2} alignItems="center" flexWrap="wrap" gap={0.5}>
                         <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.63rem' }}>YOUR PROGRESS:</Typography>
                         {['Location', 'Fingerprint', 'Ready'].map((step, i) => (
@@ -558,6 +845,8 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                 <Grid item xs={12} lg={7}>
                     <Stack spacing={3}>
 
+
+
                         {/* ── DARK CLOCK CARD ── */}
                         <Reveal>
                             <Box sx={{
@@ -567,7 +856,6 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                 p: { xs: 3, md: 4 },
                                 boxShadow: '0 20px 56px rgba(10,61,98,0.30)',
                             }}>
-                                {/* orbs inside clock */}
                                 <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
                                 <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
@@ -599,24 +887,49 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                             {AvailableStations.map(o => <MenuItem key={o.name} value={o.name}>{o.name}</MenuItem>)}
                                         </TextField>
 
-                                        {/* Step 0: verify location */}
                                         <AnimatePresence mode="wait">
+                                            {/* Step 0: verify location */}
                                             {clockStepIndex === 0 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="loc" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="loc"
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                    transition={{ duration: 0.28 }}>
                                                     <Button variant="outlined" fullWidth startIcon={<LocationOn />} onClick={requestLocation}
-                                                        sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.35)', py: 1.5, borderRadius: '14px', fontWeight: 800, letterSpacing: 0.4, backdropFilter: 'blur(8px)', bgcolor: 'rgba(255,255,255,0.07)', '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' } }}>
+                                                        sx={{
+                                                            color: '#fff', borderColor: 'rgba(255,255,255,0.35)',
+                                                            py: 1.5, borderRadius: '14px', fontWeight: 800, letterSpacing: 0.4,
+                                                            backdropFilter: 'blur(8px)', bgcolor: 'rgba(255,255,255,0.07)',
+                                                            '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' }
+                                                        }}>
                                                         Verify Location
                                                     </Button>
                                                 </motion.div>
                                             )}
 
-                                            {/* Step 1: register fingerprint */}
+                                            {/* Step 1: register fingerprint — ANIMATED GLOW */}
                                             {clockStepIndex === 1 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="fp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
-                                                    <Box sx={{ p: 2.5, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)', border: '1px dashed rgba(255,255,255,0.30)', backdropFilter: 'blur(8px)' }}>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="fp"
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                    transition={{ duration: 0.28 }}>
+                                                    <Box sx={{
+                                                        p: 2.5, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)',
+                                                        border: '1px dashed rgba(255,255,255,0.30)', backdropFilter: 'blur(8px)'
+                                                    }}>
                                                         <Stack spacing={1.5} alignItems="center" textAlign="center">
-                                                            <Box sx={{ width: 48, height: 48, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.18)' }}>
-                                                                <Fingerprint sx={{ fontSize: '1.8rem', color: 'rgba(255,255,255,0.85)' }} />
+                                                            {/* Animated fingerprint icon */}
+                                                            <Box sx={{
+                                                                width: 56, height: 56, borderRadius: '16px',
+                                                                bgcolor: 'rgba(255,255,255,0.10)',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                border: '1px solid rgba(255,255,255,0.18)',
+                                                                position: 'relative',
+                                                                animation: 'fpIconPulse 2.4s ease-in-out infinite',
+                                                                '@keyframes fpIconPulse': {
+                                                                    '0%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}55` },
+                                                                    '50%': { boxShadow: `0 0 0 10px ${colorPalette.seafoamGreen}00` },
+                                                                    '100%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}00` },
+                                                                },
+                                                            }}>
+                                                                <Fingerprint sx={{ fontSize: '1.8rem', color: 'rgba(255,255,255,0.90)' }} />
                                                             </Box>
                                                             <Box>
                                                                 <Typography fontWeight={900} sx={{ fontSize: '0.92rem', color: '#fff', mb: 0.4 }}>Fingerprint Required</Typography>
@@ -624,34 +937,142 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                                                     Register once to enable secure clocking at all KMFRI stations.
                                                                 </Typography>
                                                             </Box>
-                                                            <Button variant="contained" fullWidth disabled={biometricLoading} onClick={handleRegisterFingerprint}
-                                                                startIcon={biometricLoading ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <Fingerprint />}
-                                                                sx={{ bgcolor: colorPalette.seafoamGreen, color: '#fff', fontWeight: 900, borderRadius: '12px', py: 1.25, boxShadow: `0 6px 22px ${colorPalette.seafoamGreen}50`, '&:hover': { bgcolor: '#1ea876' }, '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.38)' } }}>
-                                                                {biometricLoading ? 'Registering…' : 'Register Fingerprint'}
-                                                            </Button>
+
+                                                            {/* GLOWING REGISTER BUTTON */}
+                                                            <Box sx={{ width: '100%', position: 'relative' }}>
+                                                                {/* Glow halo layer */}
+                                                                {!biometricLoading && (
+                                                                    <Box sx={{
+                                                                        position: 'absolute', inset: -3, borderRadius: '15px', zIndex: 0,
+                                                                        background: `${colorPalette.seafoamGreen}40`,
+                                                                        filter: 'blur(8px)',
+                                                                        animation: 'registerGlow 2s ease-in-out infinite',
+                                                                        '@keyframes registerGlow': {
+                                                                            '0%': { opacity: 0.5, transform: 'scale(0.97)' },
+                                                                            '50%': { opacity: 1, transform: 'scale(1.01)' },
+                                                                            '100%': { opacity: 0.5, transform: 'scale(0.97)' },
+                                                                        },
+                                                                    }} />
+                                                                )}
+                                                                <Button
+                                                                    variant="contained"
+                                                                    fullWidth
+                                                                    disabled={biometricLoading}
+                                                                    onClick={handleRegisterFingerprint}
+                                                                    startIcon={biometricLoading
+                                                                        ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                                                        : <Fingerprint sx={{
+                                                                            animation: biometricLoading ? 'none' : 'fpSpin 3s linear infinite',
+                                                                            '@keyframes fpSpin': {
+                                                                                '0%': { transform: 'scale(1)' },
+                                                                                '50%': { transform: 'scale(1.18)' },
+                                                                                '100%': { transform: 'scale(1)' },
+                                                                            }
+                                                                        }} />
+                                                                    }
+                                                                    sx={{
+                                                                        position: 'relative', zIndex: 1,
+                                                                        bgcolor: colorPalette.seafoamGreen, color: '#fff',
+                                                                        fontWeight: 900, borderRadius: '12px', py: 1.35,
+                                                                        letterSpacing: 0.5,
+                                                                        boxShadow: `0 6px 22px ${colorPalette.seafoamGreen}55`,
+                                                                        transition: 'all 0.22s ease',
+                                                                        '&:hover': {
+                                                                            bgcolor: '#1ea876',
+                                                                            boxShadow: `0 10px 32px ${colorPalette.seafoamGreen}77`,
+                                                                            transform: 'translateY(-2px)',
+                                                                        },
+                                                                        '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.38)' }
+                                                                    }}>
+                                                                    {biometricLoading ? 'Registering…' : 'Register Fingerprint'}
+                                                                </Button>
+                                                            </Box>
                                                         </Stack>
                                                     </Box>
                                                 </motion.div>
                                             )}
 
-                                            {/* Step 2: clock in/out */}
+                                            {/* Step 2: clock in/out — ANIMATED GLOW */}
                                             {clockStepIndex === 2 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="clock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
-                                                    <Button variant="contained" fullWidth onClick={handleClockInClockOut} disabled={biometricLoading}
-                                                        startIcon={biometricLoading ? <CircularProgress size={15} sx={{ color: colorPalette.deepNavy }} /> : <Fingerprint />}
-                                                        sx={{
-                                                            bgcolor: isClockedIn && isToClockOut ? colorPalette.seafoamGreen : colorPalette.aquaVibrant,
-                                                            color: isClockedIn && isToClockOut ? '#fff' : colorPalette.deepNavy,
-                                                            py: 1.7, borderRadius: '14px', fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.8,
-                                                            boxShadow: `0 8px 28px ${colorPalette.aquaVibrant}55`,
-                                                            transition: 'all 0.22s ease',
-                                                            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 12px 36px ${colorPalette.aquaVibrant}66` },
-                                                            '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.38)' },
-                                                        }}>
-                                                        {biometricLoading
-                                                            ? (isClockedIn && isToClockOut ? 'Clocking Out…' : 'Clocking In…')
-                                                            : (isClockedIn && isToClockOut ? 'SCAN TO CLOCK OUT' : 'SCAN TO CLOCK IN')}
-                                                    </Button>
+                                                <motion.div style={{ willChange: 'transform, opacity' }} key="clock"
+                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                    transition={{ duration: 0.28 }}>
+
+                                                    <Box sx={{ position: 'relative', width: '100%' }}>
+                                                        {/* Animated glow aura */}
+                                                        {!biometricLoading && (
+                                                            <Box sx={{
+                                                                position: 'absolute', inset: -4, borderRadius: '18px', zIndex: 0,
+                                                                background: isClockedIn && isToClockOut
+                                                                    ? `${colorPalette.seafoamGreen}45`
+                                                                    : `${colorPalette.aquaVibrant}45`,
+                                                                filter: 'blur(10px)',
+                                                                animation: 'clockGlow 2.2s ease-in-out infinite',
+                                                                '@keyframes clockGlow': {
+                                                                    '0%': { opacity: 0.55, transform: 'scale(0.96)' },
+                                                                    '50%': { opacity: 1, transform: 'scale(1.02)' },
+                                                                    '100%': { opacity: 0.55, transform: 'scale(0.96)' },
+                                                                },
+                                                            }} />
+                                                        )}
+
+                                                        {/* Secondary shimmer ring */}
+                                                        {!biometricLoading && (
+                                                            <Box sx={{
+                                                                position: 'absolute', inset: -8, borderRadius: '22px', zIndex: 0,
+                                                                background: isClockedIn && isToClockOut
+                                                                    ? `${colorPalette.seafoamGreen}20`
+                                                                    : `${colorPalette.aquaVibrant}20`,
+                                                                filter: 'blur(16px)',
+                                                                animation: 'clockGlow2 2.2s ease-in-out infinite 0.4s',
+                                                                '@keyframes clockGlow2': {
+                                                                    '0%': { opacity: 0.3, transform: 'scale(0.94)' },
+                                                                    '50%': { opacity: 0.85, transform: 'scale(1.04)' },
+                                                                    '100%': { opacity: 0.3, transform: 'scale(0.94)' },
+                                                                },
+                                                            }} />
+                                                        )}
+
+                                                        <Button
+                                                            variant="contained"
+                                                            fullWidth
+                                                            onClick={handleClockInClockOut}
+                                                            disabled={biometricLoading}
+                                                            startIcon={biometricLoading
+                                                                ? <CircularProgress size={15} sx={{ color: colorPalette.deepNavy }} />
+                                                                : <Fingerprint sx={{
+                                                                    fontSize: '1.3rem !important',
+                                                                    animation: biometricLoading ? 'none' : 'scanPulse 1.8s ease-in-out infinite',
+                                                                    '@keyframes scanPulse': {
+                                                                        '0%': { transform: 'scale(1)', opacity: 1 },
+                                                                        '50%': { transform: 'scale(1.22)', opacity: 0.85 },
+                                                                        '100%': { transform: 'scale(1)', opacity: 1 },
+                                                                    }
+                                                                }} />
+                                                            }
+                                                            sx={{
+                                                                position: 'relative', zIndex: 1,
+                                                                bgcolor: isClockedIn && isToClockOut ? colorPalette.seafoamGreen : colorPalette.aquaVibrant,
+                                                                color: isClockedIn && isToClockOut ? '#fff' : colorPalette.deepNavy,
+                                                                py: 1.8, borderRadius: '14px',
+                                                                fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
+                                                                boxShadow: isClockedIn && isToClockOut
+                                                                    ? `0 8px 28px ${colorPalette.seafoamGreen}55`
+                                                                    : `0 8px 28px ${colorPalette.aquaVibrant}55`,
+                                                                transition: 'all 0.22s ease',
+                                                                '&:hover': {
+                                                                    transform: 'translateY(-2px)',
+                                                                    boxShadow: isClockedIn && isToClockOut
+                                                                        ? `0 14px 40px ${colorPalette.seafoamGreen}77`
+                                                                        : `0 14px 40px ${colorPalette.aquaVibrant}77`,
+                                                                },
+                                                                '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.38)' },
+                                                            }}>
+                                                            {biometricLoading
+                                                                ? (isClockedIn && isToClockOut ? 'Clocking Out…' : 'Clocking In…')
+                                                                : (isClockedIn && isToClockOut ? 'SCAN TO CLOCK OUT' : 'SCAN TO CLOCK IN')}
+                                                        </Button>
+                                                    </Box>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -659,11 +1080,6 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                 </Stack>
                             </Box>
                         </Reveal>
-
-                        {/* ── CHARTS ── */}
-                        {recentAttendance.length > 0 && userStats && (
-                            <DashboardCharts stats={userStats} history={recentAttendance} />
-                        )}
 
                         {/* ── RECENT ATTENDANCE TABLE ── */}
                         <Reveal>
@@ -690,7 +1106,9 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                                         </Stack>
                                                     </TableCell></TableRow>
                                                     : recentAttendance.map((row, idx) => (
-                                                        <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04, duration: 0.25 }} style={{ display: 'table-row', willChange: 'transform, opacity' }}>
+                                                        <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                                                            transition={{ delay: idx * 0.04, duration: 0.25 }}
+                                                            style={{ display: 'table-row', willChange: 'transform, opacity' }}>
                                                             <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, fontSize: '0.82rem', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.date}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>
@@ -711,64 +1129,140 @@ const DashboardContent = ({ currentTime, userLocation, setUserLocation, isWithin
                                 </Box>
                             </Box>
                         </Reveal>
+
+                        {/* ── Weekly Hours bar card (full width) ── */}
+                        <Reveal delay={0.20}>
+                            <WeeklyHoursCard
+                                value={w?.totalHours}
+                                loading={statsLoading}
+                            />
+                        </Reveal>
+
+                        {/* ── CHARTS ── */}
+                        {recentAttendance.length > 0 && userStats && (
+                            <DashboardCharts stats={userStats} history={recentAttendance} />
+                        )}
                     </Stack>
                 </Grid>
 
-                {/* ── RIGHT COLUMN — STATS ─────────────────────────────────── */}
+                {/* ── RIGHT COLUMN — STAT CHARTS ──────────────────────────── */}
                 <Grid item xs={12} lg={5}>
-                    <Stack spacing={2.5}>
+                    <Stack spacing={2}>
+
                         <Reveal>
                             <SectionLabel accent={colorPalette.aquaVibrant} chip={`${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`}>
-                                My Dashboard
+                                Overview Statistics
                             </SectionLabel>
                         </Reveal>
 
-                        {/* Present / Absent */}
-                        <Grid container spacing={2}>
-                            {[
-                                { label: 'Days Present', value: safe(m?.presentDays), subtitle: 'This month', icon: <CheckCircle sx={{ color: colorPalette.seafoamGreen, fontSize: '1.25rem' }} />, accent: colorPalette.seafoamGreen, trend: 2, trendLabel: '+2 vs last', progress: m?.attendanceRate },
-                                { label: 'Absent Days', value: safe(m?.absentDays), subtitle: 'This month', icon: <CalendarMonth sx={{ color: colorPalette.coralSunset, fontSize: '1.25rem' }} />, accent: colorPalette.coralSunset, trend: -1, trendLabel: '-1 vs last' },
-                            ].map((c, i) => (
-                                <Grid item xs={6} key={c.label}><Reveal delay={i * 0.07}>{statsLoading ? <Skeleton variant="rounded" height={140} sx={{ borderRadius: '20px' }} /> : <StatCard {...c} />}</Reveal></Grid>
-                            ))}
-                        </Grid>
-
-                        {/* Half days / Late */}
-                        <Grid container spacing={2}>
-                            {[
-                                { label: 'Half Days', value: safe(m?.halfDays), subtitle: 'Partial shifts', icon: <AccessTime sx={{ color: '#f59e0b', fontSize: '1.25rem' }} />, accent: '#f59e0b' },
-                                { label: 'Late Arrivals', value: safe(m?.lateDays), subtitle: 'This month', icon: <WorkHistory sx={{ color: '#8b5cf6', fontSize: '1.25rem' }} />, accent: '#8b5cf6' },
-                            ].map((c, i) => (
-                                <Grid item xs={6} key={c.label}><Reveal delay={i * 0.07}>{statsLoading ? <Skeleton variant="rounded" height={130} sx={{ borderRadius: '20px' }} /> : <StatCard {...c} />}</Reveal></Grid>
-                            ))}
-                        </Grid>
-
-                        {/* Weekly Hours */}
-                        <Reveal>
-                            {statsLoading
-                                ? <Skeleton variant="rounded" height={145} sx={{ borderRadius: '20px' }} />
-                                : <StatCard label="Weekly Hours Worked"
-                                    value={w?.totalHours ? `${w.totalHours} hrs` : '—'}
-                                    subtitle="Target: 40 hrs / week"
-                                    icon={<AccessTime sx={{ color: colorPalette.oceanBlue, fontSize: '1.3rem' }} />}
-                                    accent={colorPalette.oceanBlue} trend={5} trendLabel="+2.5h vs last"
-                                    progress={w?.totalHours ? ((w.totalHours / 40) * 100).toFixed(0) : null} />
-                            }
+                        {/* ── Overview combined bar ── */}
+                        <Reveal delay={0.04}>
+                            <AttendanceOverviewBar m={m} loading={statsLoading} />
                         </Reveal>
 
-                        {/* Punctuality / Attendance rate */}
+                        {/* ── Days Present + Absent Donut row ── */}
                         <Grid container spacing={2}>
-                            {[
-                                { label: 'Punctuality', value: m?.punctualityRate != null ? `${m.punctualityRate}%` : '—', subtitle: 'On-time arrivals', icon: <EmojiEvents sx={{ color: '#f59e0b', fontSize: '1.25rem' }} />, accent: '#f59e0b', progress: m?.punctualityRate },
-                                { label: 'Attendance Rate', value: m?.attendanceRate != null ? `${m.attendanceRate}%` : '—', subtitle: 'Days covered', icon: <WorkHistory sx={{ color: colorPalette.aquaVibrant, fontSize: '1.25rem' }} />, accent: colorPalette.aquaVibrant, progress: m?.attendanceRate },
-                            ].map((c, i) => (
-                                <Grid item xs={6} key={c.label}><Reveal delay={i * 0.07}>{statsLoading ? <Skeleton variant="rounded" height={150} sx={{ borderRadius: '20px' }} /> : <StatCard {...c} />}</Reveal></Grid>
-                            ))}
+                            <Grid item xs={6}>
+                                <Reveal delay={0.06}>
+                                    <DonutCountCard
+                                        label="Days Present"
+                                        value={m?.presentDays}
+                                        total={22}
+                                        accent={colorPalette.seafoamGreen}
+                                        trackColor="rgba(34,197,94,0.10)"
+                                        icon={<CheckCircle sx={{ color: colorPalette.seafoamGreen, fontSize: '0.95rem' }} />}
+                                        description="Days you reported and clocked in this month."
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Reveal delay={0.10}>
+                                    <DonutCountCard
+                                        label="Absent Days"
+                                        value={m?.absentDays}
+                                        total={22}
+                                        accent={colorPalette.coralSunset}
+                                        trackColor="rgba(239,68,68,0.10)"
+                                        icon={<CalendarMonth sx={{ color: colorPalette.coralSunset, fontSize: '0.95rem' }} />}
+                                        description="Days with no clocking record this month."
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
                         </Grid>
 
-                        {/* Monthly summary dark card */}
-                        <Reveal>
-                            <Box sx={{ borderRadius: '22px', background: G.clockBg, color: '#fff', p: 3, position: 'relative', overflow: 'hidden', boxShadow: '0 14px 44px rgba(10,61,98,0.28)' }}>
+                        {/* ── Half Days + Late Arrivals Donut row ── */}
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <Reveal delay={0.13}>
+                                    <DonutCountCard
+                                        label="Half Days"
+                                        value={m?.halfDays}
+                                        total={22}
+                                        accent="#f59e0b"
+                                        trackColor="rgba(245,158,11,0.10)"
+                                        icon={<AccessTime sx={{ color: '#f59e0b', fontSize: '0.95rem' }} />}
+                                        description="Partial shifts — clocked out before full shift."
+                                        subtitle="Partial shifts this month"
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Reveal delay={0.17}>
+                                    <DonutCountCard
+                                        label="Late Arrivals"
+                                        value={m?.lateDays}
+                                        total={m?.presentDays || 22}
+                                        accent="#8b5cf6"
+                                        trackColor="rgba(139,92,246,0.10)"
+                                        icon={<WorkHistory sx={{ color: '#8b5cf6', fontSize: '0.95rem' }} />}
+                                        description="Days you clocked in after the start time."
+                                        subtitle="of present days"
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
+                        </Grid>
+
+
+
+                        {/* ── Punctuality + Attendance Rate radial gauges ── */}
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <Reveal delay={0.23}>
+                                    <RadialGaugeCard
+                                        label="Punctuality"
+                                        value={m?.punctualityRate}
+                                        accent="#f59e0b"
+                                        icon={<EmojiEvents sx={{ color: '#f59e0b', fontSize: '0.95rem' }} />}
+                                        description="Percentage of days you arrived on time or early."
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Reveal delay={0.27}>
+                                    <RadialGaugeCard
+                                        label="Attendance Rate"
+                                        value={m?.attendanceRate}
+                                        accent={colorPalette.aquaVibrant}
+                                        icon={<WorkHistory sx={{ color: colorPalette.aquaVibrant, fontSize: '0.95rem' }} />}
+                                        description="Total days present out of expected working days."
+                                        loading={statsLoading}
+                                    />
+                                </Reveal>
+                            </Grid>
+                        </Grid>
+
+                        {/* ── Monthly summary dark card (kept as-is) ── */}
+                        <Reveal delay={0.30}>
+                            <Box sx={{
+                                borderRadius: '22px', background: G.clockBg,
+                                color: '#fff', p: 3, position: 'relative', overflow: 'hidden',
+                                boxShadow: '0 14px 44px rgba(10,61,98,0.28)'
+                            }}>
                                 <Box sx={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(30px)', pointerEvents: 'none' }} />
                                 <Box sx={{ position: 'absolute', bottom: -30, left: -30, width: 110, height: 110, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(24px)', pointerEvents: 'none' }} />
                                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ position: 'relative', zIndex: 1 }}>
