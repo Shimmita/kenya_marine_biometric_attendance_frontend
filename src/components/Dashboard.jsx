@@ -368,9 +368,9 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
     const baseItems = [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-        { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
-        { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
-        { text: 'Request Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+        // { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
+        // { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
+        { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
     ];
     const adminItems = [
         { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
@@ -560,7 +560,7 @@ const EnhancedDashboard = () => {
             { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
             { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
             { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
-            { text: 'Request Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
         ];
         const admin = isElevated ? [
             { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
@@ -594,7 +594,7 @@ const EnhancedDashboard = () => {
             case 'Attendance History': return <AttendanceHistoryContent {...sp} />;
             case 'Analytics & Reports': return <AnalyticsReportsContent {...sp} />;
             case 'Department Structure': return <DepartmentStructureContent {...sp} />;
-            case 'Request Leave': return <LeaveManagementContent {...sp} />;
+            case 'Request for Leave': return <LeaveManagementContent {...sp} />;
             case 'Leave Management': return <AdminLeaveManager {...sp} />;
             case 'Notification Panel': return <NotificationManagementContent {...sp} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
@@ -616,7 +616,7 @@ const EnhancedDashboard = () => {
         'Tasks & Activities': 'Tasks & Activities',
         'Analytics & Reports': 'Analytics & Reports',
         'Department Structure': 'Department Structure',
-        'Request Leave': 'Request and Manage Your Leave',
+        'Request for Leave': 'Request and Manage Your Leave',
         'Leave Management': 'Administration Leave Management',
         'Notification Panel': 'Notification Management',
         'All User Requests': 'User Device Requests',
