@@ -1,5 +1,6 @@
 import {
-    AccessTime, BusinessCenter, CalendarMonth, CheckCircle,
+    AccessTime, BusinessCenter,
+    CheckCircle,
     EmojiEvents, FiberManualRecord, Fingerprint, History,
     InfoOutlined, LocationOn, QueryStats,
     WorkHistory
@@ -15,7 +16,6 @@ import {
 import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import {
     Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, RadialBar,
     RadialBarChart,
@@ -519,151 +519,7 @@ const AttendanceOverviewBar = ({ m, loading }) => {
     );
 };
 
-/* ══ CHARTS SECTION (left column) ══════════════════════════════════════════ */
-const DashboardCharts = ({ stats, history }) => {
-    const pieData = (() => {
-        const counts = { Present: 0, Halfday: 0, Late: 0 };
-        history.forEach(r => {
-            if (r.status === 'Present') counts.Present++;
-            else if (r.status === 'Halfday') counts.Halfday++;
-            if (r.timing === 'Late') counts.Late++;
-        });
-        return [
-            { name: 'Present', value: counts.Present, fill: colorPalette.seafoamGreen },
-            { name: 'Halfday', value: counts.Halfday, fill: '#f59e0b' },
-            { name: 'Late In', value: counts.Late, fill: colorPalette.coralSunset },
-        ].filter(d => d.value > 0);
-    })();
 
-    const barData = [...history].slice(0, 7).reverse().map(r => ({
-        date: r.date?.slice(0, 5) || '',
-        hours: r.hours !== '—' ? parseFloat(r.hours) : 0,
-        target: 9,
-    }));
-
-    const renderDonutLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-        if (percent < 0.1) return null;
-        const R = Math.PI / 180;
-        const r = innerRadius + (outerRadius - innerRadius) * 0.56;
-        return (
-            <text x={cx + r * Math.cos(-midAngle * R)} y={cy + r * Math.sin(-midAngle * R)}
-                fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={900}>
-                {`${(percent * 100).toFixed(0)}%`}
-            </text>
-        );
-    };
-
-    return (
-        <Box mb={0} sx={{ position: 'relative', zIndex: 1 }}>
-            <Reveal><SectionLabel accent={colorPalette.cyanFresh} chip="7-day view">At-a-Glance Charts</SectionLabel></Reveal>
-            <Grid container spacing={2.5}>
-                {/* Donut */}
-                <Grid item xs={12} sm={5}>
-                    <Reveal delay={0}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
-                            <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                                <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.seafoamGreen }} />
-                                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Week Status Split</Typography>
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Your last Last 7 clocking records from</Typography>
-                            <Box sx={{ position: 'relative' }}>
-                                <ResponsiveContainer width="100%" height={190}>
-                                    <PieChart>
-                                        <defs>
-                                            {[colorPalette.seafoamGreen, '#f59e0b', colorPalette.coralSunset].map((c, i) => (
-                                                <radialGradient key={i} id={`dg${i}`} cx="50%" cy="50%" r="50%">
-                                                    <stop offset="0%" stopColor={c} stopOpacity={1} />
-                                                    <stop offset="100%" stopColor={c} stopOpacity={0.72} />
-                                                </radialGradient>
-                                            ))}
-                                        </defs>
-                                        <Pie
-                                            data={pieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={55}
-                                            outerRadius={80}
-                                            paddingAngle={8}      /* Added more space to highlight the rounded ends */
-                                            cornerRadius={10}     /* This creates the rounded "pill" effect */
-                                            dataKey="value"
-                                            stroke="none"         /* Removes the thin white gap for a cleaner look */
-                                            label={renderDonutLabel}
-                                            labelLine={false}
-                                        >
-                                            {pieData.map((entry, index) => (
-                                                <Cell
-                                                    key={`cell-${index}`}
-                                                    fill={`url(#dg${index})`}
-                                                    style={{ outline: 'none' }} // Prevents focus borders in some browsers
-                                                />
-                                            ))}
-                                        </Pie>
-                                        <RTooltip content={<GlassTooltip />} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                                    <Typography variant="h5" fontWeight={900} color={colorPalette.deepNavy} sx={{ lineHeight: 1 }}>{history.length}</Typography>
-                                    <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.65rem' }}>Records</Typography>
-                                </Box>
-                            </Box>
-                            <Stack direction={'row'} justifyContent={'center'} spacing={2} mt={0.5}>
-                                {pieData.map(item => (
-                                    <Stack key={item.name} direction="row" alignItems="center" justifyContent="space-between">
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Box sx={{ width: 11, height: 11, borderRadius: '4px', bgcolor: item.fill }} />
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>{item.name}</Typography>
-                                        </Stack>
-                                        <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}>{item.value}</Typography>
-                                    </Stack>
-                                ))}
-                            </Stack>
-                        </Box>
-                    </Reveal>
-                </Grid>
-
-                {/* Daily Hours Bar */}
-                <Grid item xs={12} sm={7}>
-                    <Reveal delay={0.08}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
-                            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                    <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.oceanBlue }} />
-                                    <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Daily Hours</Typography>
-                                    <Chip label="vs 9h target" size="small" sx={{ height: 20, fontSize: '0.63rem', fontWeight: 700, bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue, borderRadius: '6px' }} />
-                                </Stack>
-                                <Stack direction="row" spacing={1.5}>
-                                    {[{ c: colorPalette.aquaVibrant, l: 'Logged' }, { c: 'rgba(10,61,98,0.13)', l: 'Target' }].map(({ c, l }) => (
-                                        <Stack key={l} direction="row" alignItems="center" spacing={0.5}>
-                                            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: c.startsWith('rgba') ? 'rgba(10,61,98,0.18)' : c }} />
-                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.63rem' }}>{l}</Typography>
-                                        </Stack>
-                                    ))}
-                                </Stack>
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Hours clocked per shift (last 7 days)</Typography>
-                            <ResponsiveContainer width="100%" height={185}>
-                                <BarChart data={barData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }} barCategoryGap="30%" barGap={2}>
-                                    <defs>
-                                        <linearGradient id="hrsGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={colorPalette.aquaVibrant} stopOpacity={0.95} />
-                                            <stop offset="100%" stopColor={colorPalette.oceanBlue} stopOpacity={0.65} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 12]} />
-                                    <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)', radius: [4, 4, 0, 0] }} />
-                                    <Bar dataKey="target" fill="rgba(10,61,98,0.10)" radius={[4, 4, 0, 0]} name="Target (9h)" animationDuration={600} />
-                                    <Bar dataKey="hours" fill="url(#hrsGrad)" radius={[7, 7, 0, 0]} name="Hours Logged" animationDuration={900} animationBegin={200} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Box>
-                    </Reveal>
-                </Grid>
-            </Grid>
-        </Box>
-    );
-};
 
 /* ══ STATUS CHIP ════════════════════════════════════════════════════════════ */
 const timingCfg = {
@@ -692,7 +548,6 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const [recentAttendance, setRecentAttendance] = useState([]);
     const [userStats, setUserStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
-    const navigate = useNavigate();
 
     useEffect(() => {
         let alive = true;
@@ -1138,10 +993,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                             />
                         </Reveal>
 
-                        {/* ── CHARTS ── */}
-                        {recentAttendance.length > 0 && userStats && (
-                            <DashboardCharts stats={userStats} history={recentAttendance} />
-                        )}
+
                     </Stack>
                 </Grid>
 
@@ -1160,37 +1012,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                             <AttendanceOverviewBar m={m} loading={statsLoading} />
                         </Reveal>
 
-                        {/* ── Days Present + Absent Donut row ── */}
-                        <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                                <Reveal delay={0.06}>
-                                    <DonutCountCard
-                                        label="Days Present"
-                                        value={m?.presentDays}
-                                        total={22}
-                                        accent={colorPalette.seafoamGreen}
-                                        trackColor="rgba(34,197,94,0.10)"
-                                        icon={<CheckCircle sx={{ color: colorPalette.seafoamGreen, fontSize: '0.95rem' }} />}
-                                        description="Days you reported and clocked in this month."
-                                        loading={statsLoading}
-                                    />
-                                </Reveal>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Reveal delay={0.10}>
-                                    <DonutCountCard
-                                        label="Absent Days"
-                                        value={m?.absentDays}
-                                        total={22}
-                                        accent={colorPalette.coralSunset}
-                                        trackColor="rgba(239,68,68,0.10)"
-                                        icon={<CalendarMonth sx={{ color: colorPalette.coralSunset, fontSize: '0.95rem' }} />}
-                                        description="Days with no clocking record this month."
-                                        loading={statsLoading}
-                                    />
-                                </Reveal>
-                            </Grid>
-                        </Grid>
+
 
                         {/* ── Half Days + Late Arrivals Donut row ── */}
                         <Grid container spacing={2}>
