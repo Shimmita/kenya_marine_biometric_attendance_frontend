@@ -24,6 +24,7 @@ import {
   Typography
 } from "@mui/material";
 import Rating from "@mui/material/Rating";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { submitFeedback } from "../../service/FeedbackService";
 import coreDataDetails from "../CoreDataDetails";
@@ -80,71 +81,100 @@ const HelpSupport = () => {
   return (
     <Box>
 
-      <Grid container spacing={3}>
-        {/* QUICK ACTION CARDS */}
-        <Grid container spacing={3}>
-          {[
-            {
-              title: "Give Feedback",
-              icon: <FeedbackRounded />,
-              color: "#f59e0b",
-              action: () => setOpenFeedback(true),
-            },
-            {
-              title: "Contact IT Support",
-              icon: <PhoneRounded />,
-              color: "#22c55e",
-              action: () => setOpenContact(true),
-            },
-          ].map((item, i) => (
-            <Grid item xs={12} sm={6} md={4} key={i}>
+      {/* QUICK ACTION CARDS - NOW WIDER */}
+      <Grid container spacing={4} sx={{ mb: 4 }}>
+        {[
+          {
+            title: "Give Feedback",
+            subtitle: "Help us improve your digital experience",
+            icon: <FeedbackRounded fontSize="large" />,
+            color: "#f59e0b",
+            action: () => setOpenFeedback(true),
+          },
+          {
+            title: "Contact IT Support",
+            subtitle: "Get help with technical issues or access",
+            icon: <PhoneRounded fontSize="large" />,
+            color: "#22c55e",
+            action: () => setOpenContact(true),
+          },
+        ].map((item, i) => (
+          <Grid item xs={12} md={6} key={i}> {/* Changed md={4} to md={6} for extra width */}
+            <motion.div
+              whileHover={{ y: -5, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+            >
               <Card
                 elevation={0}
-                sx={{
-                  borderRadius: 4,
-                  border: `1px solid ${colorPalette.softGray}`,
-                  cursor: "pointer",
-                  transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
-                  backgroundColor: "#fff",
-                  "&:hover": {
-                    transform: "translateY(-6px)",
-                    boxShadow: `0 12px 30px ${item.color}25`,
-                    borderColor: item.color,
-                  },
-                  "&:active": {
-                    transform: "scale(0.98)",
-                  },
-                }}
                 onClick={item.action}
+                sx={{
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden",
+                  border: `1px solid ${colorPalette.softGray}`,
+                  background: `linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)`,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    borderColor: item.color,
+                    boxShadow: `0 20px 40px ${item.color}15`,
+                  },
+                  // Decorative background glow
+                  "&:after": {
+                    content: '""',
+                    position: "absolute",
+                    top: -20,
+                    right: -20,
+                    width: 100,
+                    height: 100,
+                    borderRadius: "50%",
+                    background: `${item.color}10`,
+                    zIndex: 0,
+                  }
+                }}
               >
-                <CardContent>
-                  <Stack spacing={2}>
+                <CardContent sx={{ p: 4 }}> {/* Increased padding from default */}
+                  <Stack direction="row" spacing={3} alignItems="center">
                     <Box
                       sx={{
-                        width: 45,
-                        height: 45,
-                        borderRadius: 3,
-                        bgcolor: `${item.color}15`,
+                        width: 70, // Increased size
+                        height: 70, // Increased size
+                        borderRadius: 4,
+                        bgcolor: `${item.color}12`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         color: item.color,
+                        flexShrink: 0,
                       }}
                     >
                       {item.icon}
                     </Box>
-                    <Typography fontWeight={800}>{item.title}</Typography>
+
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="h6" fontWeight={900} sx={{ color: "#1f2937" }}>
+                        {item.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.subtitle}
+                      </Typography>
+                    </Box>
+
+                    {/* Subtle Arrow indicator */}
+                    <Box sx={{ color: colorPalette.softGray, opacity: 0.5 }}>
+                      <ExpandMoreIcon sx={{ transform: "rotate(-90deg)" }} />
+                    </Box>
                   </Stack>
                 </CardContent>
               </Card>
-            </Grid>
-          ))}
-        </Grid>
+            </motion.div>
+          </Grid>
+        ))}
       </Grid>
 
       {/* FAQ SECTION */}
       <Box mt={5}>
-        <Typography variant="h6" fontWeight={900} mb={2}>
+        <Typography gutterBottom variant="h6" fontWeight={900} mb={2}>
           Frequently Asked Questions
         </Typography>
 
@@ -173,6 +203,23 @@ const HelpSupport = () => {
             q: "How do I reset my password?",
             a: "Use the 'Forgot Password' option on the login page to receive a reset link via email.",
           },
+          {
+            q: "How are public holidays and weekends handled?",
+            a: "The system automatically recognizes gazetted public holidays. If you are required to work on these days, your supervisor must assign a special shift to your profile to enable clocking."
+          },
+          {
+            q: "Does the system track my location throughout the day?",
+            a: "No. For privacy integrity, the system only requests your GPS coordinates at the specific moment you press the 'Clock In' or 'Clock Out' buttons."
+          },
+          {
+            q: "What is the difference between 'Pending', 'Approved', and 'Rejected' leave?",
+            a: "Pending means it's awaiting supervisor review. Approved means your supervisor has agreed. Rejected means HR did not allow your leave request. You might need to contact him/her for further clarification."
+          },
+          {
+            q: "Can I see my attendance records from last months?",
+            a: "Yes. Use the date filter in the 'Attendance History' section to generate and download reports for any previous period."
+          },
+
         ].map((faq, i) => (
           <Accordion
             expanded={expanded}
@@ -182,6 +229,7 @@ const HelpSupport = () => {
             sx={{
               border: `1px solid ${colorPalette.softGray}`,
               borderRadius: 3,
+              p: 3,
               mb: 1.2,
               "&:before": { display: "none" },
               transition: "all 0.2s ease",
@@ -203,15 +251,15 @@ const HelpSupport = () => {
 
       {/* SECURITY INFO */}
       <Box mt={5}>
-        <Card elevation={0} sx={{ borderRadius: 4, border: `1px solid ${colorPalette.softGray}` }}>
+        <Card elevation={0} sx={{ borderRadius: 4,p:3, border: `1px solid ${colorPalette.softGray}` }}>
           <CardContent>
             <Stack direction="row" spacing={2} alignItems="center">
               <SecurityRounded sx={{ color: "#f59e0b" }} />
               <Box>
-                <Typography fontWeight={800}>Security & Device Policy</Typography>
+                <Typography gutterBottom fontWeight={800}>Security & Device Policy</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Sharing login credentials or clocking for another employee is strictly prohibited.
-                  All activities are logged and monitored for integrity.
+                  Sharing login credentials or trying to clock for another employee is strictly prohibited.
+                  All activities are logged and monitored by the system for integrity and this may lead to your device being automatically flagged from clocking until you contact HR or your Supervisor.
                 </Typography>
               </Box>
             </Stack>

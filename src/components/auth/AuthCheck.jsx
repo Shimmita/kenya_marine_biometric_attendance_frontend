@@ -10,20 +10,16 @@ const { colorPalette } = coreDataDetails;
 
 const AuthCheck = ({ children, redirectIfAuth = false }) => {
   const dispatch = useDispatch();
-  const { user, isOnline } = useSelector((state) => state.currentUser);
+  const {isOnline } = useSelector((state) => state.currentUser);
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
-      // ✅ If Redux already knows user is logged in
-      if (isOnline && user) {
-        setLoading(false);
-        return;
-      }
 
       // 🔄 Only check backend if Redux says no user
       try {
+        setLoading(true)
         const res = await api.get("/valid");
         if (!res.data.valid) {
           throw new Error("please login")
