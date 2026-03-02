@@ -736,6 +736,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                     <Stack spacing={2} sx={{ width: { xs: '100%', sm: '300px', md: '300px' } }}>
                                         <TextField select fullWidth label="Clocking Station"
                                             value={selectedStation.name}
+                                            disabled={isClockedIn && isToClockOut}
                                             onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value))}
                                             InputProps={{ startAdornment: <InputAdornment position="start"><BusinessCenter sx={{ color: 'rgba(255,255,255,0.60)', fontSize: '1.05rem' }} /></InputAdornment> }}
                                             sx={G.glassInput}>

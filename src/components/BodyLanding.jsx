@@ -16,7 +16,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CgMenu } from 'react-icons/cg';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
@@ -670,6 +670,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                     ✓ Login successful!
                 </Alert>
             </Snackbar>
+
         </motion.div>
     );
 };
@@ -969,6 +970,7 @@ const EnhancedLandingPage = () => {
                         </Box>
                     </motion.div>
                 )}
+
 
             </AnimatePresence>
         </Box>

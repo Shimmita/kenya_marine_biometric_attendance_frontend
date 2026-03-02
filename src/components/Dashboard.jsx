@@ -29,6 +29,7 @@ import coreDataDetails from './CoreDataDetails';
 import AdminLeaveManager from './dashboard/AdminLeaveManager';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
+import DialogAlert from './DialogAlert';
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -546,7 +547,7 @@ const EnhancedDashboard = () => {
     const isPrivileged = PRIVILEGED_RANKS.includes(user?.rank);
     const rankMeta = RANK_META[user?.rank] || RANK_META.user;
 
-    const handleLogout = async () => {
+     const handleLogout = async () => {
         await userSignOut();
         dispatch(resetClearCurrentUserRedux());
         setLogoutDialogOpen(false);
@@ -804,6 +805,9 @@ const EnhancedDashboard = () => {
                     </motion.div>
                 </AnimatePresence>
             </Box>
+
+            {/* user not activated their accounts */}
+            {!user?.isAccountActive && <DialogAlert/>}
 
             {/* ── Logout dialog ── */}
             <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}

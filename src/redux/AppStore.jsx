@@ -5,7 +5,8 @@ import {
     persistReducer,
     persistStore
 } from "redux-persist";
-import storage from "redux-persist/lib/storage"; // using localStorage as the storage engine
+import storage from "redux-persist/lib/storage";
+ // using localStorage as the storage engine
 
 import {
     combineReducers
