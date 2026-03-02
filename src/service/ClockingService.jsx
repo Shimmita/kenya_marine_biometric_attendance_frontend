@@ -52,3 +52,13 @@ export const fetchOverallOrgStats = async () => {
     throw err.response?.data?.message || "Failed to fetch statistics";
   }
 };
+
+// fetch dept stats
+export const fetchDepartmentStats = async (department) => {
+  try {
+    const res = await api.get(`/supervisor/department/stats`);
+    return res.data;
+  } catch (err) {
+    throw err.response?.data?.message || "Failed to fetch department stats";
+  }
+};

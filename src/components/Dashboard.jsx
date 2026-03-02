@@ -1,12 +1,11 @@
 import {
     AddCircle,
     ChevronLeft, ChevronRight,
-    CircleNotificationsRounded, Dashboard as DashIcon,
+    Dashboard as DashIcon,
     EmojiPeopleRounded,
     History, InsightsRounded, Logout, MarkEmailReadRounded, Menu as MenuIcon,
     PhoneLocked, QueryStats,
     SensorOccupiedRounded,
-    Smartphone,
     SupervisorAccount,
     SupportAgentRounded
 } from '@mui/icons-material';
@@ -26,10 +25,14 @@ import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
+import DialogAlert from './DialogAlert';
 import AdminLeaveManager from './dashboard/AdminLeaveManager';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
-import DialogAlert from './DialogAlert';
+import SupervisorDeptRequest from './dashboard/supervisor/SupervisorDeptRequest';
+import SupervisorDeptStats from './dashboard/supervisor/SupervisorDeptStats';
+import SupervisorManageLeaves from './dashboard/supervisor/SupervisorManageLeaves';
+import SupervisorManageMembers from './dashboard/supervisor/SupervisorManageMembers';
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -44,6 +47,7 @@ const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 
+
 const { colorPalette } = coreDataDetails;
 
 const DRAWER_WIDTH = 330;
@@ -56,6 +60,14 @@ const RANK_META = {
     admin: { label: 'Admin' }, hr: { label: 'HR' }, supervisor: { label: 'Supervisor' },
     ceo: { label: 'CEO' }, user: { label: 'Employee' },
 };
+
+const adminItems = [
+    { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
+    { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
+    { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+    { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
+    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite }
+];
 
 const G = {
     meshBg: `
@@ -366,6 +378,15 @@ const CollapsedDrawerContent = React.memo(({ user, isElevated, activeTab, pendin
 
 /* ══ FULL DRAWER CONTENT ════════════════════════════════════════════════════ */
 const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse }) => {
+
+    // USER → no elevated tools
+    const isUserOnly = user?.rank === 'user';
+    const isAdmin = user?.rank === 'admin';
+    const isHR = user?.rank === 'hr';
+    const isSupervisor = user?.rank === 'supervisor';
+    const isCEO = user?.rank === 'ceo';
+
+
     const baseItems = [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
@@ -418,7 +439,7 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                                 transform: 'scale(1.1)',
                             }
                         }}>
-                            <ChevronLeft  sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 16,}} />
+                            <ChevronLeft sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 16, }} />
                         </Box>
                     </Tooltip>
 
@@ -464,23 +485,124 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                 '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
                 '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.10)', borderRadius: 2 },
             }}>
+                {/* user tools */}
                 <SectionLabel>Navigation</SectionLabel>
                 <List disablePadding>
                     {baseItems.map(item => (
                         <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                     ))}
                 </List>
+
+                {/*  <SectionLabel>CEO DashBoard</SectionLabel>
+
                 {isElevated && (<>
                     <SectionLabel>Admin Tools</SectionLabel>
                     <List disablePadding>
                         {adminItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
                     </List>
                 </>)}
+
+
+                <SectionLabel>Human Resource</SectionLabel>
+
+                <SectionLabel>Supervisor Panel</SectionLabel> */}
+
+
+                {/* UPDATED */}
+
+                {/* CEO */}
+                {isCEO && (
+                    <>
+                        <SectionLabel>CEO Panel</SectionLabel>
+                        <List disablePadding>
+                            {[
+                                { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
+                                { text: 'Station Statistics', icon: <InsightsRounded />, color: '#38bdf8' },
+                                { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
+                            ].map(item => (
+                                <NavItem
+                                    key={item.text}
+                                    item={item}
+                                    isActive={activeTab === item.text}
+                                    pendingCount={pendingCount}
+                                    onClick={() => onTabChange(item.text)}
+                                />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/* ── ADMIN PANEL ── */}
+                {isAdmin && (
+                    <>
+                        <SectionLabel>Admin Tools</SectionLabel>
+                        <List disablePadding>
+                            {adminItems.map(item => (
+                                <NavItem
+                                    key={item.text}
+                                    item={item}
+                                    isActive={activeTab === item.text}
+                                    pendingCount={pendingCount}
+                                    onClick={() => onTabChange(item.text)}
+                                />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/* ── HR PANEL (same as admin but renamed) ── */}
+                {isHR && (
+                    <>
+                        <SectionLabel>Human Resource</SectionLabel>
+                        <List disablePadding>
+                            {adminItems.map(item => (
+                                <NavItem
+                                    key={item.text}
+                                    item={{ ...item }}
+                                    isActive={activeTab === item.text}
+                                    pendingCount={pendingCount}
+                                    onClick={() => onTabChange(item.text)}
+                                />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/*  ── SUPERVISOR PANEL  */}
+                {isSupervisor && (
+                    <>
+                        <SectionLabel>Supervisor Panel</SectionLabel>
+                        <List disablePadding>
+                            {[
+                                { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
+                                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
+                                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+                                { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
+                            ].map(item => (
+                                <NavItem
+                                    key={item.text}
+                                    item={item}
+                                    isActive={activeTab === item.text}
+                                    pendingCount={pendingCount}
+                                    onClick={() => onTabChange(item.text)}
+                                />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/* technical help */}
                 <SectionLabel>Technical Help</SectionLabel>
                 <List disablePadding>
                     {techItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
                 </List>
+
+
             </Box>
+
+
+
+
 
             {/* ── Logout ── */}
             <Box sx={{ px: 1.5, pb: 2.5, pt: 0.5, position: 'relative', zIndex: 1 }}>
@@ -547,7 +669,7 @@ const EnhancedDashboard = () => {
     const isPrivileged = PRIVILEGED_RANKS.includes(user?.rank);
     const rankMeta = RANK_META[user?.rank] || RANK_META.user;
 
-     const handleLogout = async () => {
+    const handleLogout = async () => {
         await userSignOut();
         dispatch(resetClearCurrentUserRedux());
         setLogoutDialogOpen(false);
@@ -555,7 +677,7 @@ const EnhancedDashboard = () => {
     };
 
     // All nav items flattened — used for collapsed icon rail
-    const allNavItems = useMemo(() => {
+    /* const allNavItems = useMemo(() => {
         const base = [
             { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
             { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
@@ -576,7 +698,45 @@ const EnhancedDashboard = () => {
             { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
         ];
         return [...base, ...admin, ...tech];
-    }, [isElevated]);
+    }, [isElevated]); */
+
+    // updated all nav items
+    const allNavItems = useMemo(() => {
+        const base = [
+            { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
+            { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
+            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+        ];
+
+        const tech = [
+            { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
+            { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
+            { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
+        ];
+
+        const roleItems = {
+            admin: adminItems,
+            hr: adminItems,
+            supervisor: [
+                { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
+                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
+                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+                { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
+            ],
+
+            ceo: [
+                { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
+                { text: 'Station Statistics', icon: <InsightsRounded />, color: '#38bdf8' },
+                { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
+            ],
+        };
+
+        return [
+            ...base,
+            ...(roleItems[user?.rank] || []),
+            ...tech,
+        ];
+    }, [user?.rank]);
 
     const drawerProps = useMemo(() => ({
         user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta,
@@ -606,6 +766,21 @@ const EnhancedDashboard = () => {
             case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
             case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />;
             case 'Help & Support': return <HelpSupport />;
+
+
+            // Supervisor Pages (Separate Components)
+            case 'Departmental Statistics':
+                return <SupervisorDeptStats department={user?.department} />;
+
+            case 'Manage Your Members':
+                return <SupervisorManageMembers />;
+
+            case 'Member Leave Requests':
+                return <SupervisorManageLeaves />;
+
+            case 'Departmental Requests':
+                return <SupervisorDeptRequest />;
+
             default: return <DashboardContent {...sp} />;
         }
     };
@@ -807,7 +982,7 @@ const EnhancedDashboard = () => {
             </Box>
 
             {/* user not activated their accounts */}
-            {!user?.isAccountActive && <DialogAlert/>}
+            {!user?.isAccountActive && <DialogAlert />}
 
             {/* ── Logout dialog ── */}
             <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}
