@@ -29,7 +29,7 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 });
 
 export default function DialogAlert() {
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = React.useState(true);
     const [processing, setProcessing] = React.useState(false);
     const [isHelp, setIsHelp] = React.useState(false);
 
