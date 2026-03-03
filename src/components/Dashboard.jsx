@@ -577,7 +577,7 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                                 { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
                                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
                                 { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
-                                { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
+                                // { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
                             ].map(item => (
                                 <NavItem
                                     key={item.text}
@@ -596,7 +596,6 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                 <List disablePadding>
                     {techItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
                 </List>
-
 
             </Box>
 

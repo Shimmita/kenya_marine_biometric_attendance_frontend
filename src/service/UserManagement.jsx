@@ -45,6 +45,18 @@ export const getAllUsers = async () => {
     }
 };
 
+
+export const getAllUsersDepartment = async () => {
+    try {
+        const res = await api.get(`/supervisor/users`);
+        return res.data;
+    } catch (err) {
+        console.log(err);
+        throw err.response?.data?.message;
+    }
+};
+
+
 export const updateUserDepartment = async (userId, department) => {
     try {
         const res = await api.put(`/admin/user/${userId}/update-department`, {

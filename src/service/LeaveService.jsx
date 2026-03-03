@@ -31,6 +31,17 @@ export const fetchAllLeavesAdmin = async () => {
     }
 };
 
+// fetch department leaves for supervisor
+export const fetchDepartmentLeaves = async () => {
+    try {
+        const { data } = await api.get("supervisor/leaves");
+        return data;
+    } catch (err) {
+        console.error("Fetching department leaves failed:", err);
+        throw err?.response?.data?.message || "Failed to fetch department leaves";
+    }
+};
+
 export const updateLeaveAdmin = async (id, payload) => {
     try {
         const { data } = await api.put(`admin/leave/${id}`, payload);
