@@ -21,11 +21,12 @@ import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
-import { resetClearCurrentUserRedux } from '../redux/CurrentUser';
+import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
-import { userSignOut } from '../service/UserProfile';
+import { updateUserProfile, userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
+import UserProfileDialog from './UserProfileDialog';
 import AdminLeaveManager from './dashboard/AdminLeaveManager';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
@@ -46,6 +47,7 @@ const HelpSupport = lazy(() => import('./dashboard/HelpSupport'));
 const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
+
 
 
 const { colorPalette } = coreDataDetails;
@@ -277,7 +279,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
 ));
 
 /* ══ COLLAPSED DRAWER CONTENT ═══════════════════════════════════════════════ */
-const CollapsedDrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
+const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
     <Box sx={{
         height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
         position: 'relative', overflow: 'hidden', ...G.sidebarBg,
@@ -309,14 +311,16 @@ const CollapsedDrawerContent = React.memo(({ user, isElevated, activeTab, pendin
 
         {/* Avatar mini */}
         <Tooltip title={user?.name || 'User'} placement="right">
-            <Avatar sx={{
-                width: 36, height: 36, mb: 2.5, flexShrink: 0, zIndex: 1,
-                background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
-                border: '2px solid rgba(255,255,255,0.22)',
-                color: '#fff', fontWeight: 900, fontSize: '0.78rem',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                cursor: 'default',
-            }}>
+            <Avatar
+                src={user?.avatar}
+                sx={{
+                    width: 40, height: 40, mb: 2.5, flexShrink: 0, zIndex: 1,
+                    background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
+                    border: '2px solid rgba(255,255,255,0.22)',
+                    color: '#fff', fontWeight: 900, fontSize: '0.78rem',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    cursor: 'default',
+                }}>
                 {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
             </Avatar>
         </Tooltip>
@@ -377,10 +381,9 @@ const CollapsedDrawerContent = React.memo(({ user, isElevated, activeTab, pendin
 ));
 
 /* ══ FULL DRAWER CONTENT ════════════════════════════════════════════════════ */
-const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse }) => {
+const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse, onProfileOpen }) => {
 
     // USER → no elevated tools
-    const isUserOnly = user?.rank === 'user';
     const isAdmin = user?.rank === 'admin';
     const isHR = user?.rank === 'hr';
     const isSupervisor = user?.rank === 'supervisor';
@@ -444,14 +447,16 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                     </Tooltip>
 
                     <Stack direction="row" alignItems="center" spacing={1.4} sx={{ position: 'relative', zIndex: 1 }}>
-                        <Avatar sx={{
-                            width: 44, height: 44, flexShrink: 0,
-                            background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
-                            border: '2px solid rgba(255,255,255,0.22)',
-                            color: '#fff', fontWeight: 900, fontSize: '0.95rem',
-                            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.24)',
-                        }}>
+                        <Avatar
+                            src={user?.avatar}
+                            sx={{
+                                width: 44, height: 44, flexShrink: 0,
+                                background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
+                                border: '2px solid rgba(255,255,255,0.22)',
+                                color: '#fff', fontWeight: 900, fontSize: '0.95rem',
+                                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.24)',
+                            }}>
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
@@ -493,22 +498,6 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
                     ))}
                 </List>
 
-                {/*  <SectionLabel>CEO DashBoard</SectionLabel>
-
-                {isElevated && (<>
-                    <SectionLabel>Admin Tools</SectionLabel>
-                    <List disablePadding>
-                        {adminItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
-                    </List>
-                </>)}
-
-
-                <SectionLabel>Human Resource</SectionLabel>
-
-                <SectionLabel>Supervisor Panel</SectionLabel> */}
-
-
-                {/* UPDATED */}
 
                 {/* CEO */}
                 {isCEO && (
@@ -601,8 +590,6 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
 
 
 
-
-
             {/* ── Logout ── */}
             <Box sx={{ px: 1.5, pb: 2.5, pt: 0.5, position: 'relative', zIndex: 1 }}>
                 <Box sx={{ height: '1px', bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5 }} />
@@ -621,6 +608,7 @@ const DrawerContent = React.memo(({ user, isElevated, activeTab, pendingCount, o
     );
 });
 
+
 /* ══ MAIN ═══════════════════════════════════════════════════════════════════ */
 const EnhancedDashboard = () => {
     const theme = useTheme();
@@ -636,6 +624,8 @@ const EnhancedDashboard = () => {
     const [userLocation, setUserLocation] = useState(null);
     const [isWithinGeofence, setIsWithinGeofence] = useState(false);
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
+
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
         { id: 2, title: 'Update marine biodiversity database', status: 'in-progress', time: '11:00 AM', date: '2024-02-04' },
@@ -675,29 +665,7 @@ const EnhancedDashboard = () => {
         navigate("/");
     };
 
-    // All nav items flattened — used for collapsed icon rail
-    /* const allNavItems = useMemo(() => {
-        const base = [
-            { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
-            { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-            { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
-            { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
-            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
-        ];
-        const admin = isElevated ? [
-            { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
-            { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
-            { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
-            { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
-            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite },
-        ] : [];
-        const tech = [
-            { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
-            { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
-            { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
-        ];
-        return [...base, ...admin, ...tech];
-    }, [isElevated]); */
+
 
     // updated all nav items
     const allNavItems = useMemo(() => {
@@ -742,6 +710,7 @@ const EnhancedDashboard = () => {
         onTabChange: handleTabChange,
         onLogout: () => setLogoutDialogOpen(true),
         onCollapse: () => setSidebarCollapsed(true),
+        onProfileOpen: () => setProfileOpen(true),
     }), [user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta]);
 
     const currentDrawerWidth = sidebarCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
@@ -813,6 +782,21 @@ const EnhancedDashboard = () => {
         'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
     };
 
+
+
+    const handleProfileSave = async ({ phone, newPassword, avatarFile }) => {
+
+        const updatedUser = await updateUserProfile({
+            phone,
+            newPassword,
+            avatarFile
+        });
+
+        // update redux
+        dispatch(updateUserCurrentUserRedux(updatedUser));
+
+    };
+
     return (
         <Box sx={{
             display: 'flex', minHeight: '100vh',
@@ -843,16 +827,18 @@ const EnhancedDashboard = () => {
                         </Typography>
                     </Box>
 
-                    <Tooltip title={user?.name || 'User'}>
-                        <Avatar sx={{
-                            width: 36, height: 36, flexShrink: 0,
-                            background: 'rgba(0,220,255,0.18)',
-                            border: '2px solid rgba(255,255,255,0.28)',
-                            color: '#fff', fontWeight: 900, fontSize: '0.82rem',
-                            cursor: 'pointer', backdropFilter: 'blur(4px)',
-                            '&:hover': { background: 'rgba(0,220,255,0.28)' },
-                            transition: 'all 0.2s',
-                        }}>
+                    <Tooltip title="View Profile">
+                        <Avatar
+                            src={user?.avatar}
+                            onClick={() => setProfileOpen(true)}
+                            sx={{
+                                background: 'rgba(0,220,255,0.18)',
+                                border: '2px solid rgba(255,255,255,0.28)',
+                                color: '#fff', fontWeight: 900, fontSize: '0.82rem',
+                                cursor: 'pointer', backdropFilter: 'blur(4px)',
+                                '&:hover': { background: 'rgba(0,220,255,0.28)' },
+                                transition: 'all 0.2s',
+                            }}>
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
                         </Avatar>
                     </Tooltip>
@@ -983,6 +969,15 @@ const EnhancedDashboard = () => {
             {/* user not activated their accounts */}
             {!user?.isAccountActive && <DialogAlert />}
 
+            {/* show user profile dialog */}
+            <UserProfileDialog
+                open={profileOpen}
+                onClose={() => setProfileOpen(false)}
+                user={user}
+                onSave={handleProfileSave}
+            />
+
+
             {/* ── Logout dialog ── */}
             <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}
                 PaperProps={{ sx: { ...G.dialog, borderRadius: '24px', p: 1, maxWidth: 420, width: '100%' } }}
@@ -1012,6 +1007,7 @@ const EnhancedDashboard = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
         </Box>
     );
 };

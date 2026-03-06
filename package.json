@@ -19,6 +19,7 @@
     "@simplewebauthn/browser": "^13.2.2",
     "axios": "^1.13.4",
     "bootstrap": "^5.3.8",
+    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.29.3",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
