@@ -1,17 +1,27 @@
+import { Close } from "@mui/icons-material";
 import {
+    Alert,
     Avatar,
     Box,
     Button,
     Chip,
     CircularProgress,
     FormControl,
+    FormHelperText,
+    IconButton,
     MenuItem,
+    Modal,
     Select,
     Stack,
+    TextField,
     Typography
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
+import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../service/UserManagement";
+import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
 
 /* ─────────────────────────────────────────────
@@ -83,7 +93,6 @@ const RANK_ACCENT = {
     user: colorPalette.cyanFresh,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user"];
 const ROLES = ["employee", "intern", "attachee", "employee-contract"];
 const { availableDepartments, AvailableStations } = coreDataDetails;
 
@@ -110,18 +119,134 @@ const GradientDivider = () => (
     }} />
 );
 
+
+const textFieldSx = {
+    "& .MuiOutlinedInput-root": {
+        color: colorPalette.textPrimary,
+        background: "rgba(0,91,150,0.2)",
+        borderRadius: "10px",
+        "& fieldset": { borderColor: "rgba(0,229,255,0.22)" },
+        "&:hover fieldset": { borderColor: colorPalette.aquaVibrant },
+        "&.Mui-focused fieldset": { borderColor: colorPalette.seafoamGreen },
+    },
+    "& .MuiInputLabel-root": { color: colorPalette.textMuted },
+    "& .MuiInputLabel-root.Mui-focused": { color: colorPalette.seafoamGreen },
+    "& .MuiSvgIcon-root": { color: colorPalette.cyanFresh },
+};
+
+
+
 /* ─────────────────────────────────────────────
    USER CARD
 ───────────────────────────────────────────── */
 const UserCardDepart = ({
-    user, supervisors, updatingId,
-    onRankChange, onRoleChange, onDepartmentSave,
-    onSupervisorChange, onToggleActive,
+    user, supervisors, onRoleChange, onDepartmentSave,
+    onSupervisorChange,
     isMobile, index, onStationSave
 }) => {
     const [hovered, setHovered] = useState(false);
     const rankColor = RANK_ACCENT[user.rank] || colorPalette.cyanFresh;
-    const isUpdating = updatingId === user._id;
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
+    const dispatch = useDispatch();
+    const { user: currentUser } = useSelector(s => s.currentUser);
+
+    const isCurrentUser = currentUser?._id === user._id
+
+
+    // updated info about clocking out outside the station premises
+    const [clockOutside, setClockOutside] = useState(user.canClockOutside ? "yes" : "no");
+    const [openModal, setOpenModal] = useState(false);
+
+    const today = new Date().toISOString().split("T")[0];
+
+
+    const [formData, setFormData] = useState({
+        startDate: "",
+        endDate: "",
+        reason: ""
+    });
+
+    const handleClockOutsideChange = async (e) => {
+        const val = e.target.value;
+
+        // If selecting "yes", just open the modal as before
+        if (val === "yes") {
+            setClockOutside("yes");
+            setOpenModal(true);
+            return;
+        }
+
+        // If selecting "no" and they previously had permission, revoke it
+        if (val === "no" && user.canClockOutside) {
+            const confirmRevoke = window.confirm(`Are you sure you want to revoke clock-outside permission for ${user.name}?`);
+
+            if (confirmRevoke) {
+                try {
+                    setIsLoading(true);
+                    await revokeClockOutsideStatus(user._id);
+
+                    // Update local state and Redux
+                    setClockOutside("no");
+                    const updatedUser = await getUserProfile();
+                    dispatch(updateUserCurrentUserRedux(updatedUser));
+                } catch (err) {
+                    setError(err || "Failed to revoke permission");
+                    // Revert dropdown if API fails
+                    setClockOutside("yes");
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                // If user cancels the prompt, keep the dropdown at "yes"
+                setClockOutside("yes");
+            }
+        } else {
+            // Just updating the local UI state if no DB change is needed
+            setClockOutside("no");
+        }
+    };
+
+
+    const handleClose = () => {
+        setOpenModal(false);
+        setClockOutside("no");
+    };
+
+    const handleSubmit = async () => {
+        const clockingData = {
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+            reason: formData.reason
+        };
+
+        // dates validations
+        if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+            setError("The End Date must be a date after the Start Date.");
+            return;
+        }
+
+
+        try {
+            // update loading state
+            setIsLoading(true);
+            await updateClockOutsideStatus(user._id, clockingData);
+
+            // refresh current user data in the redux 
+            const updatedUser = await getUserProfile()
+            dispatch(updateUserCurrentUserRedux(updatedUser))
+
+            // Add a success notification here if you have one
+            setOpenModal(false);
+        } catch (error) {
+            // Handle error (e.g., show an alert)
+            setError(error || "Failed to update authorization");
+
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
     return (
@@ -155,7 +280,7 @@ const UserCardDepart = ({
                 >
                     <Stack direction="row" spacing={1.8} alignItems="center">
                         <Box sx={{ position: "relative", flexShrink: 0 }}>
-                            <Avatar sx={{
+                            <Avatar src={user?.avatar} sx={{
                                 width: 46,
                                 height: 46,
                                 background: `linear-gradient(135deg, ${rankColor}40, ${rankColor}15)`,
@@ -211,7 +336,17 @@ const UserCardDepart = ({
                                     border: `1px solid ${colorPalette.skyBlue}48`,
                                 }} />
 
-                              
+                                {isCurrentUser && (
+                                    <Chip label={"You"} size="small" sx={{
+                                        height: 22,
+                                        fontSize: "0.68rem",
+                                        background: "rgba(135,206,235,0.18)",
+                                        color: colorPalette.softGray,
+                                        border: `1px solid ${colorPalette.warmSand}48`,
+                                    }} />
+                                )}
+
+
                             </Stack>
                         </Box>
                     </Stack>
@@ -261,7 +396,7 @@ const UserCardDepart = ({
                 {/* CONTROLS */}
                 <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
 
-                  
+
 
                     {/* Role */}
                     <Box>
@@ -276,7 +411,7 @@ const UserCardDepart = ({
                     {/* Department */}
                     <Box>
                         <FieldLabel>Department</FieldLabel>
-                        <FormControl disabled size="small" sx={{ minWidth: 185 }}>
+                        <FormControl disabled={isCurrentUser} size="small" sx={{ minWidth: 185 }}>
                             <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                 <MenuItem value="" sx={{ color: colorPalette.textMuted }}><em>Select Dept.</em></MenuItem>
                                 {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
@@ -284,25 +419,10 @@ const UserCardDepart = ({
                         </FormControl>
                     </Box>
 
-                    {/* Supervisor */}
-                    <Box>
-                        <FieldLabel>Supervisor</FieldLabel>
-                        <FormControl disabled size="small" sx={{ minWidth: 185 }}>
-                            <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                <MenuItem value={user?.supervisor} sx={{ color: colorPalette.textMuted }}>{user?.supervisor}</MenuItem>
-                                {supervisors?.filter((supervisor) => supervisor?.email!== user?.email).map((supervisor) => (
-                                    <MenuItem key={supervisor._id} value={supervisor}>{supervisor?.name}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Box>
-
-                    
-
                     {/* station */}
                     <Box>
                         <FieldLabel>Station</FieldLabel>
-                        <FormControl size="small" sx={{ minWidth: 185 }}>
+                        <FormControl disabled={isCurrentUser} size="small" sx={{ minWidth: 185 }}>
                             <Select value={user?.station || "none"} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
                                 <MenuItem value={user?.station} sx={{ color: colorPalette.textMuted }}>{user?.station}</MenuItem>
                                 {AvailableStations.map((s) => (
@@ -312,50 +432,164 @@ const UserCardDepart = ({
                         </FormControl>
                     </Box>
 
-                    {/* Action */}
+                    {/* Supervisor */}
                     <Box>
-                        <FieldLabel>Action</FieldLabel>
-                        <Button
-                            size="small"
-                            variant="contained"
-                            disabled={isUpdating}
-                            onClick={() => onToggleActive(user._id)}
-                            sx={{
-                                height: 38,
-                                px: 2.5,
-                                borderRadius: "12px",
-                                fontWeight: 700,
-                                fontSize: "0.76rem",
-                                letterSpacing: "0.05em",
-                                textTransform: "uppercase",
-                                minWidth: 112,
-                                background: user.isAccountActive
-                                    ? `linear-gradient(135deg, ${colorPalette.coralSunset}, #e74c3c)`
-                                    : `linear-gradient(135deg, ${colorPalette.seafoamGreen}, #1abc9c)`,
-                                color: "#fff",
-                                boxShadow: user.isAccountActive
-                                    ? `0 4px 16px rgba(255,92,74,0.45)`
-                                    : `0 4px 16px rgba(72,201,176,0.45)`,
-                                "&:hover": {
-                                    transform: "translateY(-1px)",
-                                    boxShadow: user.isAccountActive
-                                        ? `0 6px 20px rgba(255,92,74,0.65)`
-                                        : `0 6px 20px rgba(72,201,176,0.65)`,
-                                    background: user.isAccountActive
-                                        ? `linear-gradient(135deg, #e74c3c, #c0392b)`
-                                        : `linear-gradient(135deg, #3dd9b5, #16a085)`,
-                                },
-                                "&:disabled": { opacity: 0.44 },
-                                transition: "all 0.2s ease",
-                            }}
-                        >
-                            {isUpdating
-                                ? <CircularProgress size={14} sx={{ color: "#fff" }} />
-                                : user.isAccountActive ? "Deactivate" : "Activate"}
-                        </Button>
+                        <FieldLabel>Supervisor</FieldLabel>
+                        <FormControl disabled={isCurrentUser} size="small" sx={{ minWidth: 185 }}>
+                            <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value={user?.supervisor} sx={{ color: colorPalette.textMuted }}>{user?.supervisor}</MenuItem>
+                                {supervisors?.filter((supervisor) => supervisor?.email !== user?.email).map((supervisor) => (
+                                    <MenuItem key={supervisor._id} value={supervisor}>{supervisor?.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                     </Box>
 
+
+                    {/* clock outside */}
+
+                    <Box>
+                        <FieldLabel>Clock Outside</FieldLabel>
+                        <FormControl disabled={isLoading} size="small" sx={{ minWidth: 140 }}>
+                            <Select
+                                value={clockOutside}
+                                onChange={handleClockOutsideChange}
+                                sx={selectSx}
+                                MenuProps={menuProps}
+                            >
+                                <MenuItem value="no">No</MenuItem>
+                                <MenuItem value="yes">Yes</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
                 </Stack>
+
+                {/* MODAL FOR CLOCK OUTSIDE DETAILS */}
+                <Modal
+                    open={openModal}
+                    onClose={!isLoading && handleClose}
+                    closeAfterTransition
+                >
+                    <Box sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: { xs: '90%', sm: 450 },
+                        bgcolor: '#05253D',
+                        border: `1px solid ${colorPalette.aquaVibrant}40`,
+                        borderRadius: '20px',
+                        boxShadow: '0 24px 48px rgba(0,0,0,0.8)',
+                        p: 4,
+                        outline: 'none'
+                    }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                            <Typography sx={{ color: colorPalette.aquaVibrant, fontWeight: 800, fontFamily: "'Exo 2', sans-serif" }}>
+                                CLOCK OUTSIDE AUTHORIZATION
+                            </Typography>
+                            <IconButton disabled={isLoading || error} onClick={handleClose} sx={{ color: colorPalette.textMuted }}>
+                                <Close />
+                            </IconButton>
+                        </Stack>
+
+                        {/* Error Message Display */}
+                        {error && (
+                            <Alert severity="error" sx={{
+                                mb: 2,
+                                bgcolor: "rgba(255, 92, 74, 0.1)",
+                                color: colorPalette.coralSunset,
+                                border: `1px solid ${colorPalette.coralSunset}40`,
+                                "& .MuiAlert-icon": { color: colorPalette.coralSunset }
+                            }}>
+                                {error}
+                            </Alert>
+                        )}
+
+                        <Stack spacing={3}>
+                            <Box>
+                                <FieldLabel>Start Date</FieldLabel>
+                                <TextField
+                                    type="date"
+                                    fullWidth
+                                    variant="outlined"
+                                    inputProps={{ min: today }}
+                                    size="small"
+                                    sx={textFieldSx}
+                                    value={formData.startDate}
+                                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                />
+                            </Box>
+
+                            <Box>
+                                <FieldLabel>End Date</FieldLabel>
+                                <TextField
+                                    type="date"
+                                    fullWidth
+                                    variant="outlined"
+                                    size="small"
+                                    inputProps={{ min: formData.startDate || today }}
+                                    sx={textFieldSx}
+                                    value={formData.endDate}
+                                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                />
+                            </Box>
+
+                            <Box>
+                                <FieldLabel>Reason for Outside Premises</FieldLabel>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        sx={selectSx}
+                                        MenuProps={menuProps}
+                                        value={formData.reason}
+                                        onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                                    >
+                                        {coreDataDetails.REASONS.map(r => (
+                                            <MenuItem key={r} value={r}>{r}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            <FormHelperText sx={{ color: 'whitesmoke' }}>
+                                User will be allowed to clock out outside the station premises for the specified date range, with the provided reason. This is typically used for field work, official assignments, or remote work situations.
+                            </FormHelperText>
+
+                            <Button
+                                onClick={handleSubmit}
+                                startIcon={isLoading ? <CircularProgress size={18} color="inherit" /> : null}
+                                disabled={isLoading || !formData.startDate || !formData.endDate || !formData.reason}
+                                sx={{
+                                    mt: 2,
+                                    background: `linear-gradient(45deg, ${colorPalette.oceanBlue}, ${colorPalette.seafoamGreen})`,
+                                    color: 'white',
+                                    fontWeight: 700,
+                                    borderRadius: '10px',
+                                    py: 1.2,
+                                    '&:hover': {
+                                        boxShadow: `0 0 15px ${colorPalette.aquaVibrant}60`
+                                    }
+                                }}
+                            >
+                                Submit Authorization
+                            </Button>
+                        </Stack>
+                    </Box>
+                </Modal>
+
+                {/* short description if user is allowed to clock outside */}
+                {user.canClockOutside && (
+                    <Alert severity="info" sx={{
+                        mt: 3,
+                        textTransform: 'capitalize',
+                        bgcolor: "rgba(72, 201, 176, 0.1)",
+                        color: colorPalette.seafoamGreen,
+                        border: `1px solid ${colorPalette.seafoamGreen}40`,
+                        "& .MuiAlert-icon": { color: colorPalette.seafoamGreen }
+                    }}>
+                        User is currently authorized to clock out outside the station premises. Authorised by: {user?.outsideClockingDetails?.authorizedBy || 'N/A'}{"---"}{user?.outsideClockingDetails?.authorizedByRole?.toUpperCase() || 'N/A'}. Reason: {user?.outsideClockingDetails?.reason || 'N/A'}. Valid from {user?.outsideClockingDetails?.startDate ? new Date(user.outsideClockingDetails.startDate).toLocaleDateString() : 'N/A'} to {user.outsideClockingDetails?.endDate ? new Date(user.outsideClockingDetails.endDate).toLocaleDateString() : 'N/A'}.
+                    </Alert>
+                )}
+
             </Box>
         </motion.div>
     );

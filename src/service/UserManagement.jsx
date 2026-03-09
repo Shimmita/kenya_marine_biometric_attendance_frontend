@@ -106,3 +106,26 @@ export const updateUserSupervisor = async (userId, supervisor) => {
         throw err.response?.data?.message;
     }
 };
+
+export const updateClockOutsideStatus = async (userId, clockingData) => {
+    try {
+        // This sends the startDate, endDate, and reason to the backend
+        const res = await api.put(`/admin/user/${userId}/update-clock-outside`, {
+            ...clockingData
+        });
+        return res.data;
+    } catch (err) {
+        console.error("Error updating clock outside status:", err);
+        throw err.response?.data?.message || "Failed to update clocking status";
+    }
+};
+
+export const revokeClockOutsideStatus = async (userId) => {
+    try {
+        const res = await api.put(`/admin/user/${userId}/revoke-clock-outside`);
+        return res.data;
+    } catch (err) {
+        console.error("Error revoking clock outside status:", err);
+        throw err.response?.data?.message || "Failed to revoke authorization";
+    }
+};

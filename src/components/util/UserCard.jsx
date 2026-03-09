@@ -155,7 +155,9 @@ const UserCard = ({
                 >
                     <Stack direction="row" spacing={1.8} alignItems="center">
                         <Box sx={{ position: "relative", flexShrink: 0 }}>
-                            <Avatar sx={{
+                            <Avatar 
+                            src={user?.avatar} 
+                            sx={{
                                 width: 46,
                                 height: 46,
                                 background: `linear-gradient(135deg, ${rankColor}40, ${rankColor}15)`,
