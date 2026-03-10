@@ -27,13 +27,13 @@ import { registerFingerprint, verifyFingerprint } from '../../service/Biometrics
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { addNewDevice, fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
+import { revokeClockOutsideStatus } from '../../service/UserManagement';
 import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime } from '../util/DateTimeFormater';
 import { calculateDistanceMeters } from '../util/DistanceMeasure';
 import LiveClock from '../util/LiveClock';
 import { detectCurrentDevice } from './AddDevice';
-import { revokeClockOutsideStatus } from '../../service/UserManagement';
 
 const { AvailableStations, colorPalette } = coreDataDetails;
 const GEOFENCE_RADIUS_METERS = 500000;
@@ -635,7 +635,8 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             { enableHighAccuracy: true, timeout: 20000 }
         );
     };
-    useEffect(() => { requestLocation(); }, [selectedStation.name]); // eslint-disable-line
+    useEffect(() => { requestLocation(); }, [selectedStation.name]);
+    // eslint-disable-line
 
     // 3. Combined Geofence + Outside Authorization check
     // If they are in the fence OR they are authorized to be outside today
@@ -643,16 +644,22 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
     const clockStepIndex = !userLocation || !canProceedWithLocation ? 0 : !biometricRegistered ? 1 : 2;
 
-    const locationLabel = userLocation
-        ? isWithinGeofence && !isDateAuthorized()
-            ? 'Within KMFRI Premise Station ✓'
-            : isDateAuthorized()
-                ? `Authorized to Clock Outside ✓`
-                : 'Outside Premises cannot Clock In/Out'
-        : 'Location not verified yet';
+
+
+    const handleUserLocationLable = () => {
+        if (isDateAuthorized()) {
+            return `Authorized to Clock Outside ✓`
+        } else if (!userLocation) {
+            return 'Location not verified yet'
+        } else if (userLocation && isWithinGeofence && !isDateAuthorized()) {
+            return 'Within KMFRI Premise Station ✓'
+        } else return 'Outside Premises cannot Clock In/Out'
+    }
+
 
     const handleRegisterFingerprint = async () => {
         try {
+            
             setBiometricLoading(true);
             await registerFingerprint();
             const updated = await getUserProfile();
@@ -673,7 +680,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const handleClockInClockOut = async () => {
         try {
             setBiometricLoading(true);
-            await verifyFingerprint(selectedStation.name);
+            await verifyFingerprint(selectedStation.name,userLocation);
             const updated = await getUserProfile();
             dispatch(updateUserCurrentUserRedux(updated));
             setIsClockedIn(updated.hasClockedIn);
@@ -778,7 +785,8 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                         <Stack direction="row" spacing={1} mt={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" gap={1}>
                                             <Chip
                                                 icon={<LocationOn sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
-                                                label={locationLabel} size="small"
+                                                // label={locationLabel} size="small"
+                                                label={handleUserLocationLable()} size="small"
                                                 sx={{ bgcolor: isWithinGeofence && !isDateAuthorized() ? 'rgba(34,197,94,0.22)' : isDateAuthorized() ? 'rgba(154, 211, 21, 0.22)' : 'rgba(138,138,138,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${isWithinGeofence && !isDateAuthorized() ? 'rgba(34,197,94,0.38)' : isDateAuthorized() ? 'rgba(154, 211, 21, 0.35)' : 'rgba(138,138,138,0.35)'}`, backdropFilter: 'blur(8px)' }}
                                             />
                                             {isClockedIn && isToClockOut && (
@@ -805,7 +813,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                             onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value))}
                                             InputProps={{ startAdornment: <InputAdornment position="start"><BusinessCenter sx={{ color: 'rgba(255,255,255,0.60)', fontSize: '1.05rem' }} /></InputAdornment> }}
                                             sx={G.glassInput}>
-                                            {AvailableStations.map(o => <MenuItem key={o.name} value={o.name}>{o.name}</MenuItem>)}
+                                            {AvailableStations.map(o => <MenuItem key={o.name} value={o.name} >{o.name}</MenuItem>)}
                                         </TextField>
 
                                         <AnimatePresence mode="wait">

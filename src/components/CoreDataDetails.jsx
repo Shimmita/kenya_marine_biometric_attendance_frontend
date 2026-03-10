@@ -71,7 +71,8 @@ const coreDataDetails = {
         'Other'
     ],
 
-    REASONS: ["Sickness", "Fieldwork", "Research", "Workshop", "Official Assignment", "Remote Work"]
+    REASONS: ["Sickness", "Fieldwork", "Research", "Workshop", "Official Assignment", "Remote Work"],
+    LEAVE_TYPES: ["Adoption Leave", "Annual Leave", "Compassionate Leave", "Paternity Leave", "Sick Leave", "Study Leave","Terminal Leave"],
 
 }
 

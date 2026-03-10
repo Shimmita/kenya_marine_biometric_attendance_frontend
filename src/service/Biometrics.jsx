@@ -22,11 +22,11 @@ export const registerFingerprint = async () => {
  * Verify fingerprint — run before every clock-in / clock-out.
  * On success the session is marked as biometrically verified for 2 minutes.
  */
-export const verifyFingerprint = async (selectedStation) => {
+export const verifyFingerprint = async (selectedStation,userCoords) => {
   try {
     const { data: options } = await api.get("/biometric/auth/challenge");
     const authResponse = await startAuthentication(options);
-    await api.post("/biometric/auth/verify", { ...authResponse, selectedStation });
+    await api.post("/biometric/auth/verify", { ...authResponse, selectedStation, userCoords });
     return true;
   } catch (err) {
     console.error("Fingerprint verification failed:", err);

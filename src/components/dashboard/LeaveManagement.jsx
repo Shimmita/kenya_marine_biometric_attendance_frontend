@@ -1,3 +1,4 @@
+import { CloudUploadRounded, DownloadRounded, VisibilityRounded } from "@mui/icons-material";
 import {
     Box,
     Button,
@@ -29,6 +30,11 @@ import { createLeave, deleteLeave, fetchAllLeaves } from "../../service/LeaveSer
 import coreDataDetails from "../CoreDataDetails";
 const { colorPalette } = coreDataDetails;
 
+const relievers = [
+    { id: 1, name: "John Doe", email: "john@company.com" },
+    { id: 2, name: "Jane Smith", email: "jane@company.com" },
+];
+
 export default function LeaveManagementContent() {
     const [open, setOpen] = useState(false);
     const [leaveRequests, setLeaveRequests] = useState([]);
@@ -38,6 +44,8 @@ export default function LeaveManagementContent() {
         startDate: "",
         endDate: ""
     });
+    const [viewFile, setViewFile] = useState(null); 
+    const [fileType, setFileType] = useState("");
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -50,12 +58,29 @@ export default function LeaveManagementContent() {
         startDate: "",
         endDate: "",
         email: "",
+        reliever: "",
+        remarks: "",
+        attachment: ""
     });
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-
+        const { name, value, files } = e.target;
         let errors = { ...dateError };
+        // file validation logic
+        if (name === "attachment" && files[0]) {
+            const file = files[0];
+            if (file.size > 10 * 1024 * 1024) {
+                alert("File is too large. Please select a file under 10MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData(prev => ({ ...prev, attachment: reader.result }));
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
 
         if (name === "startDate") {
             if (value < today) {
@@ -117,14 +142,17 @@ export default function LeaveManagementContent() {
             const updated = await fetchAllLeaves();
             setLeaveRequests(Array.isArray(updated) ? updated : []);
 
-            setOpen(false);
-
             setFormData({
                 type: "",
                 startDate: "",
                 endDate: "",
                 email: "",
+                reliever: "",
+                remarks: "",
+                attachment: ""
             });
+
+            setOpen(false);
 
         } catch (err) {
             console.error("Submit failed:", err);
@@ -171,6 +199,30 @@ export default function LeaveManagementContent() {
         } catch (err) {
             alert("Failed to delete leave");
         }
+    };
+
+    // Function to open the viewer
+    const handleViewFile = (base64Data) => {
+        if (!base64Data) return;
+
+        // Check if it's a PDF or Image from the Base64 prefix
+        if (base64Data.includes("application/pdf")) {
+            setFileType("pdf");
+        } else {
+            setFileType("image");
+        }
+        setViewFile(base64Data);
+    };
+
+    // Function to download the file
+    const handleDownload = () => {
+        const link = document.createElement("a");
+        link.href = viewFile;
+        // Set a default filename based on type
+        link.download = `attachment_${new Date().getTime()}.${fileType === "pdf" ? "pdf" : "png"}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -284,6 +336,7 @@ export default function LeaveManagementContent() {
                                             <TableCell sx={{ fontWeight: 700 }}>End</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Days</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Document</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -344,10 +397,31 @@ export default function LeaveManagementContent() {
                                                         }}
                                                     />
                                                 </TableCell>
+
+                                                <TableCell>
+                                                    {req.attachment ? (
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            startIcon={<VisibilityRounded />}
+                                                            onClick={() => handleViewFile(req.attachment)}
+                                                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius:5 }}
+                                                        >
+                                                            View File
+                                                        </Button>
+                                                    ) : (
+                                                        <Typography variant="caption" color="text.disabled">No file</Typography>
+                                                    )}
+                                                </TableCell>
+
+
                                                 <TableCell>
                                                     <Button
                                                         size="small"
                                                         color="error"
+                                                        disabled={req.status !== "pending"}
+                                                        variant="outlined"
+                                                        sx={{borderRadius:5}}
                                                         onClick={() => handleDelete(req._id)}
                                                     >
                                                         Delete
@@ -377,18 +451,21 @@ export default function LeaveManagementContent() {
                             label="Leave Type"
                             name="type"
                             fullWidth
+                            disabled={loading}
                             value={formData.type}
                             onChange={handleChange}
                         >
-                            <MenuItem value="maternity">Maternity</MenuItem>
-                            <MenuItem value="sick">Sick</MenuItem>
-                            <MenuItem value="compasion">Compassion</MenuItem>
-                            <MenuItem value="casual">Casual</MenuItem>
+                            {coreDataDetails.LEAVE_TYPES.map((type) => (
+                                <MenuItem key={type} value={type}>
+                                    {type}
+                                </MenuItem>
+                            ))}
                         </TextField>
 
                         <TextField
                             label="Start Date"
                             type="date"
+                            disabled={loading || !formData.type}
                             name="startDate"
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ min: today }}
@@ -403,7 +480,7 @@ export default function LeaveManagementContent() {
                             label="End Date"
                             type="date"
                             name="endDate"
-                            disabled={!formData.startDate}
+                            disabled={!formData.startDate || loading}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ min: formData.startDate || today }}
                             fullWidth
@@ -412,6 +489,64 @@ export default function LeaveManagementContent() {
                             error={!!dateError.endDate}
                             helperText={dateError.endDate}
                         />
+
+                        {/* RELIEVER SELECTION */}
+                        <TextField
+                            select
+                            label="Select Reliever"
+                            name="reliever"
+                            fullWidth
+                            disabled={!formData.startDate || !formData.endDate || loading}
+                            value={formData.reliever}
+                            onChange={handleChange}
+                        >
+                            {relievers.map((person) => (
+                                <MenuItem key={person.id} value={person.name}>
+                                    {person.name}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        {/* REMARKS AREA */}
+                        <TextField
+                            label="Remarks / Reason"
+                            name="remarks"
+                            multiline
+                            rows={3}
+                            disabled={!formData.type || !formData.startDate || !formData.endDate || loading}
+                            fullWidth
+                            value={formData.remarks}
+                            onChange={handleChange}
+                            placeholder="Provide additional details..."
+                        />
+
+                        {/* FILE ATTACHMENT */}
+                        <Box>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', }}>
+                                Proof of Leave (Optional)
+                            </Typography>
+
+                            <Button
+                                component="label"
+                                variant="outlined"
+                                color={formData.attachment ? "success" : "primary"}
+                                startIcon={<CloudUploadRounded />}
+                                sx={{ borderRadius: 2, textTransform: 'none' }}
+                            >
+                                {formData.attachment ? "loaded successfully" : "Upload File"}
+                                <input
+                                    type="file"
+                                    name="attachment"
+                                    placeholder="upload file"
+                                    hidden
+                                    onChange={handleChange}
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                />
+                            </Button>
+
+                        </Box>
+
+
 
                         <Button
                             variant="contained"
@@ -436,6 +571,56 @@ export default function LeaveManagementContent() {
                     </Stack>
                 </DialogContent>
             </Dialog>
+
+
+            {/* --- ATTACHMENT VIEWER MODAL --- */}
+            <Dialog
+                open={Boolean(viewFile)}
+                onClose={() => setViewFile(null)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography fontWeight={800}>Attached Document</Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<DownloadRounded />}
+                        onClick={handleDownload}
+                        sx={{ bgcolor: colorPalette.oceanBlue, borderRadius:5 }}
+                    >
+                        Download
+                    </Button>
+                </DialogTitle>
+                <DialogContent dividers sx={{ height: '70vh', p: 0, display: 'flex', justifyContent: 'center', bgcolor: '#f4f4f4' }}>
+                    {fileType === "pdf" ? (
+                        <iframe
+                            src={viewFile}
+                            width="100%"
+                            height="100%"
+                            style={{ border: 'none' }}
+                            title="PDF Preview"
+                        />
+                    ) : (
+                        <Box
+                            component="img"
+                            src={viewFile}
+                            alt="Attachment Preview"
+                            sx={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain',
+                                p: 2
+                            }}
+                        />
+                    )}
+                </DialogContent>
+                <Box sx={{ p: 2, textAlign: 'right' }}>
+                    <Button onClick={() => setViewFile(null)} fontWeight={700}>Close</Button>
+                </Box>
+            </Dialog>
+
+
         </Grid>
     );
 }

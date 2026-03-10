@@ -1,4 +1,5 @@
 
+import { DownloadRounded, VisibilityRounded } from "@mui/icons-material";
 import {
     Box,
     Button,
@@ -36,6 +37,8 @@ export default function AdminLeaveManager() {
     const [filter, setFilter] = useState("all");
     const [loading, setLoading] = useState(false);
     const [confirmation, setConfirmation] = useState({ open: false, leaveId: "", action: "" });
+    const [viewFile, setViewFile] = useState(null);
+    const [fileType, setFileType] = useState("");
 
     const loadLeaves = async () => {
         setLoading(true);
@@ -74,6 +77,30 @@ export default function AdminLeaveManager() {
         } finally {
             setConfirmation({ open: false, leaveId: "", action: "" });
         }
+    };
+
+    // Function to open the viewer
+    const handleViewFile = (base64Data) => {
+        if (!base64Data) return;
+
+        // Check if it's a PDF or Image from the Base64 prefix
+        if (base64Data.includes("application/pdf")) {
+            setFileType("pdf");
+        } else {
+            setFileType("image");
+        }
+        setViewFile(base64Data);
+    };
+
+    // Function to download the file
+    const handleDownload = () => {
+        const link = document.createElement("a");
+        link.href = viewFile;
+        // Set a default filename based on type
+        link.download = `attachment_${new Date().getTime()}.${fileType === "pdf" ? "pdf" : "png"}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -164,6 +191,7 @@ export default function AdminLeaveManager() {
                                             <TableCell sx={{ fontWeight: 700 }}>End</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Days</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Document</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -177,7 +205,7 @@ export default function AdminLeaveManager() {
                                                 <TableCell sx={{ textTransform: "capitalize" }}>{req.type}</TableCell>
                                                 <TableCell>{new Date(req.startDate).toLocaleDateString()}</TableCell>
                                                 <TableCell>{new Date(req.endDate).toLocaleDateString()}</TableCell>
-                                                <TableCell>{calculateDays(req.startDate, req.endDate)} days</TableCell>
+                                                <TableCell>{calculateDays(req.startDate, req.endDate)} </TableCell>
                                                 <TableCell>
                                                     <Chip
                                                         label={req.status}
@@ -201,6 +229,22 @@ export default function AdminLeaveManager() {
                                                                         : colorPalette.coralSunset,
                                                         }}
                                                     />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {req.attachment ? (
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            color="success"
+                                                            startIcon={<VisibilityRounded />}
+                                                            onClick={() => handleViewFile(req.attachment)}
+                                                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 5 }}
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    ) : (
+                                                        <Typography variant="caption" color="text.disabled">No file</Typography>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <FormControl size="small" fullWidth>
@@ -316,6 +360,53 @@ export default function AdminLeaveManager() {
                         {confirmation.action === "approved" ? "Approve" : "Reject"}
                     </Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* --- ATTACHMENT VIEWER MODAL --- */}
+            <Dialog
+                open={Boolean(viewFile)}
+                onClose={() => setViewFile(null)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography fontWeight={800}>Attached Document</Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<DownloadRounded />}
+                        onClick={handleDownload}
+                        sx={{ bgcolor: colorPalette.oceanBlue, borderRadius: 5 }}
+                    >
+                        Download
+                    </Button>
+                </DialogTitle>
+                <DialogContent dividers sx={{ height: '70vh', p: 0, display: 'flex', justifyContent: 'center', bgcolor: '#f4f4f4' }}>
+                    {fileType === "pdf" ? (
+                        <iframe
+                            src={viewFile}
+                            width="100%"
+                            height="100%"
+                            style={{ border: 'none' }}
+                            title="PDF Preview"
+                        />
+                    ) : (
+                        <Box
+                            component="img"
+                            src={viewFile}
+                            alt="Attachment Preview"
+                            sx={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain',
+                                p: 2
+                            }}
+                        />
+                    )}
+                </DialogContent>
+                <Box sx={{ p: 2, textAlign: 'right' }}>
+                    <Button onClick={() => setViewFile(null)} fontWeight={700}>Close</Button>
+                </Box>
             </Dialog>
         </Grid>
     );
