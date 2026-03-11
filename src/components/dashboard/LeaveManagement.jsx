@@ -1,4 +1,4 @@
-import { CloudUploadRounded, DownloadRounded, VisibilityRounded } from "@mui/icons-material";
+import { Close, CloudUploadRounded, DownloadRounded, VisibilityRounded } from "@mui/icons-material";
 import {
     Box,
     Button,
@@ -11,15 +11,11 @@ import {
     DialogTitle,
     Divider,
     Grid,
+    IconButton,
     MenuItem,
+    Modal,
     Stack,
     Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Tabs,
     TextField,
     Typography
@@ -30,7 +26,61 @@ import { createLeave, deleteLeave, fetchAllLeaves, fetchColleagues } from "../..
 import coreDataDetails from "../CoreDataDetails";
 const { colorPalette } = coreDataDetails;
 
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS (Synced with your reference)
+───────────────────────────────────────────── */
+const C = {
+    deepNavy: "#0A3D62",
+    oceanBlue: "#005B96",
+    aquaVibrant: "#00e5ff",
+    cyanFresh: "#3FC1FF",
+    skyBlue: "#87CEEB",
+    coralSunset: "#FF5C4A",
+    warmSand: "#FFB400",
+    seafoamGreen: "#48C9B0",
+    softGray: "#E8EEF7",
+    glassBg: "rgba(10,61,98,0.72)",
+    glassBorder: "rgba(0,229,255,0.22)",
+    glassInput: "rgba(0,91,150,0.28)",
+    textPrimary: "#E6F4FA",
+    textSecondary: "rgba(190,228,245,0.80)",
+    textMuted: "rgba(190,228,245,0.48)",
+    dark: "#05253D",
+};
 
+const textFieldSx = {
+    "& .MuiOutlinedInput-root": {
+        color: C.textPrimary,
+        background: C.glassInput,
+        borderRadius: "10px",
+        "& fieldset": { borderColor: C.glassBorder },
+        "&:hover fieldset": { borderColor: C.aquaVibrant },
+        "&.Mui-focused fieldset": { borderColor: C.seafoamGreen },
+    },
+    "& .MuiInputLabel-root": { color: C.textMuted },
+    "& .MuiInputLabel-root.Mui-focused": { color: C.seafoamGreen },
+    "& .MuiSvgIcon-root": { color: C.cyanFresh },
+};
+
+const modalStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: { xs: "92%", sm: 500 },
+    bgcolor: C.dark,
+    border: `1px solid ${C.glassBorder}`,
+    boxShadow: "0 20px 50px rgba(0,0,0,0.7)",
+    p: 3,
+    borderRadius: "20px",
+    outline: "none",
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    '&::-webkit-scrollbar': { display: 'none' },
+    /* Hide scrollbar for IE, Edge and Firefox */
+    msOverflowStyle: "none",
+    scrollbarWidth: "none",
+};
 
 export default function LeaveManagementContent() {
     const [open, setOpen] = useState(false);
@@ -121,6 +171,11 @@ export default function LeaveManagementContent() {
 
         if (dateError.startDate || dateError.endDate) {
             alert("Please fix date errors before submitting");
+            return;
+        }
+
+        if (relievers.length > 0 && !formData.reliever) {
+            alert("Please select a reliever for your leave");
             return;
         }
 
@@ -351,278 +406,224 @@ export default function LeaveManagementContent() {
                             </Box>
                         ) : (
                             <Grid container spacing={2} sx={{ mt: 1 }}>
-        {filteredLeaves.map((req) => (
-            <Grid item xs={12} md={6} lg={4} key={req._id}>
-                <Card 
-                    variant="outlined" 
-                    sx={{ 
-                        borderRadius: 3, 
-                        transition: "0.3s",
-                        "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }
-                    }}
-                >
-                    <CardContent>
-                        {/* Status Chip & Leave Type */}
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                            <Box>
-                                <Typography variant="subtitle1" fontWeight={800} sx={{ textTransform: "capitalize" }}>
-                                    {req.type} Leave
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Submitted on {new Date(req.createdAt).toLocaleDateString()}
-                                </Typography>
-                            </Box>
-                            <Chip
-                                label={req.status}
-                                size="small"
-                                sx={{
-                                    fontWeight: 700,
-                                    textTransform: "capitalize",
-                                    borderRadius: 1.5,
-                                    bgcolor:
-                                        req.status === "approved" ? `${colorPalette.seafoamGreen}20` :
-                                        req.status === "pending" ? `${colorPalette.warmSand}20` : `${colorPalette.coralSunset}20`,
-                                    color:
-                                        req.status === "approved" ? colorPalette.seafoamGreen :
-                                        req.status === "pending" ? colorPalette.warmSand : colorPalette.coralSunset,
-                                }}
-                            />
-                        </Stack>
+                                {filteredLeaves.map((req) => (
+                                    <Grid item xs={12} md={6} lg={4} key={req._id}>
+                                        <Card
+                                            variant="outlined"
+                                            sx={{
+                                                borderRadius: 3,
+                                                transition: "0.3s",
+                                                "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }
+                                            }}
+                                        >
+                                            <CardContent>
+                                                {/* Status Chip & Leave Type */}
+                                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                                                    <Box>
+                                                        <Typography variant="subtitle1" fontWeight={800} sx={{ textTransform: "capitalize" }}>
+                                                            {req.type} Leave
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            Submitted on {new Date(req.createdAt).toLocaleDateString()}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Chip
+                                                        label={req.status}
+                                                        size="small"
+                                                        sx={{
+                                                            fontWeight: 700,
+                                                            textTransform: "capitalize",
+                                                            borderRadius: 1.5,
+                                                            bgcolor:
+                                                                req.status === "approved" ? `${colorPalette.seafoamGreen}20` :
+                                                                    req.status === "pending" ? `${colorPalette.warmSand}20` : `${colorPalette.coralSunset}20`,
+                                                            color:
+                                                                req.status === "approved" ? colorPalette.seafoamGreen :
+                                                                    req.status === "pending" ? colorPalette.warmSand : colorPalette.coralSunset,
+                                                        }}
+                                                    />
+                                                </Stack>
 
-                        <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
+                                                <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
 
-                        {/* Date Details */}
-                        <Grid container spacing={1} sx={{ mb: 2 }}>
-                            <Grid item xs={6}>
-                                <Typography variant="caption" color="text.secondary" display="block">DURATION</Typography>
-                                <Typography variant="body2" fontWeight={700}>
-                                    {calculateDays(req.startDate, req.endDate)} Days
-                                </Typography>
+                                                {/* Date Details */}
+                                                <Grid container spacing={1} sx={{ mb: 2 }}>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">DURATION</Typography>
+                                                        <Typography variant="body2" fontWeight={700}>
+                                                            {calculateDays(req.startDate, req.endDate)} Days
+                                                        </Typography>
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">RELIEVER</Typography>
+                                                        <Typography variant="body2" fontWeight={700}>
+                                                            {req.reliever || "Not assigned"}
+                                                        </Typography>
+                                                    </Grid>
+                                                </Grid>
+
+                                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, bgcolor: '#f8f9fa', p: 1, borderRadius: 2 }}>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary" display="block">PERIOD</Typography>
+                                                        <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>
+                                                            {new Date(req.startDate).toLocaleDateString()} — {new Date(req.endDate).toLocaleDateString()}
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+
+                                                {/* Remarks (Trunated) */}
+                                                {req.remarks && (
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{
+                                                            mb: 2,
+                                                            fontStyle: 'italic',
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden'
+                                                        }}
+                                                    >
+                                                        "{req.remarks}"
+                                                    </Typography>
+                                                )}
+
+                                                {/* Action Buttons */}
+                                                <Stack direction="row" spacing={1} mt={1}>
+                                                    <Button
+                                                        fullWidth
+                                                        size="small"
+                                                        variant="contained"
+                                                        disableElevation
+                                                        startIcon={<VisibilityRounded />}
+                                                        onClick={() => handleViewFile(req.attachment)}
+                                                        disabled={!req.attachment}
+                                                        sx={{
+                                                            textTransform: 'none',
+                                                            fontWeight: 700,
+                                                            borderRadius: 2,
+                                                            bgcolor: colorPalette.oceanBlue,
+                                                            "&:hover": { bgcolor: colorPalette.deepNavy }
+                                                        }}
+                                                    >
+                                                        View Docs
+                                                    </Button>
+
+                                                    <Button
+                                                        size="small"
+                                                        color="error"
+                                                        variant="outlined"
+                                                        disabled={req.status !== "pending"}
+                                                        onClick={() => handleDelete(req._id)}
+                                                        sx={{ borderRadius: 2, minWidth: 'auto', px: 2, display: req.status === "pending" ? 'inline-flex' : 'none' }}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </Stack>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
                             </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant="caption" color="text.secondary" display="block">RELIEVER</Typography>
-                                <Typography variant="body2" fontWeight={700}>
-                                    {req.reliever || "Not assigned"}
-                                </Typography>
-                            </Grid>
-                        </Grid>
-
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, bgcolor: '#f8f9fa', p: 1, borderRadius: 2 }}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" display="block">PERIOD</Typography>
-                                <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>
-                                    {new Date(req.startDate).toLocaleDateString()} — {new Date(req.endDate).toLocaleDateString()}
-                                </Typography>
-                            </Box>
-                        </Stack>
-
-                        {/* Remarks (Trunated) */}
-                        {req.remarks && (
-                            <Typography 
-                                variant="body2" 
-                                color="text.secondary" 
-                                sx={{ 
-                                    mb: 2, 
-                                    fontStyle: 'italic',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                "{req.remarks}"
-                            </Typography>
                         )}
-
-                        {/* Action Buttons */}
-                        <Stack direction="row" spacing={1} mt={1}>
-                            <Button
-                                fullWidth
-                                size="small"
-                                variant="contained"
-                                disableElevation
-                                startIcon={<VisibilityRounded />}
-                                onClick={() => handleViewFile(req.attachment)}
-                                disabled={!req.attachment}
-                                sx={{ 
-                                    textTransform: 'none', 
-                                    fontWeight: 700, 
-                                    borderRadius: 2,
-                                    bgcolor: colorPalette.oceanBlue,
-                                    "&:hover": { bgcolor: colorPalette.deepNavy }
-                                }}
-                            >
-                                View Docs
-                            </Button>
-                            
-                            <Button
-                                size="small"
-                                color="error"
-                                variant="outlined"
-                                disabled={req.status !== "pending"}
-                                onClick={() => handleDelete(req._id)}
-                                sx={{ borderRadius: 2, minWidth: 'auto', px: 2, display: req.status === "pending" ? 'inline-flex' : 'none' }}
-                            >
-                                Delete
-                            </Button>
-                        </Stack>
                     </CardContent>
                 </Card>
             </Grid>
-        ))}
-    </Grid>
-                        )}
-                    </CardContent>
-                </Card>
-            </Grid>
 
-            {/* MODAL */}
-            <Dialog open={open} onClose={() => {
-                if (!loading) {
-                    setOpen(false)
-                }
-            }} maxWidth="sm" fullWidth>
-                <DialogTitle fontWeight={800}>Request Leave</DialogTitle>
-                <DialogContent sx={{ px: { xs: 1, sm: 2, md: 3 } }}>
-                    <Stack spacing={3} sx={{ mt: 2 }}>
+            {/* UPDATED LEAVE REQUEST MODAL */}
+            <Modal open={open} onClose={() => !loading && setOpen(false)}>
+                <Box sx={modalStyle}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="h6" fontWeight={800} color={C.textPrimary}>Request Leave</Typography>
+                        <IconButton disabled={loading} onClick={() => setOpen(false)} sx={{ color: C.textMuted }}><Close /></IconButton>
+                    </Stack>
+
+                    <Stack spacing={2.5}>
                         <TextField
-                            select
-                            label="Leave Type"
-                            name="type"
-                            fullWidth
+                            required
                             disabled={loading}
-                            value={formData.type}
-                            onChange={handleChange}
+                            select label="Leave Type" name="type" fullWidth
+                            sx={textFieldSx} value={formData.type} onChange={handleChange}
+                            SelectProps={{ MenuProps: { PaperProps: { sx: { bgcolor: C.dark, color: C.textPrimary } } } }}
                         >
                             {coreDataDetails.LEAVE_TYPES.map((type) => (
-                                <MenuItem key={type} value={type}>
-                                    {type}
+                                <MenuItem key={type} value={type}>{type}</MenuItem>
+                            ))}
+                        </TextField>
+
+                        <TextField
+                            required
+                            disabled={loading || !formData.type}
+                            label="Start Date" type="date" name="startDate" fullWidth
+                            sx={textFieldSx} InputLabelProps={{ shrink: true }}
+                            value={formData.startDate} onChange={handleChange} error={!!dateError.startDate} helperText={dateError.startDate}
+                        />
+
+                        <TextField
+                            required
+                            disabled={loading || !formData.startDate}
+                            label="End Date" type="date" name="endDate" fullWidth
+                            sx={textFieldSx} InputLabelProps={{ shrink: true }}
+                            value={formData.endDate} onChange={handleChange} error={!!dateError.endDate} helperText={dateError.endDate}
+                        />
+
+                        <TextField
+                            disabled={loading || !formData.endDate}
+                            select label={relieversLoading ? "Loading..." : "Select Reliever"}
+                            name="reliever" fullWidth sx={textFieldSx}
+                            required
+                            value={formData.reliever} onChange={handleChange}
+                        >
+                            {relievers.map((person) => (
+                                <MenuItem key={person._id} value={person.name}>
+                                    <Typography variant="body2">{person.name} ({person.email})</Typography>
                                 </MenuItem>
                             ))}
                         </TextField>
 
                         <TextField
-                            label="Start Date"
-                            type="date"
-                            disabled={loading || !formData.type}
-                            name="startDate"
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{ min: today }}
-                            fullWidth
-                            value={formData.startDate}
-                            onChange={handleChange}
-                            error={!!dateError.startDate}
-                            helperText={dateError.startDate}
+                            required={relievers.length > 0}
+                            disabled={loading || (relievers.length > 0 && !formData.reliever)}
+                            label="Remarks / Reason" name="remarks" multiline rows={3}
+                            fullWidth sx={textFieldSx} value={formData.remarks} onChange={handleChange}
                         />
 
-                        <TextField
-                            label="End Date"
-                            type="date"
-                            name="endDate"
-                            disabled={!formData.startDate || loading}
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{ min: formData.startDate || today }}
-                            fullWidth
-                            value={formData.endDate}
-                            onChange={handleChange}
-                            error={!!dateError.endDate}
-                            helperText={dateError.endDate}
-                        />
-
-                        {/* RELIEVER SELECTION */}
-                        <TextField
-                            select
-                            label={relieversLoading ? "Loading Relievers..." : "Select Reliever"}
-                            name="reliever"
-                            fullWidth
-                            disabled={!formData.startDate || !formData.endDate || loading || relieversLoading}
-                            value={formData.reliever}
-                            onChange={handleChange}
-                            SelectProps={{
-                                renderValue: (selected) => selected 
-                            }}
-                        >
-                            {relievers.length === 0 && !relieversLoading ? (
-                                <MenuItem disabled>No colleagues </MenuItem>
-                            ) : (
-                                relievers.map((person) => (
-                                    <MenuItem key={person._id} value={person.name}>
-                                        <Stack direction="column">
-                                            <Typography variant="body1">{person.name}</Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {person.email}
-                                            </Typography>
-                                        </Stack>
-                                    </MenuItem>
-                                ))
-                            )}
-                        </TextField>
-
-                        {/* REMARKS AREA */}
-                        <TextField
-                            label="Remarks / Reason"
-                            name="remarks"
-                            multiline
-                            rows={3}
-                            disabled={!formData.type || !formData.startDate || !formData.endDate || loading}
-                            fullWidth
-                            value={formData.remarks}
-                            onChange={handleChange}
-                            placeholder="Provide additional details..."
-                        />
-
-                        {/* FILE ATTACHMENT */}
                         <Box>
-                            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', }}>
-                                Proof of Leave (image/pdf)
-                            </Typography>
-
                             <Button
-                                component="label"
-                                variant="outlined"
-                                color={formData.attachment ? "success" : "primary"}
+                                disabled={loading || !formData.remarks}
+                                component="label" variant="outlined" fullWidth
                                 startIcon={<CloudUploadRounded />}
-                                sx={{ borderRadius: 2, textTransform: 'none' }}
+                                sx={{
+                                    borderColor: formData.attachment ? C.seafoamGreen : C.glassBorder,
+                                    color: formData.attachment ? C.seafoamGreen : C.textSecondary,
+                                    borderRadius: "10px", py: 1.5
+                                }}
                             >
-                                {formData.attachment ? "loaded successfully" : "Upload File *"}
-                                <input
-                                    type="file"
-                                    name="attachment"
-                                    placeholder="upload file"
-                                    hidden
-                                    required
-                                    onChange={handleChange}
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                />
+                                {formData.attachment ? "File Loaded" : "Upload Proof *"}
+                                <input disabled={loading || !formData.remarks} type="file" name="attachment" hidden onChange={handleChange} accept=".pdf,.jpg,.jpeg,.png" />
                             </Button>
-
                         </Box>
 
-
-
                         <Button
-                            variant="contained"
-                            onClick={handleSubmit}
-                            startIcon={loading && <CircularProgress size={10} />}
-                            disabled={
-                                loading ||
-                                !formData.type ||
-                                !formData.startDate ||
-                                !formData.endDate ||
-                                dateError.startDate ||
-                                dateError.endDate
-                            }
+                            fullWidth variant="contained" onClick={handleSubmit}
+                            disabled={loading || !formData.type || !formData.startDate}
                             sx={{
-                                bgcolor: colorPalette.oceanBlue,
-                                borderRadius: 3,
-                                fontWeight: 700
+                                bgcolor: C.oceanBlue,
+                                color: "#fff",
+                                fontWeight: 800,
+                                borderRadius: "12px",
+                                py: 1.5,
+                                "&:hover": { bgcolor: C.aquaVibrant, color: C.dark }
                             }}
                         >
-                            {loading ? "Submitting..." : "Submit Request"}
+                            {loading ? <CircularProgress size={24} sx={{ color: "#fff" }} /> : "SUBMIT REQUEST"}
                         </Button>
                     </Stack>
-                </DialogContent>
-            </Dialog>
+                </Box>
+            </Modal>
+
+
 
 
             {/* --- ATTACHMENT VIEWER MODAL --- */}
