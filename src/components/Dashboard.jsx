@@ -777,7 +777,6 @@ const EnhancedDashboard = () => {
         'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
         'Organisation Overview': 'Organisation-wide attendance insights for decision making',
         'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
-        'Leave Management': 'Central location to manage all leaves from kmfri employess, interns and attachees',
         'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
         'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
     };

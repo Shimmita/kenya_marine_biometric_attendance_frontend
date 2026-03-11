@@ -61,3 +61,15 @@ export const deleteLeave = async (id) => {
         throw err?.response?.data?.message || "Failed to delete leave";
     }
 };
+
+// Fetch colleagues in the same station and department
+export const fetchColleagues = async () => {
+    try {
+        const { data } = await api.get("user/colleagues");
+        return data;
+    } catch (err) {
+        console.error("Fetching colleagues failed:", err);
+        throw err?.response?.data?.message || "Failed to fetch colleagues";
+    }
+};
+

@@ -26,25 +26,24 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { createLeave, deleteLeave, fetchAllLeaves } from "../../service/LeaveService";
+import { createLeave, deleteLeave, fetchAllLeaves, fetchColleagues } from "../../service/LeaveService";
 import coreDataDetails from "../CoreDataDetails";
 const { colorPalette } = coreDataDetails;
 
-const relievers = [
-    { id: 1, name: "John Doe", email: "john@company.com" },
-    { id: 2, name: "Jane Smith", email: "jane@company.com" },
-];
+
 
 export default function LeaveManagementContent() {
     const [open, setOpen] = useState(false);
     const [leaveRequests, setLeaveRequests] = useState([]);
+    const [relievers, setRelievers] = useState([]);
+    const [relieversLoading, setRelieversLoading] = useState(false);
     const [filter, setFilter] = useState("all");
     const [loading, setLoading] = useState(false);
     const [dateError, setDateError] = useState({
         startDate: "",
         endDate: ""
     });
-    const [viewFile, setViewFile] = useState(null); 
+    const [viewFile, setViewFile] = useState(null);
     const [fileType, setFileType] = useState("");
 
     const today = new Date().toISOString().split("T")[0];
@@ -122,6 +121,11 @@ export default function LeaveManagementContent() {
 
         if (dateError.startDate || dateError.endDate) {
             alert("Please fix date errors before submitting");
+            return;
+        }
+
+        if (formData.attachment === "") {
+            alert("Please upload a proof of leave document");
             return;
         }
 
@@ -225,6 +229,25 @@ export default function LeaveManagementContent() {
         document.body.removeChild(link);
     };
 
+
+    // fetch or load relievers from the backend
+    useEffect(() => {
+        if (open) {
+            const loadRelievers = async () => {
+                try {
+                    setRelieversLoading(true);
+                    const data = await fetchColleagues();
+                    setRelievers(data);
+                } catch (err) {
+                    console.error("Failed to load relievers:", err);
+                } finally {
+                    setRelieversLoading(false);
+                }
+            };
+            loadRelievers();
+        }
+    }, [open]);
+
     return (
         <Grid container spacing={3} sx={{
             width: "100%",
@@ -327,111 +350,127 @@ export default function LeaveManagementContent() {
                                 </Typography>
                             </Box>
                         ) : (
-                            <TableContainer>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Start</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>End</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Days</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Document</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
-                                        </TableRow>
-                                    </TableHead>
+                            <Grid container spacing={2} sx={{ mt: 1 }}>
+        {filteredLeaves.map((req) => (
+            <Grid item xs={12} md={6} lg={4} key={req._id}>
+                <Card 
+                    variant="outlined" 
+                    sx={{ 
+                        borderRadius: 3, 
+                        transition: "0.3s",
+                        "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }
+                    }}
+                >
+                    <CardContent>
+                        {/* Status Chip & Leave Type */}
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                            <Box>
+                                <Typography variant="subtitle1" fontWeight={800} sx={{ textTransform: "capitalize" }}>
+                                    {req.type} Leave
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Submitted on {new Date(req.createdAt).toLocaleDateString()}
+                                </Typography>
+                            </Box>
+                            <Chip
+                                label={req.status}
+                                size="small"
+                                sx={{
+                                    fontWeight: 700,
+                                    textTransform: "capitalize",
+                                    borderRadius: 1.5,
+                                    bgcolor:
+                                        req.status === "approved" ? `${colorPalette.seafoamGreen}20` :
+                                        req.status === "pending" ? `${colorPalette.warmSand}20` : `${colorPalette.coralSunset}20`,
+                                    color:
+                                        req.status === "approved" ? colorPalette.seafoamGreen :
+                                        req.status === "pending" ? colorPalette.warmSand : colorPalette.coralSunset,
+                                }}
+                            />
+                        </Stack>
 
-                                    <TableBody>
-                                        {filteredLeaves.map((req) => (
-                                            <TableRow
-                                                key={req._id}
-                                                sx={{
-                                                    transition: "0.2s ease",
-                                                    "&:hover": {
-                                                        backgroundColor: `${colorPalette.softGray}20`
-                                                    }
-                                                }}
-                                            >
-                                                <TableCell>
-                                                    <Typography
-                                                        fontWeight={600}
-                                                        sx={{ textTransform: "capitalize" }}
-                                                    >
-                                                        {req.type}
-                                                    </Typography>
-                                                </TableCell>
+                        <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
 
-                                                <TableCell>
-                                                    {new Date(req.startDate).toLocaleDateString()}
-                                                </TableCell>
+                        {/* Date Details */}
+                        <Grid container spacing={1} sx={{ mb: 2 }}>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary" display="block">DURATION</Typography>
+                                <Typography variant="body2" fontWeight={700}>
+                                    {calculateDays(req.startDate, req.endDate)} Days
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary" display="block">RELIEVER</Typography>
+                                <Typography variant="body2" fontWeight={700}>
+                                    {req.reliever || "Not assigned"}
+                                </Typography>
+                            </Grid>
+                        </Grid>
 
-                                                <TableCell>
-                                                    {new Date(req.endDate).toLocaleDateString()}
-                                                </TableCell>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, bgcolor: '#f8f9fa', p: 1, borderRadius: 2 }}>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">PERIOD</Typography>
+                                <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>
+                                    {new Date(req.startDate).toLocaleDateString()} — {new Date(req.endDate).toLocaleDateString()}
+                                </Typography>
+                            </Box>
+                        </Stack>
 
-                                                <TableCell>
-                                                    {calculateDays(req.startDate, req.endDate)} days
-                                                </TableCell>
+                        {/* Remarks (Trunated) */}
+                        {req.remarks && (
+                            <Typography 
+                                variant="body2" 
+                                color="text.secondary" 
+                                sx={{ 
+                                    mb: 2, 
+                                    fontStyle: 'italic',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                "{req.remarks}"
+                            </Typography>
+                        )}
 
-                                                <TableCell>
-                                                    <Chip
-                                                        label={req.status}
-                                                        size="small"
-                                                        sx={{
-                                                            px: 1,
-                                                            fontWeight: 700,
-                                                            textTransform: "capitalize",
-                                                            borderRadius: 2,
-                                                            bgcolor:
-                                                                req.status === "approved"
-                                                                    ? `${colorPalette.seafoamGreen}20`
-                                                                    : req.status === "pending"
-                                                                        ? `${colorPalette.warmSand}20`
-                                                                        : `${colorPalette.coralSunset}20`,
-                                                            color:
-                                                                req.status === "approved"
-                                                                    ? colorPalette.seafoamGreen
-                                                                    : req.status === "pending"
-                                                                        ? colorPalette.warmSand
-                                                                        : colorPalette.coralSunset,
-                                                        }}
-                                                    />
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    {req.attachment ? (
-                                                        <Button
-                                                            size="small"
-                                                            variant="outlined"
-                                                            startIcon={<VisibilityRounded />}
-                                                            onClick={() => handleViewFile(req.attachment)}
-                                                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius:5 }}
-                                                        >
-                                                            View File
-                                                        </Button>
-                                                    ) : (
-                                                        <Typography variant="caption" color="text.disabled">No file</Typography>
-                                                    )}
-                                                </TableCell>
-
-
-                                                <TableCell>
-                                                    <Button
-                                                        size="small"
-                                                        color="error"
-                                                        disabled={req.status !== "pending"}
-                                                        variant="outlined"
-                                                        sx={{borderRadius:5}}
-                                                        onClick={() => handleDelete(req._id)}
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                        {/* Action Buttons */}
+                        <Stack direction="row" spacing={1} mt={1}>
+                            <Button
+                                fullWidth
+                                size="small"
+                                variant="contained"
+                                disableElevation
+                                startIcon={<VisibilityRounded />}
+                                onClick={() => handleViewFile(req.attachment)}
+                                disabled={!req.attachment}
+                                sx={{ 
+                                    textTransform: 'none', 
+                                    fontWeight: 700, 
+                                    borderRadius: 2,
+                                    bgcolor: colorPalette.oceanBlue,
+                                    "&:hover": { bgcolor: colorPalette.deepNavy }
+                                }}
+                            >
+                                View Docs
+                            </Button>
+                            
+                            <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                disabled={req.status !== "pending"}
+                                onClick={() => handleDelete(req._id)}
+                                sx={{ borderRadius: 2, minWidth: 'auto', px: 2, display: req.status === "pending" ? 'inline-flex' : 'none' }}
+                            >
+                                Delete
+                            </Button>
+                        </Stack>
+                    </CardContent>
+                </Card>
+            </Grid>
+        ))}
+    </Grid>
                         )}
                     </CardContent>
                 </Card>
@@ -493,18 +532,30 @@ export default function LeaveManagementContent() {
                         {/* RELIEVER SELECTION */}
                         <TextField
                             select
-                            label="Select Reliever"
+                            label={relieversLoading ? "Loading Relievers..." : "Select Reliever"}
                             name="reliever"
                             fullWidth
-                            disabled={!formData.startDate || !formData.endDate || loading}
+                            disabled={!formData.startDate || !formData.endDate || loading || relieversLoading}
                             value={formData.reliever}
                             onChange={handleChange}
+                            SelectProps={{
+                                renderValue: (selected) => selected 
+                            }}
                         >
-                            {relievers.map((person) => (
-                                <MenuItem key={person.id} value={person.name}>
-                                    {person.name}
-                                </MenuItem>
-                            ))}
+                            {relievers.length === 0 && !relieversLoading ? (
+                                <MenuItem disabled>No colleagues </MenuItem>
+                            ) : (
+                                relievers.map((person) => (
+                                    <MenuItem key={person._id} value={person.name}>
+                                        <Stack direction="column">
+                                            <Typography variant="body1">{person.name}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {person.email}
+                                            </Typography>
+                                        </Stack>
+                                    </MenuItem>
+                                ))
+                            )}
                         </TextField>
 
                         {/* REMARKS AREA */}
@@ -523,7 +574,7 @@ export default function LeaveManagementContent() {
                         {/* FILE ATTACHMENT */}
                         <Box>
                             <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', }}>
-                                Proof of Leave (Optional)
+                                Proof of Leave (image/pdf)
                             </Typography>
 
                             <Button
@@ -533,12 +584,13 @@ export default function LeaveManagementContent() {
                                 startIcon={<CloudUploadRounded />}
                                 sx={{ borderRadius: 2, textTransform: 'none' }}
                             >
-                                {formData.attachment ? "loaded successfully" : "Upload File"}
+                                {formData.attachment ? "loaded successfully" : "Upload File *"}
                                 <input
                                     type="file"
                                     name="attachment"
                                     placeholder="upload file"
                                     hidden
+                                    required
                                     onChange={handleChange}
                                     accept=".pdf,.jpg,.jpeg,.png"
                                 />
@@ -587,7 +639,7 @@ export default function LeaveManagementContent() {
                         size="small"
                         startIcon={<DownloadRounded />}
                         onClick={handleDownload}
-                        sx={{ bgcolor: colorPalette.oceanBlue, borderRadius:5 }}
+                        sx={{ bgcolor: colorPalette.oceanBlue, borderRadius: 5 }}
                     >
                         Download
                     </Button>
@@ -619,7 +671,6 @@ export default function LeaveManagementContent() {
                     <Button onClick={() => setViewFile(null)} fontWeight={700}>Close</Button>
                 </Box>
             </Dialog>
-
 
         </Grid>
     );

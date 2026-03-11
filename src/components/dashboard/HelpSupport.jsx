@@ -267,7 +267,7 @@ const HelpSupport = () => {
         </Card>
       </Box>
 
-      \      {/* FEEDBACK SECTION */}
+        {/* FEEDBACK SECTION */}
       <Dialog
         open={openFeedback}
         onClose={() => setOpenFeedback(false)}
