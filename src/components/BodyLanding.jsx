@@ -16,11 +16,12 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CgMenu } from 'react-icons/cg';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import KMFRILogo from '../assets/kmfri.png';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
+import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
 import { getAllSupervisors } from '../service/UserManagement';
 import { loginUser } from './auth/Login';
 import { registerUser } from './auth/Register';
@@ -291,7 +292,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
     const [errors, setErrors] = useState({});
 
     const isEmployee = useMemo(
-        () => formData.role === 'employee',
+        () => formData.role === 'employee' || formData.role === 'employee-contract',
         [formData.role]
     );
 
@@ -320,13 +321,21 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
         if (step === 1) {
             if (!formData.name) e.name = 'Full name is required';
             if (!formData.phone) e.phone = 'Phone number is required';
-            if (!formData.email) e.email = 'Email is required';
+            if (formData.phone.length > 10) e.phone = 'Phone number max 10 digits';
+            if (!formData.email) {
+                e.email = 'Email is required';
+            } else {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(formData.email)) {
+                    e.email = 'Please enter a valid email address';
+                }
+            }
             if (!formData.gender) e.gender = 'Please select a gender';
         }
         if (step === 2) {
             if (!formData.department) e.department = 'Department is required';
             if (!formData.station) e.station = 'Main clocking station is required';
-            if (isEmployee && !formData.employeeId) e.employeeId = 'Employee ID is required';
+            if (!formData.employeeId) e.employeeId = 'ID is required';
         }
         if (step === 3) {
             if (!formData.password) e.password = 'Password is required';
@@ -396,6 +405,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                         isEmployee={isEmployee}
                         allSupervisors={allSupervisors}
                         tf={G.lightInput}
+                        role={formData.role}
                     />
                 );
 
@@ -416,6 +426,7 @@ const RegisterStepper = ({ onBack, onSwitchToSignin }) => {
                     <ReviewDetailStep
                         formData={formData}
                         isEmployee={isEmployee}
+                        role={formData.role}
                     />
                 );
 
@@ -558,6 +569,16 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [currentView, setCurrentView] = useState('signin'); // 'signin' or 'reset'
+    const [resetPasswordEmail, setResetPasswordEmail] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [resetPasswordErrors, setResetPasswordErrors] = useState('');
+    const [resetPasswordProcessing, setResetPasswordProcessing] = useState(false);
+    const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
+    const [passwordChanged, setPasswordChanged] = useState(false);
+    const [hasPendingReset, setHasPendingReset] = useState(false);
+    const [isPasswordChangeEnabled, setIsPasswordChangeEnabled] = useState(false);
     const dispatch = useDispatch();
     const recentStation = localStorage.getItem('recent_station');
 
@@ -595,10 +616,113 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
         finally { setProcessing(false); }
     };
 
+    const switchToResetPassword = () => {
+        setCurrentView('reset');
+        setResetPasswordEmail('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setResetPasswordErrors('');
+        setHasPendingReset(false);
+        setIsPasswordChangeEnabled(false);
+    };
+
+    const switchToSignin = () => {
+        setCurrentView('signin');
+        setResetPasswordEmail('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setResetPasswordErrors('');
+        setHasPendingReset(false);
+        setIsPasswordChangeEnabled(false);
+    };
+
+    const handleResetPasswordSubmit = async () => {
+        if (!resetPasswordEmail.trim()) {
+            setResetPasswordErrors('Email is required');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(resetPasswordEmail)) {
+            setResetPasswordErrors('Please enter a valid email');
+            return;
+        }
+
+        setResetPasswordProcessing(true);
+        try {
+            const response = await requestPasswordReset(resetPasswordEmail);
+
+            if (response?.status === 'approved') {
+                setIsPasswordChangeEnabled(true);
+                setResetPasswordErrors('');
+                setResetPasswordSuccess(false);
+                return;
+            }
+
+            if (response?.status === 'pending') {
+                setHasPendingReset(true);
+                setIsPasswordChangeEnabled(false);
+                setResetPasswordErrors('');
+                return;
+            }
+
+            if (response?.status === 'requested') {
+                setHasPendingReset(true);
+                setResetPasswordSuccess(true);
+                setResetPasswordErrors('');
+                setTimeout(() => setResetPasswordSuccess(false), 3500);
+                return;
+            }
+
+            setResetPasswordSuccess(true);
+            setResetPasswordErrors('');
+            setTimeout(() => setResetPasswordSuccess(false), 3500);
+        } catch (err) {
+            setResetPasswordErrors((err?.message || err?.toString() || 'Password reset request failed').toString());
+        } finally {
+            setResetPasswordProcessing(false);
+        }
+    };
+
+    const handleChangePassword = async () => {
+        if (!newPassword.trim() || !confirmPassword.trim()) {
+            setResetPasswordErrors('Both password fields are required');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setResetPasswordErrors('Passwords do not match');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            setResetPasswordErrors('New password must be at least 6 characters');
+            return;
+        }
+
+        setResetPasswordProcessing(true);
+        try {
+            await resetPassword(resetPasswordEmail, newPassword);
+            setPasswordChanged(true);
+            setIsPasswordChangeEnabled(false);
+            setTimeout(() => setPasswordChanged(false), 4000);
+            switchToSignin();
+        } catch (err) {
+            setResetPasswordErrors((err?.message || err?.toString() || 'Failed to change password').toString());
+        } finally {
+            setResetPasswordProcessing(false);
+        }
+    };
+
     const handleCloseSnack = (_, reason) => {
         if (reason === 'clickaway') return;
         setOpenSnack(false);
         window.location.reload();
+    };
+
+    const handleCloseResetSnack = (_, reason) => {
+        if (reason === 'clickaway') return;
+        setResetPasswordSuccess(false);
     };
 
     return (
@@ -614,56 +738,207 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                         <Close sx={{ width: 14, height: 14, color: colorPalette.deepNavy }} />
                     </IconButton>
                 </Box>
-                <Box sx={{ textAlign: 'center', mb: 3.5 }}>
-                    <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: `0 10px 32px ${colorPalette.oceanBlue}42` }}>
-                        <Lock sx={{ fontSize: 38, color: '#fff' }} />
-                    </Box>
-                    <Typography variant="h4" fontWeight={900}
-                        sx={{ background: colorPalette.oceanGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
-                        Welcome Back
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                        Sign in to access your attendance portal
-                    </Typography>
-                </Box>
-                <Stack spacing={2.5}>
-                    <TextField fullWidth label="Email Address" placeholder="example@kmfri.go.ke"
-                        value={formData.email} onChange={handle('email')} error={!!errors.email} helperText={errors.email}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
-                        sx={G.lightInput} />
-                    <TextField fullWidth label="Password" placeholder="Enter your password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password} onChange={handle('password')} error={!!errors.password} helperText={errors.password}
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                            endAdornment: <InputAdornment position="end">
-                                <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
-                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                            </InputAdornment>,
-                        }} sx={G.lightInput} />
-                    {recentStation && (
-                        <Stack direction="row" alignItems="center" spacing={0.6}>
-                            <LocationOn sx={{ color: colorPalette.seafoamGreen, fontSize: 17 }} />
-                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Recent Station: {recentStation}
+
+                {currentView === 'signin' ? (
+                    <>
+                        <Box sx={{ textAlign: 'center', mb: 3.5 }}>
+                            <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: `0 10px 32px ${colorPalette.oceanBlue}42` }}>
+                                <Lock sx={{ fontSize: 38, color: '#fff' }} />
+                            </Box>
+                            <Typography variant="h4" fontWeight={900}
+                                sx={{ background: colorPalette.oceanGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
+                                Welcome Back
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                Sign in to access your attendance portal
+                            </Typography>
+                        </Box>
+                        <Stack spacing={2.5}>
+                            <TextField fullWidth label="Email Address" placeholder="example@kmfri.go.ke"
+                                value={formData.email} onChange={handle('email')} error={!!errors.email} helperText={errors.email}
+                                InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
+                                sx={G.lightInput} />
+                            <TextField fullWidth label="Password" placeholder="Enter your password"
+                                type={showPassword ? 'text' : 'password'}
+                                value={formData.password} onChange={handle('password')} error={!!errors.password} helperText={errors.password}
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                                    endAdornment: <InputAdornment position="end">
+                                        <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>,
+                                }} sx={G.lightInput} />
+                            {recentStation && (
+                                <Stack direction="row" alignItems="center" spacing={0.6}>
+                                    <LocationOn sx={{ color: colorPalette.seafoamGreen, fontSize: 17 }} />
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Recent Station: {recentStation}
+                                    </Typography>
+                                </Stack>
+                            )}
+                            <Button variant="contained" fullWidth disabled={processing} onClick={handleLogin}
+                                startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
+                                sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
+                                {processing ? 'Please wait…' : 'Sign In to Portal'}
+                            </Button>
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    Forgot password?
+                                </Typography>
+                                <Button variant="text" onClick={switchToResetPassword}
+                                    sx={{ color: colorPalette.oceanBlue, fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', fontSize: '0.875rem', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
+                                    Reset here
+                                </Button>
+                            </Box>
+                            <Typography variant="body2" color="text.secondary" textAlign="center">
+                                Don't have an account?{' '}
+                                <Button variant="text" onClick={onSwitchToSignup}
+                                    sx={{ color: colorPalette.oceanBlue, fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
+                                    Register here
+                                </Button>
                             </Typography>
                         </Stack>
-                    )}
-                    <Button variant="contained" fullWidth disabled={processing} onClick={handleLogin}
-                        startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
-                        sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
-                        {processing ? 'Please wait…' : 'Sign In to Portal'}
-                    </Button>
-                    <Typography variant="body2" color="text.secondary" textAlign="center">
-                        Don't have an account?{' '}
-                        <Button variant="text" onClick={onSwitchToSignup}
-                            sx={{ color: colorPalette.oceanBlue, fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
-                            Register here
-                        </Button>
-                    </Typography>
-                </Stack>
+                    </>
+                ) : (
+                    <>
+                        <Box sx={{ textAlign: 'center', mb: 3 }}>
+                            <Box sx={{
+                                width: 68, height: 68, borderRadius: '50%', background: 'rgba(255,152,0,0.12)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2,
+                                border: '2px solid rgba(255,152,0,0.25)'
+                            }}>
+                                <Lock sx={{ fontSize: 34, color: 'rgb(255,152,0)' }} />
+                            </Box>
+                            <Typography variant="h5" fontWeight={900} sx={{ mb: 1, color: colorPalette.deepNavy }}>
+                                Reset Password
+                            </Typography>
+                            {isPasswordChangeEnabled ? <Typography variant="body2" color="success" sx={{ lineHeight: 1.6, bgcolor:'rgba(72,201,176,0.12)', display:'inline-block', px:1.5, py:0.5, borderRadius:1 }}>
+                                Your password reset request is approved. Kindly, fill in your new password and confirm to change your password.
+                            </Typography> : <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                                Enter your registered email address. Your admin will need to approve your password reset request before you can proceed.
+                            </Typography>}
+
+                        </Box>
+
+                        <Stack spacing={2.5}>
+                            {isPasswordChangeEnabled ? (
+                                <>
+                                    <TextField fullWidth label="New Password" placeholder="Enter new password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                        error={!!resetPasswordErrors} helperText=""
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                                            endAdornment: <InputAdornment position="end">
+                                                <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
+                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>,
+                                        }} sx={G.lightInput} />
+
+                                    <TextField fullWidth label="Confirm Password" placeholder="Confirm new password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                        error={!!resetPasswordErrors} helperText={resetPasswordErrors}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                                            endAdornment: <InputAdornment position="end">
+                                                <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
+                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>,
+                                        }} sx={G.lightInput} />
+
+                                    <Button variant="contained" fullWidth onClick={handleChangePassword}
+                                        disabled={resetPasswordProcessing}
+                                        startIcon={resetPasswordProcessing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
+                                        sx={{
+                                            background: 'linear-gradient(135deg, rgb(255,152,0) 0%, rgb(255,109,0) 100%)',
+                                            py: 1.5, borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem',
+                                            textTransform: 'none', letterSpacing: 0.3, boxShadow: '0 6px 20px rgba(255,152,0,0.3)',
+                                            transition: 'all 0.24s ease', '&:hover': {
+                                                boxShadow: '0 10px 28px rgba(255,152,0,0.4)',
+                                                transform: 'translateY(-2px)'
+                                            }
+                                        }}>
+                                        {resetPasswordProcessing ? 'Updating...' : 'Change Password'}
+                                    </Button>
+
+
+                                </>
+                            ) : (
+                                <>
+                                    <TextField fullWidth label="Registered Email" placeholder="example@kmfri.go.ke"
+                                        value={resetPasswordEmail} onChange={e => {
+                                            setResetPasswordEmail(e.target.value);
+                                            if (resetPasswordErrors) setResetPasswordErrors('');
+                                            if (hasPendingReset) setHasPendingReset(false);
+                                        }}
+                                        error={!!resetPasswordErrors} helperText={resetPasswordErrors}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start">
+                                                <Email sx={{ color: colorPalette.oceanBlue }} />
+                                            </InputAdornment>
+                                        }}
+                                        sx={G.lightInput} disabled={resetPasswordProcessing || hasPendingReset} />
+
+                                    {hasPendingReset ? (
+                                        <Box sx={{
+                                            backgroundColor: 'rgba(255,152,0,0.08)',
+                                            border: '1.5px solid rgb(255,152,0)',
+                                            borderRadius: '12px',
+                                            p: 2.5,
+                                            textAlign: 'center'
+                                        }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'rgb(255,152,0)', mb: 1 }}>
+                                                Pending Password Reset
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+                                                You already have a pending password reset request. Please contact your admin or visit the admin office at your station for approval.
+                                            </Typography>
+                                            <Button fullWidth variant="outlined" onClick={switchToSignin}
+                                                sx={{ mt: 2, color: 'rgb(255,152,0)', borderColor: 'rgb(255,152,0)', '&:hover': { backgroundColor: 'rgba(255,152,0,0.08)' } }}>
+                                                Back to Sign In
+                                            </Button>
+                                        </Box>
+                                    ) : (
+                                        <Button variant="contained" fullWidth onClick={handleResetPasswordSubmit}
+                                            disabled={resetPasswordProcessing}
+                                            startIcon={resetPasswordProcessing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
+                                            sx={{
+                                                background: 'linear-gradient(135deg, rgb(255,152,0) 0%, rgb(255,109,0) 100%)',
+                                                py: 1.5, borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem',
+                                                textTransform: 'none', letterSpacing: 0.3, boxShadow: '0 6px 20px rgba(255,152,0,0.3)',
+                                                transition: 'all 0.24s ease', '&:hover': {
+                                                    boxShadow: '0 10px 28px rgba(255,152,0,0.4)',
+                                                    transform: 'translateY(-2px)'
+                                                }
+                                            }}>
+                                            {resetPasswordProcessing ? 'Requesting...' : 'Request Password Reset'}
+                                        </Button>
+                                    )}
+
+                                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', lineHeight: 1.6, fontSize: '0.75rem' }}>
+                                        {hasPendingReset
+                                            ? 'Status checked successfully'
+                                            : 'Next steps: Your admin will review your request and approve the reset. You\'ll be notified once approved.'
+                                        }
+                                    </Typography>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                        <Button variant="text" onClick={switchToSignin}
+                                            sx={{ color: colorPalette.oceanBlue, fontWeight: 700, textTransform: 'none', fontSize: '0.875rem', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
+                                            ← Back to Sign In
+                                        </Button>
+                                    </Box>
+                                </>
+                            )}
+                        </Stack>
+                    </>
+                )}
             </Card>
+
             <Snackbar open={openSnack} autoHideDuration={1200} onClose={handleCloseSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
                 <Alert onClose={handleCloseSnack} severity="success" icon={<CheckCircle />}
                     sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)', boxShadow: '0 8px 28px rgba(72,201,176,0.32)' }}>
@@ -671,6 +946,12 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                 </Alert>
             </Snackbar>
 
+            <Snackbar open={resetPasswordSuccess || passwordChanged} autoHideDuration={3000} onClose={handleCloseResetSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+                <Alert onClose={handleCloseResetSnack} severity="success" icon={<CheckCircle />}
+                    sx={{ borderRadius: '14px', fontWeight: 500, backdropFilter: 'blur(16px)', boxShadow: '0 8px 28px rgba(76,175,80,0.32)' }}>
+                    {resetPasswordSuccess ? 'Password reset request submitted!' : passwordChanged ? 'Password changed successfully!' : ''}
+                </Alert>
+            </Snackbar>
         </motion.div>
     );
 };

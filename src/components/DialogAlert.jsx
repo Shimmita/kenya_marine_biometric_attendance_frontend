@@ -55,7 +55,7 @@ export default function DialogAlert() {
     };
 
     const handleHelp = () => {
-        setIsHelp(prev=>!prev);
+        setIsHelp(prev => !prev);
     };
 
     return (
@@ -104,8 +104,7 @@ export default function DialogAlert() {
                         sx={{ mb: 2 }}
                     >
                         Your account has not yet been activated for clocking services.
-                        Please contact your assigned departmental supervisor, HR, or Admin
-                        to activate your account.
+                        Please contact your Human Resource (HR) department at {currentUser?.station} to activate your account.
                     </DialogContentText>
 
                     {isHelp && (
@@ -163,7 +162,7 @@ export default function DialogAlert() {
                         }}
                         disabled={processing}
                     >
-                      Help
+                        Help
                     </Button>
 
                     <Button

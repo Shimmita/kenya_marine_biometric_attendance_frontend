@@ -504,7 +504,7 @@ const UserCardDepart = ({
                         </ControlField>
 
                         <ControlField label="Supervisor" minWidth={185} disabled={isCurrentUser}>
-                            <FormControl size="small" fullWidth disabled={isCurrentUser}>
+                            <FormControl size="small" fullWidth disabled={isCurrentUser || currentUser?.rank !== 'hr'}>
                                 <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     <MenuItem value={user?.supervisor} sx={{ color: C.textMuted }}>{user?.supervisor || "—"}</MenuItem>
                                     {supervisors?.filter((s) => s?.email !== user?.email).map((s) => (

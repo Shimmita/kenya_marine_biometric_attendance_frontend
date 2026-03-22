@@ -473,7 +473,7 @@ const UserCard = ({
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
                         <ControlField label="Rank" minWidth={128}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank !== 'hr'} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {RANKS.map((r) => (
                                         <MenuItem key={r} value={r}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
@@ -488,28 +488,28 @@ const UserCard = ({
 
                         <ControlField label="Role" minWidth={155}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank !== 'hr'} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                        </ControlField>
-
-                        <ControlField label="Department" minWidth={185}>
-                            <FormControl size="small" fullWidth>
-                                <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                    <MenuItem value="" sx={{ color: C.textMuted }}><em>Select dept.</em></MenuItem>
-                                    {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                 </Select>
                             </FormControl>
                         </ControlField>
 
                         <ControlField label="Supervisor" minWidth={185}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps} disabled={currentUser?.rank !== 'hr'}>
                                     <MenuItem value={user?.supervisor} sx={{ color: C.textMuted }}>{user?.supervisor || "—"}</MenuItem>
                                     {supervisors?.filter((s) => s?.email !== user?.email).map((s) => (
                                         <MenuItem key={s._id} value={s}>{s?.name}</MenuItem>
                                     ))}
+                                </Select>
+                            </FormControl>
+                        </ControlField>
+
+                         <ControlField label="Department" minWidth={185}>
+                            <FormControl size="small" fullWidth>
+                                <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                    <MenuItem value="" sx={{ color: C.textMuted }}><em>Select dept.</em></MenuItem>
+                                    {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                 </Select>
                             </FormControl>
                         </ControlField>
@@ -540,41 +540,43 @@ const UserCard = ({
                         </ControlField>
 
                         {/* Activate / Deactivate */}
-                        <Box sx={{ flex: "0 0 auto" }}>
-                            <FieldLabel>Account</FieldLabel>
-                            <Button
-                                size="small"
-                                variant="contained"
-                                disabled={isUpdating}
-                                onClick={() => onToggleActive(user._id)}
-                                disableElevation
-                                sx={{
-                                    height: 38, px: 2.5, borderRadius: "12px",
-                                    fontWeight: 800, fontSize: "0.72rem",
-                                    letterSpacing: "0.06em", textTransform: "uppercase",
-                                    minWidth: 112,
-                                    background: user.isAccountActive
-                                        ? `linear-gradient(135deg, ${C.coralSunset}, #d73527)`
-                                        : `linear-gradient(135deg, ${C.seafoamGreen}, #1abc9c)`,
-                                    color: "#fff",
-                                    boxShadow: user.isAccountActive
-                                        ? `0 4px 14px rgba(255,92,74,0.4)`
-                                        : `0 4px 14px rgba(72,201,176,0.4)`,
-                                    "&:hover": {
-                                        filter: "brightness(1.1)",
+                        {currentUser?.rank === 'hr' && (
+                            <Box sx={{ flex: "0 0 auto" }}>
+                                <FieldLabel>Account</FieldLabel>
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    disabled={isUpdating}
+                                    onClick={() => onToggleActive(user._id)}
+                                    disableElevation
+                                    sx={{
+                                        height: 38, px: 2.5, borderRadius: "12px",
+                                        fontWeight: 800, fontSize: "0.72rem",
+                                        letterSpacing: "0.06em", textTransform: "uppercase",
+                                        minWidth: 112,
+                                        background: user.isAccountActive
+                                            ? `linear-gradient(135deg, ${C.coralSunset}, #d73527)`
+                                            : `linear-gradient(135deg, ${C.seafoamGreen}, #1abc9c)`,
+                                        color: "#fff",
                                         boxShadow: user.isAccountActive
-                                            ? `0 6px 20px rgba(255,92,74,0.58)`
-                                            : `0 6px 20px rgba(72,201,176,0.58)`,
-                                    },
-                                    "&:disabled": { opacity: 0.4 },
-                                    transition: "all 0.2s",
-                                }}
-                            >
-                                {isUpdating
-                                    ? <CircularProgress size={13} sx={{ color: "#fff" }} />
-                                    : user.isAccountActive ? "Deactivate" : "Activate"}
-                            </Button>
-                        </Box>
+                                            ? `0 4px 14px rgba(255,92,74,0.4)`
+                                            : `0 4px 14px rgba(72,201,176,0.4)`,
+                                        "&:hover": {
+                                            filter: "brightness(1.1)",
+                                            boxShadow: user.isAccountActive
+                                                ? `0 6px 20px rgba(255,92,74,0.58)`
+                                                : `0 6px 20px rgba(72,201,176,0.58)`,
+                                        },
+                                        "&:disabled": { opacity: 0.4 },
+                                        transition: "all 0.2s",
+                                    }}
+                                >
+                                    {isUpdating
+                                        ? <CircularProgress size={13} sx={{ color: "#fff" }} />
+                                        : user.isAccountActive ? "Deactivate" : "Activate"}
+                                </Button>
+                            </Box>
+                        )}
                     </Stack>
 
                     {/* ── Clock outside banner ── */}

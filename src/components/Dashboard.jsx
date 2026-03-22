@@ -3,7 +3,7 @@ import {
     ChevronLeft, ChevronRight,
     Dashboard as DashIcon,
     EmojiPeopleRounded,
-    History, InsightsRounded, Logout, MarkEmailReadRounded, Menu as MenuIcon,
+    History, InsightsRounded, Lock, Logout, MarkEmailReadRounded, Menu as MenuIcon,
     PhoneLocked, QueryStats,
     SensorOccupiedRounded,
     SupervisorAccount,
@@ -34,6 +34,7 @@ import SupervisorDeptRequest from './dashboard/supervisor/SupervisorDeptRequest'
 import SupervisorDeptStats from './dashboard/supervisor/SupervisorDeptStats';
 import SupervisorManageLeaves from './dashboard/supervisor/SupervisorManageLeaves';
 import SupervisorManageMembers from './dashboard/supervisor/SupervisorManageMembers';
+import PasswordResetRequests from './dashboard/PasswordResetRequests';
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -402,6 +403,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
         { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
         { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
+        { text: 'Password Reset Requests', icon: <Lock />, color: '#f97316' },
         { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite }
     ];
     const techItems = [
@@ -732,6 +734,7 @@ const EnhancedDashboard = () => {
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
+            case 'Password Reset Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sp} />;
             case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />;
             case 'Help & Support': return <HelpSupport />;
 
@@ -764,6 +767,7 @@ const EnhancedDashboard = () => {
         'Leave Management': 'Administration Leave Management',
         'Notification Panel': 'Notification Management',
         'All User Requests': 'User Device Requests',
+        'Password Reset Requests': 'User Password Reset Requests',
         'Lost Device': 'Lost Device Request',
         'Add Device': 'Add Clocking Device',
         'Our Mobile App': 'KMFRI Mobile Application',

@@ -16,7 +16,6 @@ import {
 } from '@mui/icons-material';
 import {
     Box,
-    Collapse,
     Grid,
     IconButton, InputAdornment,
     MenuItem,
@@ -30,23 +29,13 @@ const { colorPalette, genders, AvailableStations, availableDepartments: departme
 
 
 const ROLES = [
-    { value: 'employee', label: 'Employee (Full-Time)', icon: '👔', desc: 'Full-time' },
+    { value: 'employee', label: 'Employee (PnP)', icon: '👔', desc: 'Permanent' },
     { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
     { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
     { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
 ];
 
 
-const selectSx = {
-    color: colorPalette.textPrimary,
-    fontSize: "0.83rem",
-    borderRadius: "10px",
-    background: "rgba(0,91,150,0.32)",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,229,255,0.22)" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: colorPalette.aquaVibrant },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: colorPalette.seafoamGreen },
-    "& .MuiSvgIcon-root": { color: colorPalette.cyanFresh },
-};
 
 const menuProps = {
     PaperProps: {
@@ -107,19 +96,33 @@ const ReviewRow = ({ label, value, accent }) => (
 );
 
 
-const EmployeeIdField = React.memo(({ value, error, onChange, tf, show }) => {
-    if (!show) return null;
+const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
+    const getFieldConfig = (role) => {
+        switch (role) {
+            case 'employee':
+            case 'employee-contract':
+                return { label: 'Staff ID', placeholder: 'Enter your staff ID' };
+            case 'intern':
+                return { label: 'National ID', placeholder: 'Enter your national ID' };
+            case 'attachee':
+                return { label: 'Student Reg Number', placeholder: 'Enter your student registration number' };
+            default:
+                return { label: 'ID Number', placeholder: 'Enter your ID number' };
+        }
+    };
+
+    const { label, placeholder } = getFieldConfig(role);
 
     return (
         <TextField
             fullWidth
             required
-            label="Employee ID"
-            placeholder="e.g. KMFRI-2024-001"
+            label={label}
+            placeholder={placeholder}
             value={value}
             onChange={onChange}
             error={!!error}
-            helperText={error || 'Your official employment number (not National ID)'}
+            helperText={error}
             InputProps={{
                 startAdornment: (
                     <InputAdornment position="start">
@@ -140,7 +143,8 @@ const WorkDetailsStep = React.memo(
         handle,
         isEmployee,
         allSupervisors,
-        tf
+        tf,
+        role
     }) => {
 
         // Memoized supervisor menu items (prevents re-creation on every keystroke)
@@ -228,15 +232,13 @@ const WorkDetailsStep = React.memo(
                 </TextField>
 
                 {/* Employee ID */}
-                <Collapse in={isEmployee}>
-                    <EmployeeIdField
-                        value={formData.employeeId}
-                        error={errors.employeeId}
-                        onChange={handle('employeeId')}
-                        tf={tf}
-                        show={isEmployee}
-                    />
-                </Collapse>
+                <EmployeeIdField
+                    value={formData.employeeId}
+                    error={errors.employeeId}
+                    onChange={handle('employeeId')}
+                    tf={tf}
+                    role={role}
+                />
 
 
                 <TextField
@@ -260,57 +262,59 @@ const WorkDetailsStep = React.memo(
                     {supervisorOptions}
                 </TextField>
 
-                <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems={{ sm: 'center' }}
-                >
-                    <TextField
-                        fullWidth
-                        label="Valid From"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={handle('startDate')}
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <CalendarToday sx={{ color: colorPalette.oceanBlue }} />
-                                </InputAdornment>
-                            )
-                        }}
-                        sx={tf}
-                    />
-
-                    <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        color="text.disabled"
-                        sx={{
-                            display: { xs: 'none', sm: 'block' },
-                            flexShrink: 0
-                        }}
+                {!isEmployee && (
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems={{ sm: 'center' }}
                     >
-                        to
-                    </Typography>
+                        <TextField
+                            fullWidth
+                            label="Start Date"
+                            type="date"
+                            value={formData.startDate}
+                            onChange={handle('startDate')}
+                            InputLabelProps={{ shrink: true }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <CalendarToday sx={{ color: colorPalette.oceanBlue }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={tf}
+                        />
 
-                    <TextField
-                        fullWidth
-                        label="Valid Until"
-                        type="date"
-                        value={formData.endDate}
-                        onChange={handle('endDate')}
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <CalendarToday sx={{ color: colorPalette.oceanBlue }} />
-                                </InputAdornment>
-                            )
-                        }}
-                        sx={tf}
-                    />
-                </Stack>
+                        <Typography
+                            variant="body2"
+                            fontWeight={700}
+                            color="text.disabled"
+                            sx={{
+                                display: { xs: 'none', sm: 'block' },
+                                flexShrink: 0
+                            }}
+                        >
+                            to
+                        </Typography>
+
+                        <TextField
+                            fullWidth
+                            label="End Date"
+                            type="date"
+                            value={formData.endDate}
+                            onChange={handle('endDate')}
+                            InputLabelProps={{ shrink: true }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <CalendarToday sx={{ color: colorPalette.oceanBlue }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={tf}
+                        />
+                    </Stack>
+                )}
             </Stack>
         );
     });
@@ -371,7 +375,7 @@ const PersonalDetailsStep = React.memo(({
             <TextField fullWidth required label="Full Name" placeholder="John Doe"
                 value={formData.name} onChange={handle('name')} error={!!errors.name} helperText={errors.name}
                 InputProps={{ startAdornment: <InputAdornment position="start"><Badge sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
-            <TextField fullWidth required label="Phone Number" placeholder="+254 700 123 456"
+            <TextField fullWidth required type='number' label="Phone Number" placeholder="0723569054"
                 value={formData.phone} onChange={handle('phone')} error={!!errors.phone} helperText={errors.phone}
                 InputProps={{ startAdornment: <InputAdornment position="start"><Phone sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }} sx={tf} />
             <TextField fullWidth required label="Email Address" type="email" placeholder="john.doe@kmfri.go.ke"
@@ -451,6 +455,7 @@ const SecurityDetailStep = React.memo(({ formData,
 const ReviewDetailStep = React.memo(({
     formData,
     isEmployee,
+    role
 }) => {
     return (
         <Stack spacing={2.5}>
@@ -487,7 +492,11 @@ const ReviewDetailStep = React.memo(({
                     <ReviewRow label="Email" value={formData.email} />
                     <ReviewRow label="Gender" value={formData.gender} />
                     <ReviewRow label="Department" value={formData.department} />
-                    {isEmployee && <ReviewRow label="Employee ID" value={formData.employeeId} />}
+                    <ReviewRow label={
+                        role === 'intern' ? 'National ID' :
+                            role === 'attachee' ? 'Student Reg Number' :
+                                'Staff ID'
+                    } value={formData.employeeId} />
                     <ReviewRow label="Supervisor" value={formData.supervisor} />
                     <ReviewRow label="Valid From" value={formData.startDate} />
                     <ReviewRow label="Valid Until" value={formData.endDate} />
