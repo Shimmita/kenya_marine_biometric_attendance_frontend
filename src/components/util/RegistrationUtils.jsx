@@ -10,7 +10,6 @@ import {
     Person,
     Phone,
     Security,
-    SupervisorAccount,
     Visibility, VisibilityOff,
     WorkRounded
 } from '@mui/icons-material';
@@ -142,24 +141,10 @@ const WorkDetailsStep = React.memo(
         errors,
         handle,
         isEmployee,
-        allSupervisors,
         tf,
         role
     }) => {
 
-        // Memoized supervisor menu items (prevents re-creation on every keystroke)
-        const supervisorOptions = React.useMemo(() => {
-            if (!allSupervisors) return null;
-
-            return allSupervisors.map((supervisor) => (
-                <MenuItem
-                    key={supervisor?.name}
-                    value={supervisor?.name}
-                >
-                    {supervisor?.name}
-                </MenuItem>
-            ));
-        }, [allSupervisors]);
 
         return (
             <Stack spacing={2.5}>
@@ -240,27 +225,6 @@ const WorkDetailsStep = React.memo(
                     role={role}
                 />
 
-
-                <TextField
-                    select
-                    fullWidth
-                    required={false}
-                    label="Supervisor"
-                    value={formData.supervisor}
-                    onChange={handle('supervisor')}
-                    error={!!errors.supervisor}
-                    helperText={errors.supervisor}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SupervisorAccount sx={{ color: colorPalette.oceanBlue }} />
-                            </InputAdornment>
-                        )
-                    }}
-                    sx={tf}
-                >
-                    {supervisorOptions}
-                </TextField>
 
                 {!isEmployee && (
                     <Stack
@@ -497,9 +461,10 @@ const ReviewDetailStep = React.memo(({
                             role === 'attachee' ? 'Student Reg Number' :
                                 'Staff ID'
                     } value={formData.employeeId} />
-                    <ReviewRow label="Supervisor" value={formData.supervisor} />
-                    <ReviewRow label="Valid From" value={formData.startDate} />
-                    <ReviewRow label="Valid Until" value={formData.endDate} />
+                    {role !== "employee" && role !== "employee-contract" && <>
+                        <ReviewRow label="Start Date" value={formData.startDate} />
+                        <ReviewRow label="End Date" value={formData.endDate} />
+                    </>}
                     <ReviewRow label="Password" value="••••••••" accent={colorPalette.seafoamGreen} />
                 </Stack>
             </Box>
