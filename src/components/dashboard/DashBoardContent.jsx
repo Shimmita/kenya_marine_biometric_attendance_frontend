@@ -1146,7 +1146,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                         </Grid> */}
 
                         {/* ── Monthly summary dark card (kept as-is) ── */}
-                        <Reveal delay={0.30}>
+                        {/* <Reveal delay={0.30}>
                             <Box sx={{
                                 borderRadius: '22px', background: G.clockBg,
                                 color: '#fff', p: 3, position: 'relative', overflow: 'hidden',
@@ -1184,7 +1184,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                     ))}
                                 </Grid>
                             </Box>
-                        </Reveal>
+                        </Reveal> */}
                     </Stack>
                 </Grid>
             </Grid>
