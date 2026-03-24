@@ -659,7 +659,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
     const handleRegisterFingerprint = async () => {
         try {
-            
+
             setBiometricLoading(true);
             await registerFingerprint();
             const updated = await getUserProfile();
@@ -680,7 +680,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const handleClockInClockOut = async () => {
         try {
             setBiometricLoading(true);
-            await verifyFingerprint(selectedStation.name,userLocation);
+            await verifyFingerprint(selectedStation.name, userLocation);
             const updated = await getUserProfile();
             dispatch(updateUserCurrentUserRedux(updated));
             setIsClockedIn(updated.hasClockedIn);
@@ -1016,40 +1016,33 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                 <SectionLabel accent={colorPalette.deepNavy} chip="Last 7 days">Recent Attendance</SectionLabel>
                                 <Box sx={{ ...G.card, borderRadius: '20px', overflow: 'hidden' }}>
                                     <Box sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { height: 3 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(10,61,98,0.12)', borderRadius: 2 } }}>
-                                        <Table size="small" sx={{ minWidth: isMobile ? 560 : '100%' }}>
+                                        <Table size="small" sx={{ width: '100%', minWidth: isMobile ? 400 : '100%' }}>
                                             <TableHead>
                                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                                    {['Date', isMobile ? 'In' : 'Clock In', isMobile ? 'Out' : 'Clock Out', 'Timing', 'Status'].map(h => (
+                                                    {['Date', isMobile ? 'In' : 'Clock In', isMobile ? 'Out' : 'Clock Out'].map(h => (
                                                         <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.69rem', color: colorPalette.deepNavy, letterSpacing: 0.7, py: 1.6, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.08)' }}>{h}</TableCell>
                                                     ))}
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
                                                 {recentAttendance.length === 0
-                                                    ? <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5, border: 0 }}>
-                                                        <Stack alignItems="center" spacing={1}>
-                                                            <Box sx={{ width: 56, height: 56, borderRadius: '18px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                <History sx={{ fontSize: 30, color: 'rgba(10,61,98,0.22)' }} />
-                                                            </Box>
-                                                            <Typography variant="body2" color="text.disabled" fontWeight={600}>No attendance records found</Typography>
-                                                        </Stack>
-                                                    </TableCell></TableRow>
+                                                    ? <TableRow>
+                                                        <TableCell colSpan={3} align="center" sx={{ py: 5, border: 0 }}>
+                                                            <Stack alignItems="center" spacing={1}>
+                                                                <Box sx={{ width: 56, height: 56, borderRadius: '18px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <History sx={{ fontSize: 30, color: 'rgba(10,61,98,0.22)' }} />
+                                                                </Box>
+                                                                <Typography variant="body2" color="text.disabled" fontWeight={600}>No attendance records found</Typography>
+                                                            </Stack>
+                                                        </TableCell>
+                                                    </TableRow>
                                                     : recentAttendance.map((row, idx) => (
                                                         <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                                                             transition={{ delay: idx * 0.04, duration: 0.25 }}
-                                                            style={{ display: 'table-row', willChange: 'transform, opacity' }}>
+                                                            style={{ display: 'table-row', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>
                                                             <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, fontSize: '0.82rem', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.date}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}>
-                                                                <Chip label={row.timing} size="small" sx={{ height: 20, fontWeight: 800, fontSize: '0.66rem', borderRadius: '7px', bgcolor: timingCfg[row.timing]?.bg || '#e0e0e020', color: timingCfg[row.timing]?.color || '#9e9e9e' }} />
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}>
-                                                                <Stack direction="row" alignItems="center" spacing={0.6}>
-                                                                    <FiberManualRecord sx={{ fontSize: 8, color: statusCfg[row.status]?.color || '#94a3b8' }} />
-                                                                    <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.79rem' }}>{row.status || '—'}</Typography>
-                                                                </Stack>
-                                                            </TableCell>
                                                         </motion.tr>
                                                     ))}
                                             </TableBody>
@@ -1075,21 +1068,21 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 <Grid item xs={12} lg={5}>
                     <Stack spacing={2}>
 
-                        <Reveal>
+                       {/*  <Reveal>
                             <SectionLabel accent={colorPalette.aquaVibrant} chip={`${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`}>
                                 Overview Statistics
                             </SectionLabel>
-                        </Reveal>
+                        </Reveal> */}
 
                         {/* ── Overview combined bar ── */}
-                        <Reveal delay={0.04}>
+                       {/*  <Reveal delay={0.04}>
                             <AttendanceOverviewBar m={m} loading={statsLoading} />
-                        </Reveal>
+                        </Reveal> */}
 
 
 
                         {/* ── Half Days + Late Arrivals Donut row ── */}
-                        <Grid container spacing={2}>
+                        {/* <Grid container spacing={2}>
                             <Grid item xs={6}>
                                 <Reveal delay={0.13}>
                                     <DonutCountCard
@@ -1120,12 +1113,12 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                     />
                                 </Reveal>
                             </Grid>
-                        </Grid>
+                        </Grid> */}
 
 
 
                         {/* ── Punctuality + Attendance Rate radial gauges ── */}
-                        <Grid container spacing={2}>
+                        {/* <Grid container spacing={2}>
                             <Grid item xs={6}>
                                 <Reveal delay={0.23}>
                                     <RadialGaugeCard
@@ -1150,7 +1143,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                     />
                                 </Reveal>
                             </Grid>
-                        </Grid>
+                        </Grid> */}
 
                         {/* ── Monthly summary dark card (kept as-is) ── */}
                         <Reveal delay={0.30}>

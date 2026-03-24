@@ -411,7 +411,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const adminItems = useMemo(() => ADMIN_BASE_ITEMS, []);
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
-    const hrItems = useMemo(() => [...ADMIN_BASE_ITEMS, ...HR_EXTRA_ITEMS], []);
+    const hrItems = useMemo(() => [...HR_EXTRA_ITEMS, ...ADMIN_BASE_ITEMS], []);
 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
@@ -716,7 +716,7 @@ const EnhancedDashboard = () => {
             /* Admin: no Orgs Stats / Leave Management */
             admin: ADMIN_BASE_ITEMS,
             /* HR: full set including Orgs Stats + Leave Management */
-            hr: [...ADMIN_BASE_ITEMS, ...HR_EXTRA_ITEMS],
+            hr: [...HR_EXTRA_ITEMS,...ADMIN_BASE_ITEMS],
             supervisor: [
                 { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
