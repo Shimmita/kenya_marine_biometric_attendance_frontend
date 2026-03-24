@@ -36,7 +36,7 @@ import LiveClock from '../util/LiveClock';
 import { detectCurrentDevice } from './AddDevice';
 
 const { AvailableStations, colorPalette } = coreDataDetails;
-const GEOFENCE_RADIUS_METERS = 500000;
+const GEOFENCE_RADIUS_METERS = 1000;
 
 /* ══ GLASS TOKENS ══════════════════════════════════════════════════════════ */
 const G = {

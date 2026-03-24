@@ -29,7 +29,6 @@ const coreDataDetails = {
         "Corporation Secretary and Legal Services",
         "Internal Audit",
         "Supply Chain Management",
-        "Research Centres"
     ],
     availableSupervisors: [
         "Edna N. Onkundi",
@@ -63,15 +62,20 @@ const coreDataDetails = {
     AvailableStations: [
         // { name: 'MOMBASA CENTRE', lat: -4.03951, lng: 39.6260 },
         { name: 'MOMBASA CENTRE', lat: -4.0546356, lng: 39.6826 },
-        { name: 'SHIMONI STATION', lat: -4.0546356, lng: 39.6826 },
+        { name: 'SHIMONI CENTRE', lat: -4.0546356, lng: 39.6826 },
         { name: 'KISUMU CENTRE', lat: -0.059149, lng: 34.8066 },
         { name: 'KEGATI STATION', lat: -0.644496, lng: 34.7481 },
-        { name: 'KALOKOL STATION', lat: 3.08222, lng: 36.0749 },
+        { name: 'TURKANA STATION', lat: 3.08222, lng: 36.0749 },
         { name: 'NAIROBI STATION', lat: -1.24936, lng: 36.7968 },
         { name: 'NAIVASHA STATION', lat: -0.664008, lng: 36.4651 },
         { name: 'BARINGO STATION', lat: 0.604245, lng: 35.9773 },
         { name: 'SANGORO STATION', lat: -0.394861, lng: 34.7374 },
-        { name: 'SAGANA STATION', lat: -0.669415, lng: 37.2061 },
+        { name: 'SAGANA CENTRE', lat: -0.669415, lng: 37.2061 },
+
+        // added stations, they don't has lats and lon yet using mombasa's for now
+        { name: 'GAZI STATION', lat: -4.0546356, lng: 39.6826 },
+        { name: 'MUTONGA CENTER', lat: -4.0546356, lng: 39.6826 },
+
     ],
     genders: [
         'Male',

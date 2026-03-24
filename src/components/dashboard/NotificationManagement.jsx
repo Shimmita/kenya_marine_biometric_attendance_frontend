@@ -72,13 +72,11 @@ export default function NotificationManagementContent({ currentUser }) {
             : base;
     }, [tab, userNotifs, adminNotifs, filterStatus]);
 
-    // 🔥 DELETE (only user messages)
     const handleDelete = async (id) => {
         await deleteUserNotification(id);
         setUserNotifs((prev) => prev.filter((n) => n._id !== id));
     };
 
-    // 🔥 STATUS COLOR
     const getStatusColor = (status) => {
         switch (status) {
             case "success":

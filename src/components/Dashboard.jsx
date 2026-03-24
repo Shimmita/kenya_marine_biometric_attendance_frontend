@@ -2,22 +2,29 @@ import {
     AddCircle,
     ChevronLeft, ChevronRight,
     Dashboard as DashIcon,
+    DevicesOther,
     EmojiPeopleRounded,
-    History, InsightsRounded, Lock, Logout, MarkEmailReadRounded, Menu as MenuIcon,
-    PhoneLocked, QueryStats,
+    History,
+    InsightsRounded,
+    Lock,
+    Logout,
+    Menu as MenuIcon,
+    PhoneLocked,
+    QueryStats,
     SensorOccupiedRounded,
     SupervisorAccount,
-    SupportAgentRounded
+    SupportAgentRounded,
+    TrendingUp,
 } from '@mui/icons-material';
 import {
-    AppBar, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
-    DialogContent, DialogTitle,
+    AppBar, Avatar, Box, Button, Chip, CircularProgress,
+    Dialog, DialogActions, DialogContent, DialogTitle,
     Drawer, IconButton,
     List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
-    Tooltip, Typography, useMediaQuery, useTheme
+    Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
@@ -28,13 +35,14 @@ import coreDataDetails from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
 import UserProfileDialog from './UserProfileDialog';
 import AdminLeaveManager from './dashboard/AdminLeaveManager';
+import PasswordResetRequests from './dashboard/PasswordResetRequests';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 import SupervisorDeptRequest from './dashboard/supervisor/SupervisorDeptRequest';
 import SupervisorDeptStats from './dashboard/supervisor/SupervisorDeptStats';
 import SupervisorManageLeaves from './dashboard/supervisor/SupervisorManageLeaves';
 import SupervisorManageMembers from './dashboard/supervisor/SupervisorManageMembers';
-import PasswordResetRequests from './dashboard/PasswordResetRequests';
+
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -49,29 +57,38 @@ const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 
-
-
 const { colorPalette } = coreDataDetails;
 
+/* ─── Layout constants ──────────────────────────────────────────────────── */
 const DRAWER_WIDTH = 330;
 const DRAWER_COLLAPSED_WIDTH = 72;
 const APPBAR_HEIGHT = 64;
 
+/* ─── Rank helpers ──────────────────────────────────────────────────────── */
 const ELEVATED_RANKS = ['admin', 'hr', 'supervisor', 'ceo'];
 const PRIVILEGED_RANKS = ['admin', 'hr', 'supervisor'];
 const RANK_META = {
-    admin: { label: 'Admin' }, hr: { label: 'HR' }, supervisor: { label: 'Supervisor' },
-    ceo: { label: 'CEO' }, user: { label: 'Employee' },
+    admin: { label: 'Admin' },
+    hr: { label: 'HR' },
+    supervisor: { label: 'Supervisor' },
+    ceo: { label: 'CEO' },
+    user: { label: 'Employee' },
 };
 
-const adminItems = [
-    { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
+/* ─── Shared admin items — HR-specific items split out ─────────────────── */
+const ADMIN_BASE_ITEMS = [
     { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
-    { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
-    { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
-    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite }
+    { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
+    { text: 'Password Requests', icon: <Lock />, color: '#f97316' },
+    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
 ];
 
+const HR_EXTRA_ITEMS = [
+    { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
+    { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+];
+
+/* ─── Glass tokens ──────────────────────────────────────────────────────── */
 const G = {
     meshBg: `
         radial-gradient(ellipse at 12% 18%, rgba(0,130,190,0.52) 0%, transparent 46%),
@@ -111,6 +128,7 @@ const G = {
     },
 };
 
+/* ─── Sidebar orbs (static decorative) ─────────────────────────────────── */
 const SidebarOrbs = React.memo(() => (
     <>
         {[
@@ -120,24 +138,28 @@ const SidebarOrbs = React.memo(() => (
             <Box key={i} sx={{
                 position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
                 top: t, left: l, right: r, bottom: bot, borderRadius: '50%',
-                background: c, filter: `blur(${b}px)`, willChange: 'transform',
+                background: c, filter: `blur(${b}px)`,
             }} />
         ))}
     </>
 ));
 
-const SectionLabel = ({ children }) => (
+/* ─── Section divider label ─────────────────────────────────────────────── */
+const SectionLabel = React.memo(({ children }) => (
     <Box sx={{ px: 1.5, pt: 2.2, pb: 0.6 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography sx={{ fontWeight: 800, fontSize: '0.56rem', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', whiteSpace: 'nowrap' }}>
+            <Typography sx={{
+                fontWeight: 800, fontSize: '0.56rem', letterSpacing: 2,
+                textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', whiteSpace: 'nowrap',
+            }}>
                 {children}
             </Typography>
             <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
         </Stack>
     </Box>
-);
+));
 
-/* ══ COLLAPSED ICON ITEM — premium animated icon-only nav ══════════════════ */
+/* ─── Collapsed icon nav item ───────────────────────────────────────────── */
 const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) => {
     const [hovered, setHovered] = useState(false);
 
@@ -151,40 +173,30 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
                         border: `1px solid ${item.color}44`,
                         boxShadow: `0 4px 20px rgba(0,0,0,0.40), 0 0 12px ${item.color}22`,
                         backdropFilter: 'blur(8px)',
-                    }
+                    },
                 },
-                arrow: { sx: { color: 'rgba(5,20,42,0.96)' } }
+                arrow: { sx: { color: 'rgba(5,20,42,0.96)' } },
             }}>
             <Box
                 onClick={onClick}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 sx={{
-                    position: 'relative', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', mx: 'auto', mb: 0.5,
-                    width: 46, height: 46, borderRadius: '14px',
+                    position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    mx: 'auto', mb: 0.5, width: 46, height: 46, borderRadius: '14px',
                     cursor: 'pointer', overflow: 'hidden',
                     transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
                     transform: hovered ? 'scale(1.14) translateY(-1px)' : 'scale(1)',
-                    // Active state: glowing background
                     background: isActive
                         ? `linear-gradient(135deg, ${item.color}cc, ${item.color}77)`
-                        : hovered
-                            ? `${item.color}22`
-                            : 'transparent',
+                        : hovered ? `${item.color}22` : 'transparent',
                     boxShadow: isActive
                         ? `0 4px 18px ${item.color}55, 0 0 0 1px ${item.color}44, inset 0 1px 0 rgba(255,255,255,0.18)`
-                        : hovered
-                            ? `0 6px 24px ${item.color}33, 0 0 16px ${item.color}22`
-                            : 'none',
+                        : hovered ? `0 6px 24px ${item.color}33, 0 0 16px ${item.color}22` : 'none',
                     border: isActive
                         ? `1px solid ${item.color}66`
-                        : hovered
-                            ? `1px solid ${item.color}33`
-                            : '1px solid transparent',
+                        : hovered ? `1px solid ${item.color}33` : '1px solid transparent',
                 }}>
-
-                {/* Ripple shimmer on hover */}
                 {hovered && !isActive && (
                     <Box sx={{
                         position: 'absolute', inset: 0, borderRadius: '14px',
@@ -192,13 +204,11 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
                         animation: 'pulseGlow 0.9s ease-in-out infinite alternate',
                         '@keyframes pulseGlow': {
                             from: { opacity: 0.5, transform: 'scale(0.95)' },
-                            to: { opacity: 1, transform: 'scale(1.05)' }
+                            to: { opacity: 1, transform: 'scale(1.05)' },
                         },
                         pointerEvents: 'none',
                     }} />
                 )}
-
-                {/* Icon */}
                 <Box sx={{
                     position: 'relative', zIndex: 1,
                     color: isActive ? 'rgba(255,255,255,0.95)' : hovered ? item.color : 'rgba(255,255,255,0.45)',
@@ -208,22 +218,18 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
                     '& svg': {
                         fontSize: 20,
                         transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                        transform: hovered ? 'rotate(-6deg) scale(1.1)' : 'rotate(0deg) scale(1)',
-                    }
+                        transform: hovered ? 'rotate(-6deg) scale(1.1)' : 'none',
+                    },
                 }}>
                     {item.icon}
                 </Box>
-
-                {/* Badge for pending requests */}
-                {item.text === 'User Requests' && pendingCount > 0 && (
+                {item.text === 'Lost Device Requests' && pendingCount > 0 && (
                     <Box sx={{
                         position: 'absolute', top: 4, right: 4, width: 8, height: 8,
                         borderRadius: '50%', bgcolor: '#f87171',
                         boxShadow: '0 0 6px rgba(248,113,113,0.8)',
                         animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
-                        '@keyframes ping': {
-                            '75%, 100%': { transform: 'scale(1.8)', opacity: 0 }
-                        }
+                        '@keyframes ping': { '75%, 100%': { transform: 'scale(1.8)', opacity: 0 } },
                     }} />
                 )}
             </Box>
@@ -231,7 +237,7 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
     );
 });
 
-/* ══ ACTIVE INDICATOR LINE (bottom underline for collapsed active item) ════ */
+/* ─── Animated active underline ─────────────────────────────────────────── */
 const ActiveLine = ({ color }) => (
     <motion.div
         layoutId="activeUnderline"
@@ -248,7 +254,7 @@ const ActiveLine = ({ color }) => (
     />
 );
 
-/* ══ FULL NAV ITEM ══════════════════════════════════════════════════════════ */
+/* ─── Full nav item ──────────────────────────────────────────────────────── */
 const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
     <motion.div whileHover={{ x: isActive ? 0 : 4 }} transition={{ type: 'spring', stiffness: 440, damping: 34 }}>
         <ListItem button onClick={onClick} sx={{
@@ -256,8 +262,8 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
             position: 'relative', overflow: 'hidden',
             color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
             transition: 'color 0.18s ease',
-            '&:hover': { color: isActive ? '#fff' : 'rgba(255,255,255,0.88)', bgcolor: 'transparent' },
             bgcolor: 'transparent',
+            '&:hover': { color: isActive ? '#fff' : 'rgba(255,255,255,0.88)', bgcolor: 'transparent' },
             '&::before': {
                 content: '""', position: 'absolute', inset: 0, borderRadius: '14px',
                 background: isActive ? `linear-gradient(120deg,${item.color}d8,${item.color}88)` : 'transparent',
@@ -266,70 +272,79 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
             },
             '&:hover::before': !isActive ? { background: `${item.color}16` } : {},
         }}>
-            <ListItemIcon sx={{ color: isActive ? 'rgba(255,255,255,0.92)' : item.color, minWidth: 34, position: 'relative', zIndex: 1, '& svg': { fontSize: 19 }, transition: 'color 0.18s ease' }}>
+            <ListItemIcon sx={{
+                color: isActive ? 'rgba(255,255,255,0.92)' : item.color,
+                minWidth: 34, position: 'relative', zIndex: 1,
+                '& svg': { fontSize: 19 }, transition: 'color 0.18s ease',
+            }}>
                 {item.icon}
             </ListItemIcon>
-            <ListItemText primary={item.text} sx={{ position: 'relative', zIndex: 1, my: 0 }}
-                primaryTypographyProps={{ fontWeight: isActive ? 700 : 500, fontSize: '0.875rem', letterSpacing: isActive ? 0.15 : 0, lineHeight: 1.25 }} />
+            <ListItemText
+                primary={item.text}
+                sx={{ position: 'relative', zIndex: 1, my: 0 }}
+                primaryTypographyProps={{
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: '0.875rem',
+                    letterSpacing: isActive ? 0.15 : 0,
+                    lineHeight: 1.25,
+                }}
+            />
             <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                {item.text === 'User Requests' && <UserRequestsBadge count={pendingCount} />}
-                {isActive && <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.85)', boxShadow: '0 0 6px rgba(255,255,255,0.7)', flexShrink: 0 }} />}
+                {item.text === 'Lost Device Requests' && <UserRequestsBadge count={pendingCount} />}
+                {isActive && (
+                    <Box sx={{
+                        width: 5, height: 5, borderRadius: '50%',
+                        bgcolor: 'rgba(255,255,255,0.85)',
+                        boxShadow: '0 0 6px rgba(255,255,255,0.7)', flexShrink: 0,
+                    }} />
+                )}
             </Box>
         </ListItem>
     </motion.div>
 ));
 
-/* ══ COLLAPSED DRAWER CONTENT ═══════════════════════════════════════════════ */
+/* ─── Collapsed drawer ──────────────────────────────────────────────────── */
 const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
     <Box sx={{
         height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        position: 'relative', overflow: 'hidden', ...G.sidebarBg,
-        pt: 1.5, pb: 2,
+        position: 'relative', overflow: 'hidden', ...G.sidebarBg, pt: 1.5, pb: 2,
     }}>
         <SidebarOrbs />
 
-        {/* Expand trigger */}
+        {/* Expand */}
         <Tooltip title="Expand sidebar" placement="right">
-            <Box
-                onClick={onExpand}
-                sx={{
-                    position: 'relative', zIndex: 1, mb: 2,
-                    width: 40, height: 40, borderRadius: '12px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)',
-                    background: 'rgba(255,255,255,0.06)',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                        background: 'rgba(0,220,255,0.14)',
-                        border: '1px solid rgba(0,220,255,0.32)',
-                        boxShadow: '0 4px 16px rgba(0,220,255,0.2)',
-                        transform: 'scale(1.08)',
-                    },
-                }}>
+            <Box onClick={onExpand} sx={{
+                position: 'relative', zIndex: 1, mb: 2,
+                width: 40, height: 40, borderRadius: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.06)',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                    background: 'rgba(0,220,255,0.14)', border: '1px solid rgba(0,220,255,0.32)',
+                    boxShadow: '0 4px 16px rgba(0,220,255,0.2)', transform: 'scale(1.08)',
+                },
+            }}>
                 <ChevronRight sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 20 }} />
             </Box>
         </Tooltip>
 
-        {/* Avatar mini */}
+        {/* Avatar */}
         <Tooltip title={user?.name || 'User'} placement="right">
-            <Avatar
-                src={user?.avatar}
-                sx={{
-                    width: 40, height: 40, mb: 2.5, flexShrink: 0, zIndex: 1,
-                    background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
-                    border: '2px solid rgba(255,255,255,0.22)',
-                    color: '#fff', fontWeight: 900, fontSize: '0.78rem',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    cursor: 'default',
-                }}>
+            <Avatar src={user?.avatar} sx={{
+                width: 40, height: 40, mb: 2.5, flexShrink: 0, zIndex: 1,
+                background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
+                border: '2px solid rgba(255,255,255,0.22)',
+                color: '#fff', fontWeight: 900, fontSize: '0.78rem',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', cursor: 'default',
+            }}>
                 {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
             </Avatar>
         </Tooltip>
 
-        {/* Divider */}
         <Box sx={{ width: 32, height: '1px', bgcolor: 'rgba(255,255,255,0.10)', mb: 1.5, zIndex: 1 }} />
 
-        {/* Icons list */}
+        {/* Icons */}
         <Box sx={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
             width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -351,72 +366,70 @@ const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTa
             ))}
         </Box>
 
-        {/* Divider */}
         <Box sx={{ width: 32, height: '1px', bgcolor: 'rgba(255,255,255,0.10)', mb: 1.5, zIndex: 1 }} />
 
-        {/* Logout icon */}
+        {/* Logout */}
         <Tooltip title="Log Out" placement="right">
-            <Box
-                onClick={onLogout}
-                sx={{
-                    zIndex: 1, width: 46, height: 46, borderRadius: '14px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', border: '1px solid rgba(239,68,68,0.15)',
-                    background: 'rgba(239,68,68,0.07)',
-                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                    '&:hover': {
-                        background: 'rgba(239,68,68,0.20)',
-                        border: '1px solid rgba(239,68,68,0.40)',
-                        boxShadow: '0 4px 20px rgba(239,68,68,0.30)',
-                        transform: 'scale(1.1) translateY(-1px)',
-                        '& svg': { transform: 'rotate(-12deg) scale(1.1)' }
-                    },
-                }}>
-                <Logout sx={{
-                    color: 'rgba(251,113,113,0.88)', fontSize: 19,
-                    transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                }} />
+            <Box onClick={onLogout} sx={{
+                zIndex: 1, width: 46, height: 46, borderRadius: '14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', border: '1px solid rgba(239,68,68,0.15)',
+                background: 'rgba(239,68,68,0.07)',
+                transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                '&:hover': {
+                    background: 'rgba(239,68,68,0.20)', border: '1px solid rgba(239,68,68,0.40)',
+                    boxShadow: '0 4px 20px rgba(239,68,68,0.30)', transform: 'scale(1.1) translateY(-1px)',
+                    '& svg': { transform: 'rotate(-12deg) scale(1.1)' },
+                },
+            }}>
+                <Logout sx={{ color: 'rgba(251,113,113,0.88)', fontSize: 19, transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' }} />
             </Box>
         </Tooltip>
     </Box>
 ));
 
-/* ══ FULL DRAWER CONTENT ════════════════════════════════════════════════════ */
-const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse, onProfileOpen }) => {
-
-    // USER → no elevated tools
+/* ─── Full drawer ────────────────────────────────────────────────────────── */
+const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse }) => {
     const isAdmin = user?.rank === 'admin';
     const isHR = user?.rank === 'hr';
     const isSupervisor = user?.rank === 'supervisor';
     const isCEO = user?.rank === 'ceo';
 
-
-    const baseItems = [
+    const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-        // { text: 'Notification Panel', icon: <CircleNotificationsRounded />, color: '#a78bfa' },
-        // { text: 'Our Mobile App', icon: <Smartphone />, color: '#38bdf8' },
         { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
-    ];
-    const adminItems = [
-        { text: 'Organisations Stats', icon: <QueryStats />, color: colorPalette.seafoamGreen },
-        { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
-        { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
-        { text: 'All User Requests', icon: <MarkEmailReadRounded />, color: colorPalette.softGray },
-        { text: 'Password Reset Requests', icon: <Lock />, color: '#f97316' },
-        { text: 'Feedback Statistics', icon: <InsightsRounded />, color: colorPalette.cloudWhite }
-    ];
-    const techItems = [
+    ], []);
+
+    const techItems = useMemo(() => [
         { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
         { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
         { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
-    ];
+    ], []);
+
+    /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
+    const adminItems = useMemo(() => ADMIN_BASE_ITEMS, []);
+
+    /* HR gets base admin items PLUS Orgs Stats and Leave Management */
+    const hrItems = useMemo(() => [...ADMIN_BASE_ITEMS, ...HR_EXTRA_ITEMS], []);
+
+    const supervisorItems = useMemo(() => [
+        { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
+        { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
+        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+    ], []);
+
+    const ceoItems = useMemo(() => [
+        { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
+        { text: 'Station Statistics', icon: <TrendingUp />, color: '#38bdf8' },
+        { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
+    ], []);
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', ...G.sidebarBg }}>
             <SidebarOrbs />
 
-            {/* ── Profile card ── */}
+            {/* Profile card */}
             <Box sx={{ px: 1.5, pt: 2, pb: 0.5, position: 'relative', zIndex: 1 }}>
                 <Box sx={{
                     borderRadius: '18px', p: 2.2, position: 'relative', overflow: 'hidden',
@@ -428,8 +441,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                     <Box sx={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', bgcolor: 'rgba(0,220,255,0.07)', pointerEvents: 'none' }} />
                     <Box sx={{ position: 'absolute', bottom: -22, left: 10, width: 90, height: 90, borderRadius: '50%', bgcolor: 'rgba(0,185,175,0.06)', pointerEvents: 'none' }} />
 
-                    {/* Collapse button inside profile card */}
-                    <Tooltip arrow title="Collapse sidebar" placement="right" >
+                    <Tooltip arrow title="Collapse sidebar" placement="right">
                         <Box onClick={onCollapse} sx={{
                             position: 'absolute', top: 15, right: 10, zIndex: 2,
                             width: 26, height: 26, borderRadius: '8px',
@@ -438,27 +450,23 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                             border: '1px solid rgba(255,255,255,0.12)',
                             transition: 'all 0.2s ease',
                             '&:hover': {
-                                background: 'rgba(0,220,255,0.14)',
-                                border: '1px solid rgba(0,220,255,0.30)',
-                                boxShadow: '0 2px 10px rgba(0,220,255,0.18)',
-                                transform: 'scale(1.1)',
-                            }
+                                background: 'rgba(0,220,255,0.14)', border: '1px solid rgba(0,220,255,0.30)',
+                                boxShadow: '0 2px 10px rgba(0,220,255,0.18)', transform: 'scale(1.1)',
+                            },
                         }}>
-                            <ChevronLeft sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 16, }} />
+                            <ChevronLeft sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 16 }} />
                         </Box>
                     </Tooltip>
 
                     <Stack direction="row" alignItems="center" spacing={1.4} sx={{ position: 'relative', zIndex: 1 }}>
-                        <Avatar
-                            src={user?.avatar}
-                            sx={{
-                                width: 44, height: 44, flexShrink: 0,
-                                background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
-                                border: '2px solid rgba(255,255,255,0.22)',
-                                color: '#fff', fontWeight: 900, fontSize: '0.95rem',
-                                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-                                boxShadow: '0 4px 16px rgba(0,0,0,0.24)',
-                            }}>
+                        <Avatar src={user?.avatar} sx={{
+                            width: 44, height: 44, flexShrink: 0,
+                            background: 'linear-gradient(135deg,rgba(0,220,255,0.30),rgba(0,185,175,0.20))',
+                            border: '2px solid rgba(255,255,255,0.22)',
+                            color: '#fff', fontWeight: 900, fontSize: '0.95rem',
+                            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.24)',
+                        }}>
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
@@ -470,8 +478,9 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                             </Typography>
                         </Box>
                     </Stack>
+
                     <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 1.3, position: 'relative', zIndex: 1 }}>
-                        <Chip label={(rankMeta.label).toUpperCase()} size="small" sx={{
+                        <Chip label={rankMeta.label.toUpperCase()} size="small" sx={{
                             height: 18, fontWeight: 900, fontSize: '0.55rem', letterSpacing: 1.6,
                             bgcolor: 'rgba(0,220,255,0.14)', color: '#00e5ff',
                             borderRadius: '6px', border: '1px solid rgba(0,220,255,0.28)',
@@ -485,14 +494,13 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 </Box>
             </Box>
 
-            {/* ── Nav ── */}
+            {/* Nav list */}
             <Box sx={{
                 flex: 1, overflowY: 'auto', overflowX: 'hidden', px: 1, pb: 1, position: 'relative', zIndex: 1,
                 '&::-webkit-scrollbar': { width: 2 },
                 '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
                 '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.10)', borderRadius: 2 },
             }}>
-                {/* user tools */}
                 <SectionLabel>Navigation</SectionLabel>
                 <List disablePadding>
                     {baseItems.map(item => (
@@ -500,99 +508,63 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                     ))}
                 </List>
 
-
-                {/* CEO */}
+                {/* CEO Panel */}
                 {isCEO && (
                     <>
                         <SectionLabel>CEO Panel</SectionLabel>
                         <List disablePadding>
-                            {[
-                                { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
-                                { text: 'Station Statistics', icon: <InsightsRounded />, color: '#38bdf8' },
-                                { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
-                            ].map(item => (
-                                <NavItem
-                                    key={item.text}
-                                    item={item}
-                                    isActive={activeTab === item.text}
-                                    pendingCount={pendingCount}
-                                    onClick={() => onTabChange(item.text)}
-                                />
+                            {ceoItems.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
                 )}
 
-                {/* ── ADMIN PANEL ── */}
+                {/* Admin Panel — no Orgs Stats or Leave Management */}
                 {isAdmin && (
                     <>
                         <SectionLabel>Admin Tools</SectionLabel>
                         <List disablePadding>
                             {adminItems.map(item => (
-                                <NavItem
-                                    key={item.text}
-                                    item={item}
-                                    isActive={activeTab === item.text}
-                                    pendingCount={pendingCount}
-                                    onClick={() => onTabChange(item.text)}
-                                />
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
                 )}
 
-                {/* ── HR PANEL (same as admin but renamed) ── */}
+                {/* HR Panel — includes Orgs Stats + Leave Management */}
                 {isHR && (
                     <>
                         <SectionLabel>Human Resource</SectionLabel>
                         <List disablePadding>
-                            {adminItems.map(item => (
-                                <NavItem
-                                    key={item.text}
-                                    item={{ ...item }}
-                                    isActive={activeTab === item.text}
-                                    pendingCount={pendingCount}
-                                    onClick={() => onTabChange(item.text)}
-                                />
+                            {hrItems.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
                 )}
 
-                {/*  ── SUPERVISOR PANEL  */}
+                {/* Supervisor Panel */}
                 {isSupervisor && (
                     <>
                         <SectionLabel>Supervisor Panel</SectionLabel>
                         <List disablePadding>
-                            {[
-                                { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
-                                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-                                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
-                                // { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
-                            ].map(item => (
-                                <NavItem
-                                    key={item.text}
-                                    item={item}
-                                    isActive={activeTab === item.text}
-                                    pendingCount={pendingCount}
-                                    onClick={() => onTabChange(item.text)}
-                                />
+                            {supervisorItems.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
                 )}
 
-                {/* technical help */}
                 <SectionLabel>Technical Help</SectionLabel>
                 <List disablePadding>
-                    {techItems.map(item => <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />)}
+                    {techItems.map(item => (
+                        <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                    ))}
                 </List>
-
             </Box>
 
-
-
-            {/* ── Logout ── */}
+            {/* Logout */}
             <Box sx={{ px: 1.5, pb: 2.5, pt: 0.5, position: 'relative', zIndex: 1 }}>
                 <Box sx={{ height: '1px', bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5 }} />
                 <Button fullWidth startIcon={<Logout sx={{ fontSize: '16px !important' }} />} onClick={onLogout} sx={{
@@ -610,12 +582,58 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     );
 });
 
+/* ─── Suspense fallback ─────────────────────────────────────────────────── */
+const SuspenseFallback = (
+    <Stack height="80vh" width="100%" justifyContent="center" alignItems="center">
+        <CircularProgress size={22} sx={{ color: colorPalette.aquaVibrant }} />
+    </Stack>
+);
 
-/* ══ MAIN ═══════════════════════════════════════════════════════════════════ */
+/* ─── Page meta ─────────────────────────────────────────────────────────── */
+const PAGE_TITLES = {
+    'Clocking Dashboard': null, // set dynamically
+    'Attendance History': 'Attendance History',
+    'Organisations Stats': 'Organisation Overview',
+    'Tasks & Activities': 'Tasks & Activities',
+    'Analytics & Reports': 'Analytics & Reports',
+    'Department Structure': 'Department Structure',
+    'Request for Leave': 'Request and Manage Your Leave',
+    'Leave Management': 'Administration Leave Management',
+    'Notification Panel': 'Notification Management',
+    'Lost Device Requests': 'Lost Device Requests',
+    'Password Requests': 'User Password Reset Requests',
+    'Lost Device': 'Lost Device Request',
+    'Add Device': 'Add Clocking Device',
+    'Our Mobile App': 'KMFRI Mobile Application',
+    'User Management': 'User Management & Administration',
+    'Help & Support': 'Help & Support Center',
+    'Feedback Statistics': 'Feedback Statistics Overview',
+    'Departmental Statistics': 'Departmental Statistics',
+    'Manage Your Members': 'Manage Your Members',
+    'Member Leave Requests': 'Member Leave Requests',
+    'Departmental Requests': 'Departmental Requests',
+    'Overall Organisation Stats': 'Overall Organisation Statistics',
+    'Station Statistics': 'Station Statistics',
+};
+
+const PAGE_SUBTITLES = {
+    'Lost Device Requests': 'Review and respond to employee lost-device requests awaiting your approval',
+    'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
+    'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
+    'Organisations Stats': 'Organisation-wide attendance insights for decision making',
+    'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
+    'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
+    'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
+};
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+════════════════════════════════════════════════════════════════════════════ */
 const EnhancedDashboard = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+
     const { user } = useSelector(s => s.currentUser);
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -627,193 +645,158 @@ const EnhancedDashboard = () => {
     const [isWithinGeofence, setIsWithinGeofence] = useState(false);
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [pendingCount, setPendingCount] = useState(0);
 
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
         { id: 2, title: 'Update marine biodiversity database', status: 'in-progress', time: '11:00 AM', date: '2024-02-04' },
         { id: 3, title: 'Team meeting - Research protocols', status: 'pending', time: '02:00 PM', date: '2024-02-04' },
     ]);
-    const [pendingCount, setPendingCount] = useState(0);
 
+    /* Poll lost-device pending count for privileged ranks */
     useEffect(() => {
         if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
-        let isMounted = true;
-        const loadPending = async () => {
+        let active = true;
+
+        const load = async () => {
             try {
                 const data = await fetchAllLostDevices();
                 const list = Array.isArray(data) ? data : (data.requests ?? []);
-                if (isMounted) setPendingCount(list.filter(r => r.status === 'pending').length);
-            } catch { }
+                if (active) setPendingCount(list.filter(r => r.status === 'pending').length);
+            } catch { /* silent */ }
         };
-        loadPending();
-        const interval = setInterval(loadPending, 60_000);
-        return () => { isMounted = false; clearInterval(interval); };
+
+        load();
+        const id = setInterval(load, 60_000);
+        return () => { active = false; clearInterval(id); };
     }, [user?.rank]);
 
-    const handleTabChange = (tab) => {
+    /* Stable callbacks */
+    const handleTabChange = useCallback((tab) => {
         setActiveTab(tab);
         setMobileOpen(false);
-        if (tab === 'User Requests') setPendingCount(prev => prev);
-    };
+    }, []);
 
-    const isElevated = ELEVATED_RANKS.includes(user?.rank);
-    const isPrivileged = PRIVILEGED_RANKS.includes(user?.rank);
-    const rankMeta = RANK_META[user?.rank] || RANK_META.user;
-
-    const handleLogout = async () => {
+    const handleLogout = useCallback(async () => {
         await userSignOut();
         dispatch(resetClearCurrentUserRedux());
         setLogoutDialogOpen(false);
-        navigate("/");
-    };
+        navigate('/');
+    }, [dispatch, navigate]);
 
+    const openLogout = useCallback(() => setLogoutDialogOpen(true), []);
+    const closeLogout = useCallback(() => setLogoutDialogOpen(false), []);
+    const openProfile = useCallback(() => setProfileOpen(true), []);
+    const closeProfile = useCallback(() => setProfileOpen(false), []);
+    const expandSidebar = useCallback(() => setSidebarCollapsed(false), []);
+    const collapseSidebar = useCallback(() => setSidebarCollapsed(true), []);
 
+    const handleProfileSave = useCallback(async ({ phone, newPassword, avatarFile }) => {
+        const updatedUser = await updateUserProfile({ phone, newPassword, avatarFile });
+        dispatch(updateUserCurrentUserRedux(updatedUser));
+    }, [dispatch]);
 
-    // updated all nav items
+    const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
+    const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
+    const rankMeta = useMemo(() => RANK_META[user?.rank] || RANK_META.user, [user?.rank]);
+
+    /* Collapsed sidebar — all items flat list */
     const allNavItems = useMemo(() => {
         const base = [
             { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
             { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
             { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
         ];
-
         const tech = [
             { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
             { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
             { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
         ];
-
-        const roleItems = {
-            admin: adminItems,
-            hr: adminItems,
+        const roleMap = {
+            /* Admin: no Orgs Stats / Leave Management */
+            admin: ADMIN_BASE_ITEMS,
+            /* HR: full set including Orgs Stats + Leave Management */
+            hr: [...ADMIN_BASE_ITEMS, ...HR_EXTRA_ITEMS],
             supervisor: [
                 { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
                 { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
-                { text: 'Departmental Requests', icon: <MarkEmailReadRounded />, color: '#38bdf8' },
             ],
-
             ceo: [
                 { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
-                { text: 'Station Statistics', icon: <InsightsRounded />, color: '#38bdf8' },
+                { text: 'Station Statistics', icon: <TrendingUp />, color: '#38bdf8' },
                 { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
             ],
         };
-
-        return [
-            ...base,
-            ...(roleItems[user?.rank] || []),
-            ...tech,
-        ];
+        return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
     }, [user?.rank]);
 
+    /* Drawer shared props */
     const drawerProps = useMemo(() => ({
         user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta,
         onTabChange: handleTabChange,
-        onLogout: () => setLogoutDialogOpen(true),
-        onCollapse: () => setSidebarCollapsed(true),
-        onProfileOpen: () => setProfileOpen(true),
-    }), [user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta]);
+        onLogout: openLogout,
+        onCollapse: collapseSidebar,
+        onProfileOpen: openProfile,
+    }), [user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta,
+        handleTabChange, openLogout, collapseSidebar, openProfile]);
 
     const currentDrawerWidth = sidebarCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
 
-    const renderContent = () => {
-        const sp = { tasks, setTasks, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence };
+    /* Shared dashboard props */
+    const sharedProps = useMemo(() => ({
+        tasks, setTasks, userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence,
+    }), [tasks, userLocation, isWithinGeofence]);
+
+    /* Content switcher */
+    const renderContent = useCallback(() => {
         switch (activeTab) {
-            case 'Clocking Dashboard': return <DashboardContent {...sp} />;
-            case 'Tasks & Activities': return <TasksActivitiesContent {...sp} />;
-            case 'Attendance History': return <AttendanceHistoryContent {...sp} />;
-            case 'Analytics & Reports': return <AnalyticsReportsContent {...sp} />;
-            case 'Department Structure': return <DepartmentStructureContent {...sp} />;
-            case 'Request for Leave': return <LeaveManagementContent {...sp} />;
-            case 'Leave Management': return <AdminLeaveManager {...sp} />;
-            case 'Notification Panel': return <NotificationManagementContent {...sp} />;
+            case 'Clocking Dashboard': return <DashboardContent {...sharedProps} />;
+            case 'Tasks & Activities': return <TasksActivitiesContent {...sharedProps} />;
+            case 'Attendance History': return <AttendanceHistoryContent {...sharedProps} />;
+            case 'Analytics & Reports': return <AnalyticsReportsContent {...sharedProps} />;
+            case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
+            case 'Request for Leave': return <LeaveManagementContent {...sharedProps} />;
+            case 'Leave Management': return isElevated ? <AdminLeaveManager {...sharedProps} /> : <DashboardContent {...sharedProps} />;
+            case 'Notification Panel': return <NotificationManagementContent {...sharedProps} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
-            case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sp} />;
-            case 'All User Requests': return isElevated ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sp} />;
+            case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sharedProps} />;
+            case 'Lost Device Requests': return isElevated ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
-            case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sp} />;
-            case 'Password Reset Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sp} />;
-            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sp} />;
+            case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sharedProps} />;
+            case 'Password Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
+            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
-
-
-            // Supervisor Pages (Separate Components)
-            case 'Departmental Statistics':
-                return <SupervisorDeptStats department={user?.department} />;
-
-            case 'Manage Your Members':
-                return <SupervisorManageMembers />;
-
-            case 'Member Leave Requests':
-                return <SupervisorManageLeaves />;
-
-            case 'Departmental Requests':
-                return <SupervisorDeptRequest />;
-
-            default: return <DashboardContent {...sp} />;
+            case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
+            case 'Manage Your Members': return <SupervisorManageMembers />;
+            case 'Member Leave Requests': return <SupervisorManageLeaves />;
+            case 'Departmental Requests': return <SupervisorDeptRequest />;
+            default: return <DashboardContent {...sharedProps} />;
         }
-    };
+    }, [activeTab, isElevated, sharedProps, user?.department]);
 
-    const pageTitles = {
-        'Clocking Dashboard': `Welcome back, ${user?.name?.split(' ')[0] || 'User'} 👋`,
-        'Attendance History': 'Attendance History',
-        'Organisations Stats': 'Organisation Overview',
-        'Tasks & Activities': 'Tasks & Activities',
-        'Analytics & Reports': 'Analytics & Reports',
-        'Department Structure': 'Department Structure',
-        'Request for Leave': 'Request and Manage Your Leave',
-        'Leave Management': 'Administration Leave Management',
-        'Notification Panel': 'Notification Management',
-        'All User Requests': 'User Device Requests',
-        'Password Reset Requests': 'User Password Reset Requests',
-        'Lost Device': 'Lost Device Request',
-        'Add Device': 'Add Clocking Device',
-        'Our Mobile App': 'KMFRI Mobile Application',
-        'User Management': 'User Management & Administration',
-        'Help & Support': 'Help & Support Center',
-        'Feedback Statistics': 'Feedback Statistics Overview',
-    };
-    const pageSubtitles = {
-        'All User Requests': 'Review and respond to employee lost-device requests awaiting your approval',
-        'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
-        'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
-        'Organisation Overview': 'Organisation-wide attendance insights for decision making',
-        'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
-        'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
-        'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
-    };
+    const pageTitle = useMemo(() => (
+        activeTab === 'Clocking Dashboard'
+            ? `Welcome back, ${user?.name?.split(' ')[0] || 'User'} 👋`
+            : (PAGE_TITLES[activeTab] || activeTab)
+    ), [activeTab, user?.name]);
 
-
-
-    const handleProfileSave = async ({ phone, newPassword, avatarFile }) => {
-
-        const updatedUser = await updateUserProfile({
-            phone,
-            newPassword,
-            avatarFile
-        });
-
-        // update redux
-        dispatch(updateUserCurrentUserRedux(updatedUser));
-
-    };
-
+    /* ── Render ─────────────────────────────────────────────────────────── */
     return (
         <Box sx={{
             display: 'flex', minHeight: '100vh',
             background: 'linear-gradient(160deg,#eef3f9 0%,#e8f0f7 50%,#f0f5fb 100%)',
         }}>
 
-            {/* ── AppBar ── */}
+            {/* AppBar */}
             <AppBar position="fixed" elevation={0} sx={{ zIndex: theme.zIndex.drawer + 1, ...G.nav }}>
                 <Toolbar sx={{ minHeight: `${APPBAR_HEIGHT}px !important`, gap: 1 }}>
                     <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(p => !p)}
                         sx={{
-                            display: { md: 'none' }, bgcolor: 'rgba(255,255,255,0.09)', borderRadius: '11px', p: 0.9,
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.16)' }
+                            display: { md: 'none' }, bgcolor: 'rgba(255,255,255,0.09)',
+                            borderRadius: '11px', p: 0.9, border: '1px solid rgba(255,255,255,0.14)',
+                            '&:hover': { bgcolor: 'rgba(255,255,255,0.16)' },
                         }}>
                         <MenuIcon />
                     </IconButton>
@@ -831,87 +814,62 @@ const EnhancedDashboard = () => {
                     </Box>
 
                     <Tooltip title="View Profile">
-                        <Avatar
-                            src={user?.avatar}
-                            onClick={() => setProfileOpen(true)}
-                            sx={{
-                                background: 'rgba(0,220,255,0.18)',
-                                border: '2px solid rgba(255,255,255,0.28)',
-                                color: '#fff', fontWeight: 900, fontSize: '0.82rem',
-                                cursor: 'pointer', backdropFilter: 'blur(4px)',
-                                '&:hover': { background: 'rgba(0,220,255,0.28)' },
-                                transition: 'all 0.2s',
-                            }}>
+                        <Avatar src={user?.avatar} onClick={openProfile} sx={{
+                            background: 'rgba(0,220,255,0.18)', border: '2px solid rgba(255,255,255,0.28)',
+                            color: '#fff', fontWeight: 900, fontSize: '0.82rem',
+                            cursor: 'pointer', backdropFilter: 'blur(4px)',
+                            '&:hover': { background: 'rgba(0,220,255,0.28)' },
+                            transition: 'all 0.2s',
+                        }}>
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
                         </Avatar>
                     </Tooltip>
                 </Toolbar>
             </AppBar>
 
-            {/* ── Sidebar ── */}
-            <Box
-                component="nav"
-                sx={{
-                    width: { md: currentDrawerWidth },
-                    flexShrink: { md: 0 },
-                    transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
-                }}>
-                {/* Mobile temporary drawer */}
+            {/* Sidebar nav */}
+            <Box component="nav" sx={{
+                width: { md: currentDrawerWidth }, flexShrink: { md: 0 },
+                transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
+            }}>
+                {/* Mobile drawer */}
                 <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)}
                     ModalProps={{ keepMounted: true }}
                     sx={{
                         display: { xs: 'block', md: 'none' },
-                        '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', border: 'none', pt: `${APPBAR_HEIGHT}px`, bgcolor: 'transparent' }
+                        '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', border: 'none', pt: `${APPBAR_HEIGHT}px`, bgcolor: 'transparent' },
                     }}>
                     <DrawerContent {...drawerProps} />
                 </Drawer>
 
-                {/* Desktop permanent drawer — animated width */}
-                <Drawer
-                    variant="permanent"
+                {/* Desktop permanent drawer */}
+                <Drawer variant="permanent" open
                     sx={{
                         display: { xs: 'none', md: 'block' },
                         '& .MuiDrawer-paper': {
                             width: currentDrawerWidth,
                             mt: `${APPBAR_HEIGHT}px`,
                             height: `calc(100% - ${APPBAR_HEIGHT}px)`,
-                            border: 'none',
-                            bgcolor: 'transparent',
-                            overflow: 'hidden',
+                            border: 'none', bgcolor: 'transparent', overflow: 'hidden',
                             transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
-                        }
-                    }}
-                    open>
+                        },
+                    }}>
                     <AnimatePresence mode="wait" initial={false}>
                         {sidebarCollapsed ? (
-                            <motion.div
-                                key="collapsed"
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -10 }}
-                                transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                                style={{ height: '100%' }}
-                            >
+                            <motion.div key="collapsed" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
                                 <CollapsedDrawerContent
                                     user={user}
                                     isElevated={isElevated}
                                     activeTab={activeTab}
                                     pendingCount={pendingCount}
                                     onTabChange={handleTabChange}
-                                    onLogout={() => setLogoutDialogOpen(true)}
-                                    onExpand={() => setSidebarCollapsed(false)}
+                                    onLogout={openLogout}
+                                    onExpand={expandSidebar}
                                     allItems={allNavItems}
                                 />
                             </motion.div>
                         ) : (
-                            <motion.div
-                                key="expanded"
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -10 }}
-                                transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                                style={{ height: '100%' }}
-                            >
+                            <motion.div key="expanded" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
                                 <DrawerContent {...drawerProps} />
                             </motion.div>
                         )}
@@ -919,70 +877,61 @@ const EnhancedDashboard = () => {
                 </Drawer>
             </Box>
 
-            {/* ── Main content ── */}
-            <Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
-                    p: { xs: 2, sm: 2.5, md: 3.5 },
-                    mt: `${APPBAR_HEIGHT}px`,
-                    width: { xs: '100%', md: `calc(100% - ${currentDrawerWidth}px)` },
-                    minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
-                    boxSizing: 'border-box',
-                    position: 'relative',
-                    transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
-                }}>
+            {/* Main content */}
+            <Box component="main" sx={{
+                flexGrow: 1,
+                p: { xs: 2, sm: 2.5, md: 3.5 },
+                mt: `${APPBAR_HEIGHT}px`,
+                width: { xs: '100%', md: `calc(100% - ${currentDrawerWidth}px)` },
+                minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
+                boxSizing: 'border-box',
+                transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
+            }}>
                 <AnimatePresence mode="wait">
-                    <motion.div style={{ willChange: 'transform, opacity' }} key={activeTab}
+                    <motion.div key={activeTab}
                         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}>
 
+                        {/* Page header */}
                         <Box sx={{ mb: 3.5 }}>
                             <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
                                 <Typography variant="h5" fontWeight={900} sx={{
-                                    background: colorPalette.oceanGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                    background: colorPalette.oceanGradient,
+                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                                     lineHeight: 1.2, fontSize: { xs: '1.2rem', md: '1.45rem' },
                                 }}>
-                                    {pageTitles[activeTab] || activeTab}
+                                    {pageTitle}
                                 </Typography>
-                                {activeTab === 'User Requests' && pendingCount > 0 && (
-                                    <Chip label={`${pendingCount} pending`} size="small" sx={{ fontWeight: 800, fontSize: '0.7rem', height: 22, bgcolor: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.28)' }} />
+                                {activeTab === 'Lost Device Requests' && pendingCount > 0 && (
+                                    <Chip label={`${pendingCount} pending`} size="small" sx={{
+                                        fontWeight: 800, fontSize: '0.7rem', height: 22,
+                                        bgcolor: 'rgba(248,113,113,0.12)', color: '#f87171',
+                                        border: '1px solid rgba(248,113,113,0.28)',
+                                    }} />
                                 )}
                             </Stack>
-                            {pageSubtitles[activeTab] && (
+                            {PAGE_SUBTITLES[activeTab] && (
                                 <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mt: 0.5 }}>
-                                    {pageSubtitles[activeTab]}
+                                    {PAGE_SUBTITLES[activeTab]}
                                 </Typography>
                             )}
                         </Box>
 
-                        <Suspense fallback={
-                            <Stack height={'80vh'} width={'100%'} justifyContent={'center'}>
-                                <Box display={'flex'} justifyContent={'center'} alignItems={'center'}>
-                                    <CircularProgress size={20} />
-                                </Box>
-                            </Stack>
-                        }>
+                        <Suspense fallback={SuspenseFallback}>
                             {renderContent()}
                         </Suspense>
                     </motion.div>
                 </AnimatePresence>
             </Box>
 
-            {/* user not activated their accounts */}
+            {/* Account not active */}
             {!user?.isAccountActive && <DialogAlert />}
 
-            {/* show user profile dialog */}
-            <UserProfileDialog
-                open={profileOpen}
-                onClose={() => setProfileOpen(false)}
-                user={user}
-                onSave={handleProfileSave}
-            />
+            {/* Profile dialog */}
+            <UserProfileDialog open={profileOpen} onClose={closeProfile} user={user} onSave={handleProfileSave} />
 
-
-            {/* ── Logout dialog ── */}
-            <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}
+            {/* Logout confirmation */}
+            <Dialog open={logoutDialogOpen} onClose={closeLogout}
                 PaperProps={{ sx: { ...G.dialog, borderRadius: '24px', p: 1, maxWidth: 420, width: '100%' } }}
                 BackdropProps={{ sx: { backdropFilter: 'blur(3px)', bgcolor: 'rgba(6,28,50,0.30)' } }}>
                 <DialogTitle sx={{ fontWeight: 900, color: colorPalette.deepNavy, pb: 0.5 }}>
@@ -1002,15 +951,23 @@ const EnhancedDashboard = () => {
                     </Typography>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-                    <Button onClick={() => setLogoutDialogOpen(false)} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, px: 2.5, bgcolor: 'rgba(10,61,98,0.05)', border: '1px solid rgba(10,61,98,0.12)', color: colorPalette.deepNavy, '&:hover': { bgcolor: 'rgba(10,61,98,0.09)' } }}>
+                    <Button onClick={closeLogout} sx={{
+                        borderRadius: '12px', textTransform: 'none', fontWeight: 700, px: 2.5,
+                        bgcolor: 'rgba(10,61,98,0.05)', border: '1px solid rgba(10,61,98,0.12)',
+                        color: colorPalette.deepNavy, '&:hover': { bgcolor: 'rgba(10,61,98,0.09)' },
+                    }}>
                         Cancel
                     </Button>
-                    <Button onClick={handleLogout} variant="contained" sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 800, px: 2.5, bgcolor: '#ef4444', boxShadow: '0 6px 20px rgba(239,68,68,0.30)', '&:hover': { bgcolor: '#dc2626', boxShadow: '0 8px 28px rgba(239,68,68,0.42)', transform: 'translateY(-1px)' }, transition: 'all 0.18s ease' }}>
+                    <Button onClick={handleLogout} variant="contained" sx={{
+                        borderRadius: '12px', textTransform: 'none', fontWeight: 800, px: 2.5,
+                        bgcolor: '#ef4444', boxShadow: '0 6px 20px rgba(239,68,68,0.30)',
+                        '&:hover': { bgcolor: '#dc2626', boxShadow: '0 8px 28px rgba(239,68,68,0.42)', transform: 'translateY(-1px)' },
+                        transition: 'all 0.18s ease',
+                    }}>
                         Yes, Log Out
                     </Button>
                 </DialogActions>
             </Dialog>
-
         </Box>
     );
 };

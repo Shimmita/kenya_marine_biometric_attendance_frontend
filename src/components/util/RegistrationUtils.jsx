@@ -28,7 +28,7 @@ const { colorPalette, genders, AvailableStations, availableDepartments: departme
 
 
 const ROLES = [
-    { value: 'employee', label: 'Employee (PnP)', icon: '👔', desc: 'Permanent' },
+    { value: 'employee', label: 'Employee (P&P)', icon: '👔', desc: 'Permanent' },
     { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
     { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
     { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },

@@ -2,9 +2,11 @@ import {
     Analytics,
     ArrowBack, ArrowForward,
     CheckCircle, Close,
-    Email, Fingerprint, GroupWork, LocationOn, Lock,
-    PersonAdd, Phone, PhoneIphone, Schedule, Security,
-    TrendingUp, Visibility, VisibilityOff, Work
+    Email, Fingerprint,
+    LocationOn, Lock,
+    PersonAdd, Phone,
+    Schedule, Security,
+    Visibility, VisibilityOff
 } from '@mui/icons-material';
 import {
     Alert, AppBar, Avatar, Box, Button, Card, Chip, CircularProgress,
@@ -28,7 +30,7 @@ import { registerUser } from './auth/Register';
 import coreDataDetails from './CoreDataDetails';
 import { PersonalDetailsStep, ReviewDetailStep, RoleDetailsStep, SecurityDetailStep, WorkDetailsStep } from './util/RegistrationUtils';
 
-const { colorPalette, availableDepartments: departments, availableSupervisors: supervisors, genders, AvailableStations } = coreDataDetails;
+const { colorPalette } = coreDataDetails;
 
 /* ══ GLASS DESIGN TOKENS ═══════════════════════════════════════════════════ */
 const G = {
@@ -110,12 +112,7 @@ const G = {
     },
 };
 
-const ROLES = [
-    { value: 'employee', label: 'Employee (Full-Time)', icon: '👔', desc: 'Full-time' },
-    { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
-    { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
-    { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
-];
+
 
 /* ══ REGISTRATION STEPS CONFIG ══════════════════════════════════════════════ */
 const REG_STEPS = [
@@ -240,18 +237,6 @@ const StepProgress = React.memo(({ current, total, steps }) => (
 ));
 
 
-
-/* ══ REVIEW SUMMARY ROW ════════════════════════════════════════════════════ */
-const ReviewRow = ({ label, value, accent }) => (
-    <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ py: 1, borderBottom: '1px solid rgba(10,61,98,0.06)' }}>
-        <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', minWidth: 90, pt: 0.1 }}>
-            {label}
-        </Typography>
-        <Typography variant="body2" fontWeight={700} color={accent || colorPalette.deepNavy} sx={{ textAlign: 'right', maxWidth: '60%', wordBreak: 'break-word' }}>
-            {value || <Box component="span" sx={{ opacity: 0.35 }}>—</Box>}
-        </Typography>
-    </Stack>
-);
 
 
 
@@ -813,7 +798,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                             <Typography variant="h5" fontWeight={900} sx={{ mb: 1, color: colorPalette.deepNavy }}>
                                 Reset Password
                             </Typography>
-                            {isPasswordChangeEnabled ? <Typography variant="body2" color="success" sx={{ lineHeight: 1.6, bgcolor:'rgba(72,201,176,0.12)', display:'inline-block', px:1.5, py:0.5, borderRadius:1 }}>
+                            {isPasswordChangeEnabled ? <Typography variant="body2" color="success" sx={{ lineHeight: 1.6, bgcolor: 'rgba(72,201,176,0.12)', display: 'inline-block', px: 1.5, py: 0.5, borderRadius: 1 }}>
                                 Your password reset request is approved. Kindly, fill in your new password and confirm to change your password.
                             </Typography> : <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
                                 Enter your registered email address. Your admin will need to approve your password reset request before you can proceed.
@@ -1049,7 +1034,7 @@ const EnhancedLandingPage = () => {
                     <motion.div style={{ willChange: 'transform, opacity' }} key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.42 }}>
 
                         {/* Hero */}
-                        <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 8, md: 12 }, position: 'relative', overflow: 'hidden' }}>
+                        <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 5, md: 12 }, position: 'relative', overflow: 'hidden' }}>
                             <AmbientOrbs />
                             <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                                 <Grid container spacing={5} alignItems="center">
@@ -1064,8 +1049,7 @@ const EnhancedLandingPage = () => {
                                                 </Box>
                                             </Typography>
                                             <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.80)', mb: 4.5, fontWeight: 400, lineHeight: 1.7, maxWidth: 520 }}>
-                                                A unified digital platform for all our employees, interns, and attachés — to clock in and out with geo-verification and biometric authentication.
-                                            </Typography>
+                                                A unified digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
                                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                                 <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
                                                     sx={{ bgcolor: '#00e5ff', color: colorPalette.deepNavy, fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 8px 28px rgba(0,220,255,0.40)', transition: 'all 0.26s ease', '&:hover': { bgcolor: '#fff', transform: 'translateY(-2px)', boxShadow: '0 14px 36px rgba(255,255,255,0.26)' } }}>
@@ -1086,11 +1070,10 @@ const EnhancedLandingPage = () => {
                                                 </Typography>
                                                 <Stack spacing={1.2}>
                                                     {[
-                                                        { icon: <Security />, text: 'Geo-Location Verified Check-ins', color: colorPalette.seafoamGreen },
-                                                        { icon: <Fingerprint />, text: 'Biometric Fingerprint Authentication', color: colorPalette.cyanFresh },
-                                                        { icon: <Schedule />, text: 'Real-time Attendance & Shift Tracking', color: '#00e5ff' },
-                                                        { icon: <Analytics />, text: 'Automated Reports & HR Analytics', color: colorPalette.warmSand },
-                                                        { icon: <Work />, text: 'Task & Activity Management', color: colorPalette.coralSunset },
+                                                        { icon: <Security />, text: 'Geo-Location Verification', color: colorPalette.seafoamGreen },
+                                                        { icon: <Fingerprint />, text: 'Biometric Authentication', color: colorPalette.cyanFresh },
+                                                        { icon: <Schedule />, text: 'Digital Attendance Tracking', color: '#00e5ff' },
+                                                        { icon: <Analytics />, text: 'System Automated Report Analysis', color: colorPalette.warmSand },
                                                     ].map((item, i) => (
                                                         <motion.div key={i} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.28 + i * 0.08 }}>
                                                             <Box sx={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', p: 1.6, borderRadius: '13px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.12)', transform: 'translateX(5px)', willChange: 'transform', } }}>
@@ -1107,86 +1090,6 @@ const EnhancedLandingPage = () => {
                             </Container>
                         </Box>
 
-                        {/* Stats */}
-                        <Container maxWidth="lg" sx={{ pb: 9, position: 'relative', zIndex: 1 }}>
-                            <Grid container spacing={2.5}>
-                                {[
-                                    { value: '800+', label: 'Active Staff Members', icon: <GroupWork sx={{ fontSize: 34 }} />, color: '#00e5ff', delay: 0.08 },
-                                    { value: '98%', label: 'System Uptime', icon: <TrendingUp sx={{ fontSize: 34 }} />, color: colorPalette.seafoamGreen, delay: 0.16 },
-                                    { value: '12', label: 'Research Stations', icon: <LocationOn sx={{ fontSize: 34 }} />, color: colorPalette.cyanFresh, delay: 0.24 },
-                                    { value: '3', label: 'Staff Categories', icon: <CheckCircle sx={{ fontSize: 34 }} />, color: colorPalette.warmSand, delay: 0.32 },
-                                ].map(s => <Grid item xs={6} md={3} key={s.label}><GlassStatsCard {...s} /></Grid>)}
-                            </Grid>
-                        </Container>
-
-                        {/* Mobile App */}
-                        <Box sx={{ pb: { xs: 8, md: 10 }, position: 'relative', zIndex: 1 }}>
-                            <Container maxWidth="lg">
-                                <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
-                                    <Box sx={{ ...G.surfaceStrong, borderRadius: '28px', p: { xs: 4, md: 6 }, textAlign: 'center' }}>
-                                        <Box sx={{ width: 120, height: 120, borderRadius: '28px', mx: 'auto', mb: 3, background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 20px 60px ${colorPalette.oceanBlue}55` }}>
-                                            <PhoneIphone sx={{ fontSize: 64, color: '#fff' }} />
-                                        </Box>
-                                        <Typography variant="h4" fontWeight={900} sx={{ color: '#fff', mb: 2, textShadow: '0 4px 18px rgba(0,0,0,0.25)' }}>Get the KMFRI Mobile App</Typography>
-                                        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', mb: 4, maxWidth: 600, mx: 'auto', lineHeight: 1.8 }}>
-                                            Access attendance, biometric authentication, and real-time tracking directly from your smartphone. Clock using Android Application in case you face hindrance when using our web portal.
-                                        </Typography>
-                                        <Button variant="contained" size="large" startIcon={<PhoneIphone />}
-                                            sx={{ background: colorPalette.oceanGradient, px: 5, py: 1.8, borderRadius: '16px', fontWeight: 800, textTransform: 'none', fontSize: '1rem', boxShadow: `0 12px 40px ${colorPalette.oceanBlue}50`, transition: 'all 0.25s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: `0 20px 60px ${colorPalette.oceanBlue}70` } }}>
-                                            Download App
-                                        </Button>
-                                    </Box>
-                                </motion.div>
-                            </Container>
-                        </Box>
-
-                        {/* Who can use */}
-                        <Box sx={{ py: { xs: 8, md: 11 }, position: 'relative', zIndex: 1 }}>
-                            <Box sx={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.025)', backdropFilter: 'blur(3px)', borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: '1px solid rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
-                            <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-                                <Box sx={{ textAlign: 'center', mb: 6 }}>
-                                    <Typography variant="h4" fontWeight={900} sx={{ color: '#fff', mb: 1.5, textShadow: '0 4px 18px rgba(0,0,0,0.22)' }}>Built for Everyone at KMFRI</Typography>
-                                    <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.62)', maxWidth: 560, mx: 'auto', fontWeight: 500, lineHeight: 1.72 }}>
-                                        Whether you're a permanent staff member, an intern, or an attaché — your single point for attendance, reporting, and HR management.
-                                    </Typography>
-                                </Box>
-                                <Grid container spacing={3}>
-                                    {[
-                                        { emoji: '👔', title: 'Employees', subtitle: 'Full-time & Part-time Staff', color: colorPalette.oceanBlue, desc: 'Clock in/out with your Employee ID, track monthly hours, generate attendance reports, and view your HR statistics from a single dashboard.' },
-                                        { emoji: '🎓', title: 'Interns', subtitle: 'University & College Students', color: colorPalette.seafoamGreen, desc: 'Manage internship attendance with geo-verified check-ins, get assigned to your supervisor, and track progress throughout your placement.' },
-                                        { emoji: '📋', title: 'Attachés', subtitle: 'Industrial Attachment', color: colorPalette.warmSand, desc: 'Keep accurate records of your attachment period, submit daily activity reports, and maintain a clear trail of your time at KMFRI.' },
-                                    ].map((card, i) => (
-                                        <Grid item xs={12} md={4} key={card.title}>
-                                            <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.1, duration: 0.6 }} style={{ height: '100%' }}>
-                                                <Box sx={{ ...G.surface, borderRadius: '22px', p: 3.5, height: '100%', transition: 'all 0.28s ease', '&:hover': { ...G.surfaceHover, transform: 'translateY(-7px)' } }}>
-                                                    <Typography sx={{ fontSize: '2.4rem', mb: 1.5, lineHeight: 1 }}>{card.emoji}</Typography>
-                                                    <Typography variant="h6" fontWeight={800} sx={{ color: '#fff', mb: 0.3 }}>{card.title}</Typography>
-                                                    <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 1.5, textTransform: 'uppercase', letterSpacing: 0.9, fontSize: '0.64rem', color: card.color }}>{card.subtitle}</Typography>
-                                                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.64)', lineHeight: 1.74 }}>{card.desc}</Typography>
-                                                </Box>
-                                            </motion.div>
-                                        </Grid>
-                                    ))}
-                                </Grid>
-                            </Container>
-                        </Box>
-
-                        {/* Platform Features */}
-                        <Container maxWidth="lg" sx={{ py: { xs: 8, md: 11 }, position: 'relative', zIndex: 1 }}>
-                            <Box sx={{ textAlign: 'center', mb: 6 }}>
-                                <Typography variant="h4" fontWeight={900} sx={{ color: '#fff', mb: 1.5, textShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>Platform Features</Typography>
-                                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.60)', maxWidth: 540, mx: 'auto', fontWeight: 500, lineHeight: 1.7 }}>
-                                    Everything you need to manage attendance and HR tasks — in one place
-                                </Typography>
-                            </Box>
-                            <Grid container spacing={3}>
-                                {[
-                                    { icon: <LocationOn sx={{ fontSize: 28, color: '#fff' }} />, title: 'Geo-Verified Check-ins', description: 'Automatic location verification ensures authentic clock-ins within 500M of any KMFRI station — no proxy sign-ins.', color: colorPalette.seafoamGreen, delay: 0.08 },
-                                    { icon: <Fingerprint sx={{ fontSize: 28, color: '#fff' }} />, title: 'Biometric Security', description: 'One-time fingerprint registration unlocks secure, fast authentication at all KMFRI stations across all sites.', color: colorPalette.cyanFresh, delay: 0.16 },
-                                    { icon: <Analytics sx={{ fontSize: 28, color: '#fff' }} />, title: 'Instant Reports', description: 'Download detailed PDF attendance reports with one click — ready for supervisor review or HR audit at any time.', color: colorPalette.warmSand, delay: 0.24 },
-                                ].map(f => <Grid item xs={12} md={4} key={f.title}><GlassFeatureCard {...f} /></Grid>)}
-                            </Grid>
-                        </Container>
 
                         {/* Footer */}
                         <Box sx={{ ...G.surface, borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderTop: '1px solid rgba(255,255,255,0.09)', py: 7, position: 'relative', zIndex: 1 }}>
