@@ -451,7 +451,7 @@ const UserCard = ({
                             mt={isMobile ? 1 : 0}
                             flexShrink={0}
                         >
-                          
+
                             <Box sx={{
                                 px: 1.2, py: 0.4, borderRadius: "8px",
                                 background: user.isAccountActive ? "rgba(72,201,176,0.1)" : "rgba(255,92,74,0.1)",
@@ -471,9 +471,9 @@ const UserCard = ({
 
                     {/* ── Controls grid ── */}
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
-                        <ControlField label="Rank" minWidth={128}>
+                        {currentUser?.rank === 'admin' && <ControlField label="Rank" minWidth={128}>
                             <FormControl size="small" fullWidth>
-                                <Select disabled={currentUser?.rank !== 'hr'} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank !== 'admin'} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {RANKS.map((r) => (
                                         <MenuItem key={r} value={r}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
@@ -484,7 +484,7 @@ const UserCard = ({
                                     ))}
                                 </Select>
                             </FormControl>
-                        </ControlField>
+                        </ControlField>}
 
                         <ControlField label="Role" minWidth={155}>
                             <FormControl size="small" fullWidth>
@@ -505,7 +505,7 @@ const UserCard = ({
                             </FormControl>
                         </ControlField>
 
-                         <ControlField label="Department" minWidth={185}>
+                        <ControlField label="Department" minWidth={185}>
                             <FormControl size="small" fullWidth>
                                 <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     <MenuItem value="" sx={{ color: C.textMuted }}><em>Select dept.</em></MenuItem>

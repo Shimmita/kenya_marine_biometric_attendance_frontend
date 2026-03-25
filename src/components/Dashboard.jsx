@@ -9,6 +9,7 @@ import {
     Lock,
     Logout,
     Menu as MenuIcon,
+    PersonAdd,
     PhoneLocked,
     QueryStats,
     SensorOccupiedRounded,
@@ -56,6 +57,7 @@ const HelpSupport = lazy(() => import('./dashboard/HelpSupport'));
 const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
+const UserRegistrationContent = lazy(() => import('./dashboard/UserRegistration'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -84,6 +86,7 @@ const ADMIN_BASE_ITEMS = [
 ];
 
 const HR_EXTRA_ITEMS = [
+    { text: 'User Registration', icon: <PersonAdd />, color: '#10b981' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
     { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
 ];
@@ -605,7 +608,7 @@ const PAGE_TITLES = {
     'Lost Device': 'Lost Device Request',
     'Add Device': 'Add Clocking Device',
     'Our Mobile App': 'KMFRI Mobile Application',
-    'User Management': 'User Management & Administration',
+    'User Registration': 'User Registration',
     'Help & Support': 'Help & Support Center',
     'Feedback Statistics': 'Feedback Statistics Overview',
     'Departmental Statistics': 'Departmental Statistics',
@@ -766,7 +769,7 @@ const EnhancedDashboard = () => {
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sharedProps} />;
             case 'Password Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
-            case 'Feedback Statistics': return isElevated ? <FeedbackStatistics /> : <DashboardContent {...sharedProps} />;
+            case 'User Registration': return isElevated ? <UserRegistrationContent /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers />;
