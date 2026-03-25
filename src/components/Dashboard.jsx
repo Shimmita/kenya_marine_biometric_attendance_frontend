@@ -423,9 +423,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     ], []);
 
     const ceoItems = useMemo(() => [
-        { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
-        { text: 'Station Statistics', icon: <TrendingUp />, color: '#38bdf8' },
-        { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
+        { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
     ], []);
 
     return (
@@ -701,7 +699,15 @@ const EnhancedDashboard = () => {
 
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
-    const rankMeta = useMemo(() => RANK_META[user?.rank] || RANK_META.user, [user?.rank]);
+    const rankMeta = useMemo(() => {
+        if (user?.rank === 'user') {
+            const role = user?.role;
+            if (role === 'intern') return { label: 'Intern' };
+            if (role === 'attache') return { label: 'Attache' };
+            return { label: 'Employee' };
+        }
+        return RANK_META[user?.rank] || RANK_META.user;
+    }, [user?.rank, user?.role]);
 
     /* Collapsed sidebar — all items flat list */
     const allNavItems = useMemo(() => {
@@ -726,9 +732,7 @@ const EnhancedDashboard = () => {
                 { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
             ],
             ceo: [
-                { text: 'Overall Organisation Stats', icon: <QueryStats />, color: '#22d3ee' },
-                { text: 'Station Statistics', icon: <TrendingUp />, color: '#38bdf8' },
-                { text: 'Departmental Statistics', icon: <SupervisorAccount />, color: '#0ea5e9' },
+                { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
             ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];

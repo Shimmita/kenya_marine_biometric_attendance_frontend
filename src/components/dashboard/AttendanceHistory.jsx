@@ -391,7 +391,7 @@ export default function AttendanceHistoryContent() {
             const boxes = [['Attendance Rate', safe(m?.attendanceRate, '%')], ['Days Present', safe(m?.presentDays)], ['Absent Days', safe(m?.absentDays)], ['Total Hours', safe(m?.totalHours, ' hrs')], ['Overtime', safe(m?.overtimeHours, ' hrs')], ['Punctuality', safe(m?.punctualityRate, '%')]];
             const bw = (pw - 20) / boxes.length;
             boxes.forEach(([lbl, val], i) => { const x = 10 + i * bw; doc.setFillColor(245, 248, 252); doc.roundedRect(x, sy, bw - 2, 16, 2, 2, 'F'); doc.setTextColor(10, 61, 98); doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(val, x + bw / 2 - 1, sy + 7, { align: 'center' }); doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text(lbl, x + bw / 2 - 1, sy + 13, { align: 'center' }); });
-            autoTable(doc, { head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Station', 'Timing', 'Status']], body: filteredRows.map(r => [r.date, r.clockIn, r.clockOut, r.hours !== '—' ? `${r.hours} hrs` : '—', r.station, r.timing, r.status || '—']), startY: sy + 22, styles: { fontSize: 8.5, cellPadding: 2.5 }, headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold' }, alternateRowStyles: { fillColor: [248, 250, 252] } });
+            autoTable(doc, { head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Station']], body: filteredRows.map(r => [r.date, r.clockIn, r.clockOut, r.hours !== '—' ? `${r.hours} hrs` : '—', r.station]), startY: sy + 22, styles: { fontSize: 8.5, cellPadding: 2.5 }, headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold' }, alternateRowStyles: { fillColor: [248, 250, 252] } });
             const tp = doc.internal.getNumberOfPages();
             for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Digital Attendance Platform`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
             doc.save(`KMFRI_Attendance_${user?.name?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -477,16 +477,16 @@ export default function AttendanceHistoryContent() {
                         <Table>
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Date', 'Clock In', 'Clock Out', 'Duration', 'Station', 'Timing', 'Status'].map(h => (
+                                    {['Date', 'Clock In', 'Clock Out', 'Duration', 'Station'].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {historyLoading
-                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 7 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
+                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 5 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
                                     : paginatedRows.length === 0
-                                        ? <TableRow><TableCell colSpan={7} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records found</Typography><Button size="small" onClick={() => { setFilterStatus('All'); setFilterTiming('All'); setFilterMonth(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
+                                        ? <TableRow><TableCell colSpan={5} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records found</Typography><Button size="small" onClick={() => { setFilterStatus('All'); setFilterTiming('All'); setFilterMonth(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
                                         : paginatedRows.map((row, idx) => (
                                             <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.025, duration: 0.25, ease: 'easeOut' }} style={{ display: 'table-row' }}>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)', 'tr:last-child &': { border: 0 }, '&:parent:hover': { background: 'rgba(10,61,98,0.03)' } }}>{row.date}</TableCell>
@@ -496,8 +496,6 @@ export default function AttendanceHistoryContent() {
                                                     {row.hours !== '—' ? <Stack direction="row" alignItems="baseline" spacing={0.4}><Typography variant="body2" fontWeight={800} color={colorPalette.deepNavy}>{row.hours}</Typography><Typography variant="caption" color="text.disabled">hrs</Typography></Stack> : '—'}
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 140 }}>{row.station}</Typography></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Chip label={row.timing} size="small" sx={{ height: 22, fontWeight: 800, fontSize: '0.7rem', borderRadius: '8px', bgcolor: row.timing === 'Early' ? '#22c55e18' : '#f9731618', color: row.timing === 'Early' ? '#16a34a' : '#ea580c' }} /></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><StatusPill label={row.status} /></TableCell>
                                             </motion.tr>
                                         ))}
                             </TableBody>

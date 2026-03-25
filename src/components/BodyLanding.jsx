@@ -381,7 +381,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                                 Staff
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                                Sign in with Active Directory
+                                               Sign in with your staff credentials
                                             </Typography>
                                         </Box>
                                     </Stack>
