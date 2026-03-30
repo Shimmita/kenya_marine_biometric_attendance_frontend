@@ -16,6 +16,7 @@ import {
     SupervisorAccount,
     SupportAgentRounded,
     TrendingUp,
+    UploadFile,
 } from '@mui/icons-material';
 import {
     AppBar, Avatar, Box, Button, Chip, CircularProgress,
@@ -58,6 +59,7 @@ const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const UserRegistrationContent = lazy(() => import('./dashboard/UserRegistration'));
+const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -86,7 +88,8 @@ const ADMIN_BASE_ITEMS = [
 ];
 
 const HR_EXTRA_ITEMS = [
-    { text: 'User Registration', icon: <PersonAdd />, color: '#10b981' },
+    { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
+    { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
     { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
 ];
@@ -606,7 +609,8 @@ const PAGE_TITLES = {
     'Lost Device': 'Lost Device Request',
     'Add Device': 'Add Clocking Device',
     'Our Mobile App': 'KMFRI Mobile Application',
-    'User Registration': 'User Registration',
+    'Register Intern/Attache': 'Register Intern/Attache',
+    'Batch Registration': 'Batch User Registration',
     'Help & Support': 'Help & Support Center',
     'Feedback Statistics': 'Feedback Statistics Overview',
     'Departmental Statistics': 'Departmental Statistics',
@@ -623,6 +627,7 @@ const PAGE_SUBTITLES = {
     'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
     'Organisations Stats': 'Organisation-wide attendance insights for decision making',
     'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
+    'Batch Registration': 'Upload and register multiple users from Excel or CSV files',
     'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
     'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
 };
@@ -773,7 +778,8 @@ const EnhancedDashboard = () => {
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sharedProps} />;
             case 'Password Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
-            case 'User Registration': return isElevated ? <UserRegistrationContent /> : <DashboardContent {...sharedProps} />;
+            case 'Register Intern/Attache': return isElevated ? <UserRegistrationContent /> : <DashboardContent {...sharedProps} />;
+            case 'Batch Registration': return isElevated ? <BatchRegistrationContent /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers />;
