@@ -1,9 +1,8 @@
 import {
     AccessTime, BusinessCenter,
     CheckCircle,
-    EmojiEvents, FiberManualRecord, Fingerprint, History,
-    InfoOutlined, LocationOn, QueryStats,
-    WorkHistory
+    Fingerprint, History,
+    InfoOutlined, LocationOn
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Chip, CircularProgress,
@@ -434,7 +433,7 @@ const WeeklyHoursCard = ({ value, loading }) => {
                             <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 10]} />
                             <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
                             {/* Target line as reference bar */}
-                            <Bar dataKey={() => 9} fill="rgba(10,61,98,0.08)" radius={[3, 3, 0, 0]} name="Daily target (9h)" animationDuration={400} />
+                            <Bar dataKey={() => 8} fill="rgba(10,61,98,0.08)" radius={[3, 3, 0, 0]} name="Daily target (8h)" animationDuration={400} />
                             <Bar dataKey="hours" fill="url(#weekHrsGrad)" radius={[5, 5, 0, 0]} name="Hours" animationDuration={900} animationBegin={200} />
                         </BarChart>
                     </ResponsiveContainer>

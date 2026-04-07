@@ -8,16 +8,20 @@ import {
     TableCell, TableContainer, TableHead, TablePagination, TableRow,
     TextField, Typography,
 } from '@mui/material';
-import { motion, useInView } from 'framer-motion';
+import { useInView,motion } from 'framer-motion';
+import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
     Area, AreaChart, Bar, BarChart, CartesianGrid,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis
 } from 'recharts';
+import { trackClientAuditEvent } from '../../service/AuditorService.jsx';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
+import { createVerification } from '../../service/VerificationService';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime } from '../util/DateTimeFormater';
+
 
 const { colorPalette } = coreDataDetails;
 
@@ -32,17 +36,7 @@ const G = {
 
 const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
 
-const statusCfg = {
-    Present: { bg: `${colorPalette.seafoamGreen}22`, color: colorPalette.seafoamGreen },
-    Halfday: { bg: '#f59e0b22', color: '#d97706' },
-    Late: { bg: '#ef444422', color: '#dc2626' },
-    Absent: { bg: `${colorPalette.coralSunset}22`, color: colorPalette.coralSunset },
-    '': { bg: '#e0e0e022', color: '#9e9e9e' },
-};
-const StatusPill = ({ label }) => {
-    const c = statusCfg[label] || statusCfg[''];
-    return <Chip label={label || '—'} size="small" sx={{ height: 22, fontWeight: 800, fontSize: '0.7rem', bgcolor: c.bg, color: c.color, borderRadius: '8px' }} />;
-};
+
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
 const AmbientOrbs = () => (
@@ -359,7 +353,6 @@ export default function AttendanceHistoryContent() {
                 clockIn: formatTime(rec.clock_in),
                 clockOut: rec.clock_out ? formatTime(rec.clock_out) : '—',
                 station: rec.station || '—',
-                status: rec.clock_out ? (rec.isPresent ? 'Present' : 'Halfday') : '',
                 timing: rec.isLate ? 'Late' : 'Early',
                 hours: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
             })));
@@ -370,39 +363,106 @@ export default function AttendanceHistoryContent() {
     useEffect(() => { loadData(); }, []);// eslint-disable-line
 
     const filteredRows = useMemo(() => rawHistory.filter(row => {
-        if (filterStatus !== 'All' && row.status !== filterStatus) return false;
         if (filterTiming !== 'All' && row.timing !== filterTiming) return false;
         if (filterMonth) { const rm = `${row.rawDate.getFullYear()}-${String(row.rawDate.getMonth() + 1).padStart(2, '0')}`; if (rm !== filterMonth) return false; }
         return true;
-    }), [rawHistory, filterStatus, filterTiming, filterMonth]);
+    }), [rawHistory, filterTiming, filterMonth]);
 
     const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     const handleExportPDF = async () => {
         setExporting(true);
         try {
-            const { default: jsPDF } = await import('jspdf'); const { default: autoTable } = await import('jspdf-autotable');
-            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }); const pw = doc.internal.pageSize.getWidth();
-            doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 28, 'F'); doc.setTextColor(255, 255, 255);
-            doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('Kenya Marine and Fisheries Research Institute', pw / 2, 10, { align: 'center' });
-            doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.text('Attendance Report — ' + new Date().toLocaleString('default', { month: 'long', year: 'numeric' }), pw / 2, 18, { align: 'center' });
-            doc.setFontSize(9); doc.text(`Generated: ${new Date().toLocaleString()}  |  Employee: ${user?.name || 'N/A'}  |  Dept: ${user?.department || 'N/A'}`, pw / 2, 25, { align: 'center' });
-            const m = stats?.monthly; const sy = 34;
-            const boxes = [['Attendance Rate', safe(m?.attendanceRate, '%')], ['Days Present', safe(m?.presentDays)], ['Absent Days', safe(m?.absentDays)], ['Total Hours', safe(m?.totalHours, ' hrs')], ['Overtime', safe(m?.overtimeHours, ' hrs')], ['Punctuality', safe(m?.punctualityRate, '%')]];
-            const bw = (pw - 20) / boxes.length;
-            boxes.forEach(([lbl, val], i) => { const x = 10 + i * bw; doc.setFillColor(245, 248, 252); doc.roundedRect(x, sy, bw - 2, 16, 2, 2, 'F'); doc.setTextColor(10, 61, 98); doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(val, x + bw / 2 - 1, sy + 7, { align: 'center' }); doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text(lbl, x + bw / 2 - 1, sy + 13, { align: 'center' }); });
-            autoTable(doc, { head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Station']], body: filteredRows.map(r => [r.date, r.clockIn, r.clockOut, r.hours !== '—' ? `${r.hours} hrs` : '—', r.station]), startY: sy + 22, styles: { fontSize: 8.5, cellPadding: 2.5 }, headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold' }, alternateRowStyles: { fillColor: [248, 250, 252] } });
-            const tp = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Digital Attendance Platform`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
-            doc.save(`KMFRI_Attendance_${user?.name?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`);
-            notify('Report exported!');
-        } catch { notify('Export failed.', 'error'); }
-        finally { setExporting(false); }
+            const { default: jsPDF } = await import('jspdf');
+            const { default: autoTable } = await import('jspdf-autotable');
+
+            // 1. Get the Verification Token & hash
+            const { token, dataHash } = await createVerification(filteredRows);
+            const verifyUrl = `${window.location.origin}/verify/${token}?hash=${encodeURIComponent(dataHash)}`;
+
+            // 2. Generate QR Data URL
+            // Explicitly set error correction level to 'H' (High) for better print reliability
+            const qrImage = await QRCode.toDataURL(verifyUrl, {
+                margin: 1,
+                width: 300,
+                errorCorrectionLevel: 'H'
+            });
+
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const pw = doc.internal.pageSize.getWidth();
+            // Header Background
+            doc.setFillColor(10, 61, 98);
+            doc.rect(0, 0, pw, 40, 'F'); // Increased height to 40mm to house QR safely
+
+            // Header text Styling
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.text('KMFRI Attendance Report'.toUpperCase(), 15, 15);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.text(`${user?.station} | ${user?.department}`.toUpperCase(), 15, 19);
+
+
+            // user details
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text(`${new Date().toLocaleString()}`, 15, 25);
+            doc.text(`${user?.name || 'Authorized Personnel'}`, 15, 30);
+            doc.text(`${user?.role?.toUpperCase() || 'Authorized Personnel'}`, 15, 35);
+
+            // 3. Render QR Code (Positioned Right-Aligned)
+            // Ensure format is 'PNG' or 'JPEG' match
+            const qrSize = 30;
+            const qrX = pw - qrSize - 15; // 15mm margin from right
+            const qrY = 5;
+
+            doc.addImage(qrImage, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST');
+
+            // Add "Scan to verify" label below QR
+            doc.setFontSize(8);
+            doc.setTextColor(255, 255, 255);
+            doc.text('VERIFICATION QR', qrX + (qrSize / 2), qrY + qrSize + 3, { align: 'center' });
+
+            // Table
+            autoTable(doc, {
+                head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Station']],
+                body: filteredRows.map(r => [
+                    r.date,
+                    r.clockIn,
+                    r.clockOut,
+                    r.hours !== '—' ? `${r.hours} hrs` : '—',
+                    r.station,
+                ]),
+                startY: 45, // Start after the header block
+                theme: 'striped',
+                headStyles: { fillColor: [10, 61, 98] },
+                styles: { fontSize: 9 }
+            });
+
+            doc.save(`Attendance_Report_${new Date().getTime()}.pdf`);
+
+            await trackClientAuditEvent('attendance.history_exported', {
+                rowsExported: filteredRows.length,
+                monthFilter: filterMonth || 'all',
+                timingFilter: filterTiming || 'All',
+            });
+
+            notify('Report exported with QR verification!');
+
+        } catch (err) {
+            console.error("PDF Export Error:", err);
+            notify('Export failed. Check console for details.', 'error');
+        } finally {
+            setExporting(false);
+        }
     };
-
-    const w = stats?.weekly;
-    const m = stats?.monthly;
-
 
     return (
         <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', position: 'relative' }}>
@@ -410,7 +470,6 @@ export default function AttendanceHistoryContent() {
             <Snackbar open={snack.open} autoHideDuration={5000} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert severity={snack.severity} variant="filled" elevation={6} onClose={() => setSnack(s => ({ ...s, open: false }))} sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)' }}>{snack.message}</Alert>
             </Snackbar>
-
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 <HeroBanner stats={stats} loading={loading} />
             </motion.div>

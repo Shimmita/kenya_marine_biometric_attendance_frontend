@@ -15,7 +15,6 @@ import {
     SensorOccupiedRounded,
     SupervisorAccount,
     SupportAgentRounded,
-    TrendingUp,
     UploadFile,
 } from '@mui/icons-material';
 import {
@@ -60,6 +59,7 @@ const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const UserRegistrationContent = lazy(() => import('./dashboard/UserRegistration'));
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
+const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -74,17 +74,21 @@ const PRIVILEGED_RANKS = ['admin', 'hr', 'supervisor'];
 const RANK_META = {
     admin: { label: 'Admin' },
     hr: { label: 'HR' },
+    auditor: { label: 'Auditor' },
     supervisor: { label: 'Supervisor' },
     ceo: { label: 'CEO' },
     user: { label: 'Employee' },
 };
 
 /* ─── Shared admin items — HR-specific items split out ─────────────────── */
-const ADMIN_BASE_ITEMS = [
+const ADMIN_SHARED_ITEMS = [
     { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
+    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
+];
+
+const ADMIN_ONLY_ITEMS = [
     { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
     { text: 'Password Requests', icon: <Lock />, color: '#f97316' },
-    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
 ];
 
 const HR_EXTRA_ITEMS = [
@@ -92,6 +96,10 @@ const HR_EXTRA_ITEMS = [
     { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
     { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+];
+
+const AUDITOR_ITEMS = [
+    { text: 'Audit Logs', icon: <History />, color:'#8b5cf6'},
 ];
 
 /* ─── Glass tokens ──────────────────────────────────────────────────────── */
@@ -400,6 +408,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const isHR = user?.rank === 'hr';
     const isSupervisor = user?.rank === 'supervisor';
     const isCEO = user?.rank === 'ceo';
+    const isAuditor = user?.rank === 'auditor';
 
     const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
@@ -414,10 +423,10 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     ], []);
 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
-    const adminItems = useMemo(() => ADMIN_BASE_ITEMS, []);
+    const adminItems = useMemo(() => [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS], []);
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
-    const hrItems = useMemo(() => [...HR_EXTRA_ITEMS, ...ADMIN_BASE_ITEMS], []);
+    const hrItems = useMemo(() => [...HR_EXTRA_ITEMS, ...ADMIN_SHARED_ITEMS], []);
 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
@@ -524,6 +533,18 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                     </>
                 )}
 
+                {/* Auditor Panel */}
+                {isAuditor && (
+                    <>
+                        <SectionLabel>Auditor Panel</SectionLabel>
+                        <List disablePadding>
+                            {AUDITOR_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+                    </>
+                )}
+
                 {/* Admin Panel — no Orgs Stats or Leave Management */}
                 {isAdmin && (
                     <>
@@ -619,6 +640,14 @@ const PAGE_TITLES = {
     'Departmental Requests': 'Departmental Requests',
     'Overall Organisation Stats': 'Overall Organisation Statistics',
     'Station Statistics': 'Station Statistics',
+    'Audit Reports': 'Audit Reports',
+    'Document Verification': 'Document Verification',
+    'Compliance Check': 'Compliance Check',
+    'Audit Logs': 'Audit Logs',
+    'System Audit': 'System Audit',
+    'User Activity Logs': 'User Activity Logs',
+    'Compliance Reports': 'Compliance Reports',
+    'Data Integrity Check': 'Data Integrity Check',
 };
 
 const PAGE_SUBTITLES = {
@@ -630,6 +659,14 @@ const PAGE_SUBTITLES = {
     'Batch Registration': 'Upload and register multiple users from Excel or CSV files',
     'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
     'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
+    'Audit Reports': 'Review comprehensive audit reports and compliance documentation',
+    'Document Verification': 'Verify the authenticity and integrity of official documents',
+    'Compliance Check': 'Perform compliance checks and generate audit trails',
+    'Audit Logs': 'Access detailed audit logs and system activity records',
+    'System Audit': 'Conduct system-wide audits to ensure operational integrity',
+    'User Activity Logs': 'Monitor and review user activities and access logs',
+    'Compliance Reports': 'Generate and review compliance reports for regulatory adherence',
+    'Data Integrity Check': 'Check data integrity and perform validation audits',
 };
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -728,9 +765,9 @@ const EnhancedDashboard = () => {
         ];
         const roleMap = {
             /* Admin: no Orgs Stats / Leave Management */
-            admin: ADMIN_BASE_ITEMS,
+            admin: [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS],
             /* HR: full set including Orgs Stats + Leave Management */
-            hr: [...HR_EXTRA_ITEMS,...ADMIN_BASE_ITEMS],
+            hr: [...HR_EXTRA_ITEMS, ...ADMIN_SHARED_ITEMS],
             supervisor: [
                 { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
@@ -739,6 +776,7 @@ const EnhancedDashboard = () => {
             ceo: [
                 { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
             ],
+            auditor: AUDITOR_ITEMS,
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
     }, [user?.rank]);
@@ -773,11 +811,11 @@ const EnhancedDashboard = () => {
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
             case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sharedProps} />;
-            case 'Lost Device Requests': return isElevated ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sharedProps} />;
+            case 'Lost Device Requests': return user?.rank === 'admin' ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sharedProps} />;
-            case 'Password Requests': return isElevated ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
+            case 'Password Requests': return user?.rank === 'admin' ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return isElevated ? <UserRegistrationContent /> : <DashboardContent {...sharedProps} />;
             case 'Batch Registration': return isElevated ? <BatchRegistrationContent /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
@@ -785,6 +823,8 @@ const EnhancedDashboard = () => {
             case 'Manage Your Members': return <SupervisorManageMembers />;
             case 'Member Leave Requests': return <SupervisorManageLeaves />;
             case 'Departmental Requests': return <SupervisorDeptRequest />;
+            case 'Audit Logs': return <AuditLogsContent />;
+            case 'Feedback Statistics': return <FeedbackStatistics />;
             default: return <DashboardContent {...sharedProps} />;
         }
     }, [activeTab, isElevated, sharedProps, user?.department]);
