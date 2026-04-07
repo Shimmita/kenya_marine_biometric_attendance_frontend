@@ -56,7 +56,7 @@ const RANK_ACCENT = {
     user: C.cyanFresh,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user"];
+const RANKS = ["admin", "hr", "supervisor", "ceo", "user",'auditor'];
 const ROLES = ["employee", "intern", "attachee"];
 const { availableDepartments, AvailableStations } = coreDataDetails;
 
