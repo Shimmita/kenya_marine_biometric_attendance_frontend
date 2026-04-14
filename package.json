@@ -15,6 +15,7 @@
     "@fingerprintjs/fingerprintjs": "^5.0.1",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
+    "@mui/x-data-grid": "^9.0.1",
     "@reduxjs/toolkit": "^2.11.2",
     "@simplewebauthn/browser": "^13.2.2",
     "axios": "^1.13.4",

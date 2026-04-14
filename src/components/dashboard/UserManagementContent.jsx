@@ -300,7 +300,7 @@ const FilterBar = ({
 /* ─────────────────────────────────────────────
    ROOT COMPONENT
 ───────────────────────────────────────────── */
-const UserManagementContent = () => {
+const UserManagementContent = ({ readOnly = false }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -436,13 +436,14 @@ const UserManagementContent = () => {
                             user={user}
                             supervisors={supervisors}
                             updatingId={updatingId}
-                            onRankChange={handleRankChange}
-                            onRoleChange={handleRoleChange}
-                            onDepartmentSave={handleDepartmentSave}
-                            onSupervisorChange={handleSupervisorChange}
-                            onStationSave={handleStationSave}
-                            onToggleActive={handleToggleActive}
+                            onRankChange={readOnly ? null : handleRankChange}
+                            onRoleChange={readOnly ? null : handleRoleChange}
+                            onDepartmentSave={readOnly ? null : handleDepartmentSave}
+                            onSupervisorChange={readOnly ? null : handleSupervisorChange}
+                            onStationSave={readOnly ? null : handleStationSave}
+                            onToggleActive={readOnly ? null : handleToggleActive}
                             isMobile={isMobile}
+                            readOnly={readOnly}
                             index={index}
                         />
                     ))}

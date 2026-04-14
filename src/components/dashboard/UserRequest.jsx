@@ -169,7 +169,7 @@ const RequestSkeleton = () => (
 );
 
 /* ══ MAIN ═══════════════════════════════════════════════════════════════════ */
-const UserRequestsContent = ({ onCountChange }) => {
+const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
     const [requests,       setRequests]       = useState([]);
     const [loading,        setLoading]        = useState(true);
     const [fetchError,     setFetchError]     = useState('');
@@ -587,13 +587,13 @@ const UserRequestsContent = ({ onCountChange }) => {
                 </DialogContent>
 
                 <DialogActions sx={{ px:3, pb:2.5, gap:1 }}>
-                    <Button onClick={() => setDialogTarget(null)} disabled={responding}
+                    <Button onClick={() => setDialogTarget(null)} disabled={responding || readOnly}
                         sx={{ borderRadius:'12px', textTransform:'none', fontWeight:700, px:2.5,
                             bgcolor:'rgba(10,61,98,0.05)', border:'1px solid rgba(10,61,98,0.12)',
                             color:colorPalette.deepNavy, '&:hover':{ bgcolor:'rgba(10,61,98,0.09)' } }}>
                         Cancel
                     </Button>
-                    <Button variant="contained" disabled={responding} onClick={handleRespond}
+                    <Button variant="contained" disabled={responding || readOnly} onClick={handleRespond}
                         startIcon={responding ? <CircularProgress size={15} sx={{ color:'#fff' }}/> : null}
                         sx={{
                             borderRadius:'12px', textTransform:'none', fontWeight:800, px:3,

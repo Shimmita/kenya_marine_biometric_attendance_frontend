@@ -178,7 +178,7 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
     const [hovered, setHovered] = useState(false);
 
     return (
-        <Tooltip title={item.text} placement="right" arrow
+        <Tooltip title={item.readOnly ? `${item.text} — Read only` : item.text} placement="right" arrow
             componentsProps={{
                 tooltip: {
                     sx: {
@@ -225,7 +225,7 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
                 )}
                 <Box sx={{
                     position: 'relative', zIndex: 1,
-                    color: isActive ? 'rgba(255,255,255,0.95)' : hovered ? item.color : 'rgba(255,255,255,0.45)',
+                    color: isActive ? 'rgba(255,255,255,0.95)' : hovered ? item.color : item.readOnly ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.45)',
                     transition: 'color 0.18s ease, filter 0.18s ease',
                     filter: (isActive || hovered) ? `drop-shadow(0 0 6px ${item.color}88)` : 'none',
                     display: 'flex',
@@ -274,8 +274,9 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
         <ListItem button onClick={onClick} sx={{
             borderRadius: '14px', mb: 0.5, px: 1.4, py: 1,
             position: 'relative', overflow: 'hidden',
-            color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
-            transition: 'color 0.18s ease',
+            color: isActive ? '#fff' : item.readOnly ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.55)',
+            opacity: item.readOnly ? 0.94 : 1,
+            transition: 'color 0.18s ease, opacity 0.18s ease',
             bgcolor: 'transparent',
             '&:hover': { color: isActive ? '#fff' : 'rgba(255,255,255,0.88)', bgcolor: 'transparent' },
             '&::before': {
@@ -287,7 +288,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
             '&:hover::before': !isActive ? { background: `${item.color}16` } : {},
         }}>
             <ListItemIcon sx={{
-                color: isActive ? 'rgba(255,255,255,0.92)' : item.color,
+                color: isActive ? 'rgba(255,255,255,0.92)' : item.readOnly ? 'rgba(255,255,255,0.72)' : item.color,
                 minWidth: 34, position: 'relative', zIndex: 1,
                 '& svg': { fontSize: 19 }, transition: 'color 0.18s ease',
             }}>
@@ -301,6 +302,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
                     fontSize: '0.875rem',
                     letterSpacing: isActive ? 0.15 : 0,
                     lineHeight: 1.25,
+                    color: item.readOnly ? 'rgba(255,255,255,0.85)' : undefined,
                 }}
             />
             <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 0.6 }}>
@@ -423,7 +425,10 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     ], []);
 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
-    const adminItems = useMemo(() => [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS], []);
+    const adminItems = useMemo(() => {
+        const items = [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS];
+        return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
+    }, [isAuditor]);
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
     const hrItems = useMemo(() => [...HR_EXTRA_ITEMS, ...ADMIN_SHARED_ITEMS], []);
@@ -546,9 +551,14 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 )}
 
                 {/* Admin Panel — no Orgs Stats or Leave Management */}
-                {isAdmin && (
+                {(isAdmin || isAuditor) && (
                     <>
                         <SectionLabel>Admin Tools</SectionLabel>
+                        {isAuditor && (
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.52)', px: 1.5, mb: 1, display: 'block' }}>
+                                Auditor access is read-only 
+                            </Typography>
+                        )}
                         <List disablePadding>
                             {adminItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -564,6 +574,18 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                         <List disablePadding>
                             {hrItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/* HR Panel for Auditor — read-only access */}
+                {isAuditor && (
+                    <>
+                        <SectionLabel>Human Resource (Read Only)</SectionLabel>
+                        <List disablePadding>
+                            {HR_EXTRA_ITEMS.filter(item => item.text !== 'Organisations Stats').map(item => (
+                                <NavItem key={item.text} item={{ ...item, readOnly: true }} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
@@ -740,6 +762,8 @@ const EnhancedDashboard = () => {
     }, [dispatch]);
 
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
+    const isAuditor = useMemo(() => user?.rank === 'auditor', [user?.rank]);
+    const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
     const rankMeta = useMemo(() => {
         if (user?.rank === 'user') {
@@ -776,7 +800,12 @@ const EnhancedDashboard = () => {
             ceo: [
                 { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
             ],
-            auditor: AUDITOR_ITEMS,
+            auditor: [
+                ...AUDITOR_ITEMS,
+                ...ADMIN_SHARED_ITEMS.map(item => ({ ...item, readOnly: true })),
+                ...ADMIN_ONLY_ITEMS.map(item => ({ ...item, readOnly: true })),
+                ...HR_EXTRA_ITEMS.map(item => ({ ...item, readOnly: true })),
+            ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
     }, [user?.rank]);
@@ -807,17 +836,17 @@ const EnhancedDashboard = () => {
             case 'Analytics & Reports': return <AnalyticsReportsContent {...sharedProps} />;
             case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
             case 'Request for Leave': return <LeaveManagementContent {...sharedProps} />;
-            case 'Leave Management': return isElevated ? <AdminLeaveManager {...sharedProps} /> : <DashboardContent {...sharedProps} />;
+            case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
-            case 'Organisations Stats': return isElevated ? <OverallAttendanceStats /> : <DashboardContent {...sharedProps} />;
-            case 'Lost Device Requests': return user?.rank === 'admin' ? <UserRequestsContent onCountChange={setPendingCount} /> : <DashboardContent {...sharedProps} />;
+            case 'Organisations Stats': return canViewAdminFeatures ? <OverallAttendanceStats readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
-            case 'User Management': return isElevated ? <UserManagementContent /> : <DashboardContent {...sharedProps} />;
-            case 'Password Requests': return user?.rank === 'admin' ? <PasswordResetRequests /> : <DashboardContent {...sharedProps} />;
-            case 'Register Intern/Attache': return isElevated ? <UserRegistrationContent /> : <DashboardContent {...sharedProps} />;
-            case 'Batch Registration': return isElevated ? <BatchRegistrationContent /> : <DashboardContent {...sharedProps} />;
+            case 'User Management': return canViewAdminFeatures ? <UserManagementContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers />;

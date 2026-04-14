@@ -270,7 +270,7 @@ const UserCard = ({
     user, supervisors, updatingId,
     onRankChange, onRoleChange, onDepartmentSave,
     onSupervisorChange, onToggleActive,
-    isMobile, index, onStationSave
+    isMobile, index, onStationSave, readOnly = false
 }) => {
     const [hovered, setHovered] = useState(false);
     const rankColor = RANK_ACCENT[user.rank] || C.cyanFresh;
@@ -473,7 +473,7 @@ const UserCard = ({
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
                         {currentUser?.rank === 'admin' && <ControlField label="Rank" minWidth={128}>
                             <FormControl size="small" fullWidth>
-                                <Select disabled={currentUser?.rank !== 'admin'} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank !== 'admin' || readOnly} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {RANKS.map((r) => (
                                         <MenuItem key={r} value={r}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
@@ -488,7 +488,7 @@ const UserCard = ({
 
                         <ControlField label="Role" minWidth={155}>
                             <FormControl size="small" fullWidth>
-                                <Select disabled={currentUser?.rank !== 'hr'} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank !== 'hr' || readOnly} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                                 </Select>
                             </FormControl>
@@ -496,7 +496,7 @@ const UserCard = ({
 
                         <ControlField label="Supervisor" minWidth={185}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps} disabled={currentUser?.rank !== 'hr'}>
+                                <Select value={user?.supervisor || "none"} displayEmpty onChange={(e) => onSupervisorChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps} disabled={currentUser?.rank !== 'hr' || readOnly}>
                                     <MenuItem value={user?.supervisor} sx={{ color: C.textMuted }}>{user?.supervisor || "—"}</MenuItem>
                                     {supervisors?.filter((s) => s?.email !== user?.email).map((s) => (
                                         <MenuItem key={s._id} value={s}>{s?.name}</MenuItem>
@@ -507,7 +507,7 @@ const UserCard = ({
 
                         <ControlField label="Department" minWidth={185}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank === 'auditor' || readOnly} value={user.department || ""} displayEmpty onChange={(e) => onDepartmentSave(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     <MenuItem value="" sx={{ color: C.textMuted }}><em>Select dept.</em></MenuItem>
                                     {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                 </Select>
@@ -516,7 +516,7 @@ const UserCard = ({
 
                         <ControlField label="Station" minWidth={175}>
                             <FormControl size="small" fullWidth>
-                                <Select value={user?.station || "none"} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={currentUser?.rank === 'auditor' || readOnly} value={user?.station || "none"} onChange={(e) => onStationSave(user?._id, e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
                                     <MenuItem value={user?.station} sx={{ color: C.textMuted }}>{user?.station || "—"}</MenuItem>
                                     {AvailableStations.map((s) => (
                                         <MenuItem key={s?.name} value={s.name}>{s?.name}</MenuItem>
@@ -526,8 +526,8 @@ const UserCard = ({
                         </ControlField>
 
                         <ControlField label="Clock Outside" minWidth={132}>
-                            <FormControl size="small" fullWidth disabled={isLoading}>
-                                <Select value={clockOutside} onChange={handleClockOutsideChange} sx={{
+                            <FormControl size="small" fullWidth disabled={isLoading || readOnly}>
+                                <Select disabled={currentUser?.rank === 'auditor' || readOnly} value={clockOutside} onChange={handleClockOutsideChange} sx={{
                                     ...selectSx,
                                     "& .MuiOutlinedInput-notchedOutline": {
                                         borderColor: clockOutside === "yes" ? `${C.seafoamGreen}60` : C.glassBorder,
@@ -540,7 +540,7 @@ const UserCard = ({
                         </ControlField>
 
                         {/* Activate / Deactivate */}
-                        {currentUser?.rank === 'hr' && (
+                        {currentUser?.rank === 'hr' && !readOnly && (
                             <Box sx={{ flex: "0 0 auto" }}>
                                 <FieldLabel>Account</FieldLabel>
                                 <Button

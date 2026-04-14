@@ -169,7 +169,7 @@ const DefaultPasswordNotice = () => (
 );
 
 /* ══ MAIN COMPONENT ═════════════════════════════════════════════════════════ */
-const UserRegistrationContent = () => {
+const UserRegistrationContent = ({ readOnly = false }) => {
     const [step,       setStep]       = useState(0);
     const [direction,  setDirection]  = useState(1);
     const [processing, setProcessing] = useState(false);
@@ -414,6 +414,7 @@ const UserRegistrationContent = () => {
                                 <Button
                                     variant="contained"
                                     onClick={goNext}
+                                    disabled={false}
                                     fullWidth
                                     endIcon={<ArrowForward sx={{ fontSize: '1rem !important' }} />}
                                     sx={{
@@ -435,7 +436,7 @@ const UserRegistrationContent = () => {
                                 <Button
                                     variant="contained"
                                     fullWidth
-                                    disabled={processing}
+                                    disabled={processing || readOnly}
                                     onClick={handleRegister}
                                     startIcon={
                                         processing

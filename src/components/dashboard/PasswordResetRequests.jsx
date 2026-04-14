@@ -19,7 +19,7 @@ const assertStatus = (req) => {
     return { label: 'Pending', color: '#b45309', bg: 'rgba(254,243,199,0.8)' };
 };
 
-const PasswordResetRequests = () => {
+const PasswordResetRequests = ({ readOnly = false }) => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -91,11 +91,11 @@ const PasswordResetRequests = () => {
                             fullWidth
                             variant="contained"
                             sx={{ textTransform: 'none', fontWeight: 700 }}
-                            disabled={req.userIsPasswordReset || processingEmail === req.email}
+                            disabled={req.userIsPasswordReset || processingEmail === req.email || readOnly}
                             onClick={() => handleAllow(req.email)}
                             startIcon={processingEmail === req.email ? <CircularProgress size={15} /> : <CheckCircle />}
                         >
-                            {req.userIsPasswordReset ? 'Already Approved' : 'Allow Request'}
+                            {readOnly ? 'Read Only' : req.userIsPasswordReset ? 'Already Approved' : 'Allow Request'}
                         </Button>
                     </Card>
                 </Grid>
@@ -115,7 +115,9 @@ const PasswordResetRequests = () => {
             {actionMessage && <Alert severity="success" sx={{ mb: 2 }}>{actionMessage}</Alert>}
 
             <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">As an admin, approve user password reset requests.</Typography>
+                <Typography variant="body2" color="text.secondary">
+                    {readOnly ? 'View user password reset requests (read-only access).' : 'As an admin, approve user password reset requests.'}
+                </Typography>
             </Box>
 
             {loading ? (

@@ -1232,7 +1232,7 @@ const ExportButton = ({ data, user, loading, stationList, selectedStation, selec
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function OverallAttendanceStats() {
+export default function OverallAttendanceStats({ readOnly = false }) {
     const { user } = useSelector(s => s.currentUser);
     const [rawData, setRawData] = useState(null);
     const [data, setData] = useState(null);

@@ -19,7 +19,7 @@ import { registerBatchUsers } from '../auth/Register';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-const BatchRegistration = () => {
+const BatchRegistration = ({ readOnly = false }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -253,7 +253,7 @@ const BatchRegistration = () => {
                                         size="large"
                                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PeopleRounded />}
                                         onClick={handleUpload}
-                                        disabled={loading}
+                                        disabled={loading || readOnly}
                                         sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 600, boxShadow: 3 }}
                                     >
                                         {loading ? 'Processing...' : `Register ${data.length} Users`}

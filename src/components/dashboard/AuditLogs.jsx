@@ -1,7 +1,9 @@
 import {
     AccessTimeRounded,
+    DownloadRounded,
     FilterListRounded,
     PeopleRounded,
+    PictureAsPdfRounded,
     RotateLeftRounded,
     SearchRounded,
     SecurityRounded,
@@ -12,6 +14,7 @@ import {
 import {
     Alert,
     Box,
+    Button,
     Card,
     CardContent,
     Chip,
@@ -19,6 +22,7 @@ import {
     Divider,
     Grid,
     InputAdornment,
+    Menu,
     MenuItem,
     Stack,
     Tab,
@@ -27,6 +31,9 @@ import {
     Tooltip,
     Typography
 } from "@mui/material";
+import { DataGrid } from '@mui/x-data-grid';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useEffect, useMemo, useState } from "react";
 import { fetchAuditLogs } from "../../service/AuditorService.jsx";
 import coreDataDetails from "../CoreDataDetails.jsx";
@@ -76,14 +83,127 @@ const RANK_OPTIONS = [
     { value: "user", label: "User" },
 ];
 
-const CATEGORY_COLORS = {
-    authentication: { bg: "rgba(59,130,246,0.12)", color: "#2563eb" },
-    attendance: { bg: "rgba(16,185,129,0.12)", color: "#059669" },
-    leave: { bg: "rgba(234,179,8,0.14)", color: "#a16207" },
-    profile: { bg: "rgba(139,92,246,0.12)", color: "#7c3aed" },
-    device: { bg: "rgba(239,68,68,0.12)", color: "#dc2626" },
-    password_reset: { bg: "rgba(249,115,22,0.14)", color: "#ea580c" },
-    admin_action: { bg: "rgba(20,184,166,0.14)", color: "#0f766e" },
+const columns = [
+    { field: 'occurredAt', headerName: 'Timestamp', width: 180, valueFormatter: (value) => formatDateTime(value) },
+    { field: 'category', headerName: 'Category', width: 120, valueFormatter: (value) => compactKey(value) },
+    { field: 'action', headerName: 'Action', width: 150, valueFormatter: (value) => compactKey(value) },
+    { field: 'actorName', headerName: 'Actor Name', width: 150, valueGetter: (value, row) => row.actor?.name || 'Unknown' },
+    { field: 'actorEmail', headerName: 'Actor Email', width: 200, valueGetter: (value, row) => row.actor?.email || 'No email' },
+    { field: 'actorRank', headerName: 'Actor Rank', width: 100, valueGetter: (value, row) => row.actor?.rank ? String(row.actor.rank).toUpperCase() : '' },
+    { field: 'targetName', headerName: 'Target Name', width: 150, valueGetter: (value, row) => row.target?.name || '' },
+    { field: 'targetEmail', headerName: 'Target Email', width: 200, valueGetter: (value, row) => row.target?.email || '' },
+    { field: 'description', headerName: 'Description', width: 300 },
+    { field: 'metadata', headerName: 'Metadata', width: 200, valueFormatter: (value) => {
+        const entries = Object.entries(value || {}).filter(([, val]) => val !== null && val !== undefined && val !== "" && typeof val !== "object");
+        return entries.map(([key, val]) => `${compactKey(key)}: ${val}`).join(', ');
+    }},
+];
+
+const exportToCSV = (logs) => {
+    const headers = columns.map(col => col.headerName).join(',');
+    const rows = logs.map(log => 
+        columns.map(col => {
+            let value;
+            if (col.valueGetter) {
+                value = col.valueGetter(log[col.field], log);
+            } else if (col.valueFormatter) {
+                value = col.valueFormatter(log[col.field]);
+            } else {
+                value = log[col.field];
+            }
+            return value;
+        }).join(',')
+    );
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'audit_logs.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+const exportToPDF = (logs) => {
+    try {
+        const doc = new jsPDF('l', 'mm', 'a4'); // landscape, millimeters, A4
+        
+        // Add title
+        doc.setFontSize(18);
+        doc.text('System Audit Trail Report', 14, 20);
+        
+        // Add timestamp
+        doc.setFontSize(10);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+        doc.text(`Total Records: ${logs.length}`, 14, 35);
+        
+        // Prepare table data
+        const tableColumns = columns.map(col => col.headerName);
+        const tableRows = logs.map(log => 
+            columns.map(col => {
+                let value;
+                if (col.valueGetter) {
+                    value = col.valueGetter(log[col.field], log);
+                } else if (col.valueFormatter) {
+                    value = col.valueFormatter(log[col.field]);
+                } else {
+                    value = log[col.field];
+                }
+                // Ensure value is a string and handle long text
+                const strValue = String(value || '');
+                return strValue.length > 50 ? strValue.substring(0, 47) + '...' : strValue;
+            })
+        );
+        
+        // Add table using autoTable function
+        autoTable(doc, {
+            head: [tableColumns],
+            body: tableRows,
+            startY: 45,
+            styles: {
+                fontSize: 7,
+                cellPadding: 2,
+                overflow: 'linebreak',
+                cellWidth: 'wrap',
+            },
+            headStyles: {
+                fillColor: [59, 130, 246],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center',
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245],
+            },
+            columnStyles: {
+                0: { cellWidth: 25 }, // Timestamp
+                1: { cellWidth: 20 }, // Category
+                2: { cellWidth: 25 }, // Action
+                3: { cellWidth: 25 }, // Actor Name
+                4: { cellWidth: 30 }, // Actor Email
+                5: { cellWidth: 15 }, // Actor Rank
+                6: { cellWidth: 25 }, // Target Name
+                7: { cellWidth: 30 }, // Target Email
+                8: { cellWidth: 40 }, // Description
+                9: { cellWidth: 30 }, // Metadata
+            },
+            margin: { top: 45, left: 10, right: 10 },
+            theme: 'grid',
+            didDrawPage: function(data) {
+                // Add page number
+                doc.setFontSize(8);
+                doc.text(`Page ${data.pageNumber}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
+            }
+        });
+        
+        // Save the PDF
+        doc.save('audit_logs.pdf');
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+    }
 };
 
 const formatDateTime = (value) => {
@@ -146,98 +266,6 @@ function MetricCard({ label, value, helper, icon }) {
     );
 }
 
-function AuditLogCard({ log }) {
-    const colors = CATEGORY_COLORS[log.category] || CATEGORY_COLORS.authentication;
-    const metadataEntries = Object.entries(log.metadata || {}).filter(([, value]) => {
-        if (value === null || value === undefined || value === "") return false;
-        if (typeof value === "object") return false;
-        return true;
-    });
-
-    return (
-        <Card sx={{
-            ...G.surface,
-            ...G.cardHover,
-            borderRadius: 4,
-            position: 'relative',
-            overflow: 'hidden',
-        }}>
-            <CardContent sx={{ p: 3 }}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between" sx={{ mb: 2 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                        <Chip
-                            size="small"
-                            label={compactKey(log.category)}
-                            sx={{
-                                bgcolor: colors.bg,
-                                color: colors.color,
-                                fontWeight: 800,
-                                border: `1px solid ${colors.color}20`,
-                                boxShadow: `0 2px 8px ${colors.color}30`,
-                            }}
-                        />
-                        <Chip
-                            size="small"
-                            variant="outlined"
-                            label={compactKey(log.action)}
-                            sx={{
-                                fontWeight: 700,
-                                borderColor: 'rgba(148,163,184,0.3)',
-                                '&:hover': { bgcolor: 'rgba(148,163,184,0.1)' },
-                            }}
-                        />
-                        {log.actor?.rank && (
-                            <Chip
-                                size="small"
-                                label={String(log.actor.rank).toUpperCase()}
-                                sx={{
-                                    bgcolor: 'rgba(15,23,42,0.08)',
-                                    fontWeight: 800,
-                                    color: '#0f172a',
-                                    border: '1px solid rgba(15,23,42,0.2)',
-                                }}
-                            />
-                        )}
-                    </Stack>
-
-                    <Stack direction="row" spacing={0.8} alignItems="center" color="text.secondary">
-                        <AccessTimeRounded sx={{ fontSize: 16 }} />
-                        <Typography variant="caption" fontWeight={700}>
-                            {formatDateTime(log.occurredAt)}
-                        </Typography>
-                    </Stack>
-                </Stack>
-
-                <Typography variant="h6" fontWeight={800} color="#0f172a" sx={{ mb: 1 }}>
-                    {log.description}
-                </Typography>
-
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.6 }}>
-                    <strong>{log.actor?.name || "Unknown user"}</strong> ({log.actor?.email || "No email"})
-                    {log.target?.email ? ` → ${log.target?.name || "Target user"} (${log.target.email})` : ""}
-                </Typography>
-
-                {metadataEntries.length > 0 && (
-                    <Stack direction="row" spacing={0.8} useFlexGap flexWrap="wrap">
-                        {metadataEntries.map(([key, value]) => (
-                            <Chip
-                                key={`${log._id}-${key}`}
-                                size="small"
-                                variant="outlined"
-                                label={`${compactKey(key)}: ${String(value)}`}
-                                sx={{
-                                    borderColor: 'rgba(148,163,184,0.3)',
-                                    '&:hover': { bgcolor: 'rgba(148,163,184,0.1)' },
-                                }}
-                            />
-                        ))}
-                    </Stack>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
 export default function AuditLogsContent() {
     const [category, setCategory] = useState("all");
     const [action, setAction] = useState("all");
@@ -248,6 +276,7 @@ export default function AuditLogsContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [data, setData] = useState({ logs: [], metrics: {}, actionCounts: {} });
+    const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
 
     useEffect(() => {
         let active = true;
@@ -300,6 +329,24 @@ export default function AuditLogsContent() {
         setSearch("");
         setDateFrom("");
         setDateTo("");
+    };
+
+    const handleExportMenuOpen = (event) => {
+        setExportMenuAnchor(event.currentTarget);
+    };
+
+    const handleExportMenuClose = () => {
+        setExportMenuAnchor(null);
+    };
+
+    const handleExportPDF = () => {
+        exportToPDF(data.logs);
+        handleExportMenuClose();
+    };
+
+    const handleExportCSV = () => {
+        exportToCSV(data.logs);
+        handleExportMenuClose();
     };
 
     return (
@@ -521,9 +568,42 @@ export default function AuditLogsContent() {
                         <Typography variant="h6" fontWeight={800} color="#0f172a">
                             Activity Stream
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Entries are ordered from most recent to oldest.
-                        </Typography>
+                        <Stack direction="row" spacing={1}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<DownloadRounded />}
+                                onClick={handleExportMenuOpen}
+                                disabled={!data.logs?.length}
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Export
+                            </Button>
+                            <Menu
+                                anchorEl={exportMenuAnchor}
+                                open={Boolean(exportMenuAnchor)}
+                                onClose={handleExportMenuClose}
+                                anchorOrigin={{
+                                    vertical: 'bottom',
+                                    horizontal: 'right',
+                                }}
+                                transformOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'right',
+                                }}
+                            >
+                                <MenuItem onClick={handleExportPDF}>
+                                    <PictureAsPdfRounded sx={{ mr: 1, color: '#d32f2f' }} />
+                                    Export as PDF
+                                </MenuItem>
+                                <MenuItem onClick={handleExportCSV}>
+                                    <DownloadRounded sx={{ mr: 1, color: '#2e7d32' }} />
+                                    Export as CSV
+                                </MenuItem>
+                            </Menu>
+                            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                                {data.logs?.length || 0} entries
+                            </Typography>
+                        </Stack>
                     </Stack>
 
                     <Divider sx={{ mb: 2.5 }} />
@@ -533,11 +613,29 @@ export default function AuditLogsContent() {
                             <CircularProgress sx={{ color: colorPalette.oceanBlue }} />
                         </Stack>
                     ) : data.logs?.length ? (
-                        <Stack spacing={2}>
-                            {data.logs.map((log) => (
-                                <AuditLogCard key={log._id} log={log} />
-                            ))}
-                        </Stack>
+                        <Box sx={{ height: 600, width: '100%' }}>
+                            <DataGrid
+                                rows={data.logs}
+                                columns={columns}
+                                getRowId={(row) => row._id}
+                                pageSize={10}
+                                rowsPerPageOptions={[10, 25, 50]}
+                                disableSelectionOnClick
+                                sx={{
+                                    border: 'none',
+                                    '& .MuiDataGrid-cell': {
+                                        borderBottom: '1px solid rgba(148,163,184,0.1)',
+                                    },
+                                    '& .MuiDataGrid-columnHeaders': {
+                                        backgroundColor: 'rgba(59,130,246,0.05)',
+                                        borderBottom: '2px solid rgba(59,130,246,0.2)',
+                                    },
+                                    '& .MuiDataGrid-row:hover': {
+                                        backgroundColor: 'rgba(59,130,246,0.02)',
+                                    },
+                                }}
+                            />
+                        </Box>
                     ) : (
                         <Box sx={{ py: 8, textAlign: "center" }}>
                             <Typography variant="h6" fontWeight={800} color="#0f172a">

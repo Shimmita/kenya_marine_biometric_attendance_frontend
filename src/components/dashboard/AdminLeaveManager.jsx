@@ -92,7 +92,7 @@ function SummaryBar({ leaves }) {
 }
 
 /* ─── Single Leave Card ──────────────────────────────────────────────── */
-function LeaveCard({ req, calculateDays, onViewFile, onConfirm }) {
+function LeaveCard({ req, calculateDays, onViewFile, onConfirm, readOnly = false }) {
     const st = statusOf(req.status);
 
     return (
@@ -270,7 +270,7 @@ function LeaveCard({ req, calculateDays, onViewFile, onConfirm }) {
                         {req.attachment ? "Review Documentation" : "No Document Attached"}
                     </Button>
 
-                    {req.status === "pending" && (
+                    {req.status === "pending" && !readOnly && (
                         <Stack direction="row" spacing={1}>
                             <Button
                                 fullWidth
@@ -309,6 +309,13 @@ function LeaveCard({ req, calculateDays, onViewFile, onConfirm }) {
                             </Button>
                         </Stack>
                     )}
+                    {req.status === "pending" && readOnly && (
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)', textAlign: 'center' }}>
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>
+                                Read-Only Access — Actions Disabled
+                            </Typography>
+                        </Box>
+                    )}
                 </Stack>
             </CardContent>
         </Card>
@@ -316,7 +323,7 @@ function LeaveCard({ req, calculateDays, onViewFile, onConfirm }) {
 }
 
 /* ─── Main component ─────────────────────────────────────────────────── */
-export default function AdminLeaveManager() {
+export default function AdminLeaveManager({ readOnly = false }) {
     const [leaveRequests, setLeaveRequests] = useState([]);
     const [filter, setFilter] = useState("all");
     const [loading, setLoading] = useState(false);
@@ -481,6 +488,7 @@ export default function AdminLeaveManager() {
                                         calculateDays={calculateDays}
                                         onViewFile={handleViewFile}
                                         onConfirm={(id, action) => setConfirmation({ open: true, leaveId: id, action })}
+                                        readOnly={readOnly}
                                     />
                                 </Grid>
                             ))}
