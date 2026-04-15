@@ -62,3 +62,10 @@ export const fetchDepartmentStats = async (department) => {
     throw err.response?.data?.message || "Failed to fetch department stats";
   }
 };
+
+
+// added
+export const fetchOverallAttendanceRecords = async (params = {}) => {
+  const res = await api.get("/overall/attendance/records", { params });
+  return res.data;
+};

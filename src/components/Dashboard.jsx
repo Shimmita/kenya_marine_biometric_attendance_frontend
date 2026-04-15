@@ -551,14 +551,10 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 )}
 
                 {/* Admin Panel — no Orgs Stats or Leave Management */}
-                {(isAdmin || isAuditor) && (
+                {isAdmin && (
                     <>
                         <SectionLabel>Admin Tools</SectionLabel>
-                        {isAuditor && (
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.52)', px: 1.5, mb: 1, display: 'block' }}>
-                                Auditor access is read-only 
-                            </Typography>
-                        )}
+                    
                         <List disablePadding>
                             {adminItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -574,18 +570,6 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                         <List disablePadding>
                             {hrItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
-                            ))}
-                        </List>
-                    </>
-                )}
-
-                {/* HR Panel for Auditor — read-only access */}
-                {isAuditor && (
-                    <>
-                        <SectionLabel>Human Resource (Read Only)</SectionLabel>
-                        <List disablePadding>
-                            {HR_EXTRA_ITEMS.filter(item => item.text !== 'Organisations Stats').map(item => (
-                                <NavItem key={item.text} item={{ ...item, readOnly: true }} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
                     </>
@@ -802,9 +786,6 @@ const EnhancedDashboard = () => {
             ],
             auditor: [
                 ...AUDITOR_ITEMS,
-                ...ADMIN_SHARED_ITEMS.map(item => ({ ...item, readOnly: true })),
-                ...ADMIN_ONLY_ITEMS.map(item => ({ ...item, readOnly: true })),
-                ...HR_EXTRA_ITEMS.map(item => ({ ...item, readOnly: true })),
             ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
