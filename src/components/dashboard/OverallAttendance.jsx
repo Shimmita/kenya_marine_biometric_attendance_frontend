@@ -10,12 +10,12 @@ import {
 } from '@mui/icons-material';
 import {
     Alert, Avatar, Box, Button, Chip, CircularProgress,
-    Divider, FormControl, Grid, InputAdornment, InputLabel,
+    Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, Grid, InputAdornment, InputLabel,
     LinearProgress, Menu, MenuItem, Select, Skeleton, Snackbar,
     Stack, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
     TablePagination, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
-import { AnimatePresence, motion, useInView } from 'framer-motion';
+import { AnimatePresence, motion as Motion, useInView } from 'framer-motion';
 import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { fetchOverallAttendanceRecords, fetchOverallOrgStats } from '../../service/ClockingService';
+import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import coreDataDetails from '../CoreDataDetails';
 
 const { colorPalette } = coreDataDetails;
@@ -77,6 +78,21 @@ const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
 const parseNum = (v) => (typeof v === 'string' ? parseFloat(v) || 0 : Number(v) || 0);
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
 const fmtTime = (d) => new Date(d).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
+const pad2 = (n) => String(n).padStart(2, '0');
+const dateKey = (d) => {
+    const x = new Date(d);
+    return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
+};
+const hourDecimal = (d) => {
+    const x = new Date(d);
+    return x.getHours() + (x.getMinutes() / 60);
+};
+const hourLabel = (value) => {
+    if (value == null || Number.isNaN(Number(value))) return '—';
+    const h = Math.floor(Number(value));
+    const m = Math.round((Number(value) - h) * 60);
+    return `${pad2(h)}:${pad2(m === 60 ? 0 : m)}`;
+};
 const fmtDuration = (clockIn, clockOut) => {
     if (!clockOut) return '—';
     const h = (new Date(clockOut) - new Date(clockIn)) / 3600000;
@@ -147,6 +163,294 @@ function processRawData(raw) {
     };
 }
 
+const getPeriodStart = (monthsBack = 0) => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+};
+
+const isApprovedLeave = (leave) => `${leave?.status || ''}`.toLowerCase() === 'approved';
+const leaveIdentity = (leave) => leave?.email || leave?.name || leave?._id;
+const withinLeaveRange = (target, leave) => {
+    if (!leave?.startDate || !leave?.endDate) return false;
+    const current = new Date(target); current.setHours(12, 0, 0, 0);
+    const start = new Date(leave.startDate); start.setHours(0, 0, 0, 0);
+    const end = new Date(leave.endDate); end.setHours(23, 59, 59, 999);
+    return current >= start && current <= end;
+};
+
+const aggregateUniqueAttendance = (records) => {
+    const byEmployee = new Map();
+    records.forEach((rec) => {
+        const key = rec.email || rec.name || `${rec.station || 'unknown'}-${rec.department || 'unknown'}-${rec.clock_in}`;
+        const nextClockIn = rec.clock_in ? new Date(rec.clock_in) : null;
+        const nextClockOut = rec.clock_out ? new Date(rec.clock_out) : null;
+        if (!byEmployee.has(key)) {
+            byEmployee.set(key, {
+                email: rec.email || '',
+                name: rec.name || rec.email || '—',
+                station: rec.station || 'Unassigned',
+                department: rec.department || 'Unassigned',
+                firstClockIn: nextClockIn,
+                lastClockOut: nextClockOut,
+                isLate: !!rec.isLate,
+                openSession: !rec.clock_out,
+                records: 1,
+            });
+            return;
+        }
+
+        const current = byEmployee.get(key);
+        current.station = rec.station || current.station;
+        current.department = rec.department || current.department;
+        current.isLate = current.isLate || !!rec.isLate;
+        current.openSession = current.openSession || !rec.clock_out;
+        current.records += 1;
+        if (nextClockIn && (!current.firstClockIn || nextClockIn < current.firstClockIn)) current.firstClockIn = nextClockIn;
+        if (nextClockOut && (!current.lastClockOut || nextClockOut > current.lastClockOut)) current.lastClockOut = nextClockOut;
+    });
+    return byEmployee;
+};
+
+function buildAttendanceAnalytics(data, records = [], leaves = null) {
+    const totalEmployees = parseNum(data?.overview?.totalStaff);
+    const today = new Date();
+    const todayKey = dateKey(today);
+    const departmentSource = data?.departmentBreakdown || [];
+    const stationSource = data?.stationList || [];
+
+    const todaysRecords = records.filter((rec) => rec?.clock_in && dateKey(rec.clock_in) === todayKey);
+    const todaysUnique = Array.from(aggregateUniqueAttendance(todaysRecords).values());
+
+    const leaveAvailable = Array.isArray(leaves);
+    const activeLeavesToday = (leaveAvailable ? leaves : [])
+        .filter((leave) => isApprovedLeave(leave) && withinLeaveRange(today, leave))
+        .reduce((map, leave) => {
+            const key = leaveIdentity(leave);
+            if (key) map.set(key, leave);
+            return map;
+        }, new Map());
+    const presentCount = todaysUnique.length;
+    const lateCount = todaysUnique.filter((entry) => entry.isLate).length;
+    const clockedInCount = todaysUnique.filter((entry) => entry.openSession).length;
+    const onLeaveCount = leaveAvailable ? activeLeavesToday.size : null;
+    const absentCount = Math.max(totalEmployees - presentCount - (onLeaveCount || 0), 0);
+
+    const recordsByDay = records.reduce((acc, rec) => {
+        if (!rec?.clock_in) return acc;
+        const key = dateKey(rec.clock_in);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(rec);
+        return acc;
+    }, {});
+
+    const dailyTrendData = Object.entries(recordsByDay)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, dayRecords]) => {
+            const uniques = Array.from(aggregateUniqueAttendance(dayRecords).values());
+            const avgIn = uniques.length ? uniques.reduce((sum, entry) => sum + hourDecimal(entry.firstClockIn), 0) / uniques.length : null;
+            const outEntries = uniques.filter((entry) => entry.lastClockOut);
+            const avgOut = outEntries.length ? outEntries.reduce((sum, entry) => sum + hourDecimal(entry.lastClockOut), 0) / outEntries.length : null;
+            const present = uniques.length;
+            const late = uniques.filter((entry) => entry.isLate).length;
+            const leaveForDay = leaveAvailable
+                ? Array.from(activeLeavesToday.values()).filter((leave) => withinLeaveRange(new Date(key), leave)).length
+                : 0;
+            const absent = Math.max(totalEmployees - present - leaveForDay, 0);
+            return {
+                key,
+                label: new Date(key).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' }),
+                fullLabel: fmtDate(key),
+                present,
+                late,
+                clockedIn: uniques.filter((entry) => entry.openSession).length,
+                clockIns: dayRecords.length,
+                clockOuts: dayRecords.filter((rec) => rec.clock_out).length,
+                avgClockInHour: avgIn,
+                avgClockOutHour: avgOut,
+                avgClockInLabel: avgIn != null ? hourLabel(avgIn) : '—',
+                avgClockOutLabel: avgOut != null ? hourLabel(avgOut) : '—',
+                attendanceRate: totalEmployees ? +((present / totalEmployees) * 100).toFixed(1) : 0,
+                lateRate: present ? +((late / present) * 100).toFixed(1) : 0,
+                absentRate: totalEmployees ? +((absent / totalEmployees) * 100).toFixed(1) : 0,
+                onLeave: leaveAvailable ? leaveForDay : null,
+            };
+        });
+
+    const groupTrendPoints = (items, type) => {
+        const grouped = items.reduce((acc, item) => {
+            const date = new Date(item.key);
+            let key;
+            let label;
+            if (type === 'weekly') {
+                const weekStart = new Date(date);
+                const day = weekStart.getDay();
+                const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+                weekStart.setDate(diff);
+                key = dateKey(weekStart);
+                label = `${weekStart.toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })}`;
+            } else {
+                key = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+                label = date.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' });
+            }
+
+            if (!acc[key]) {
+                acc[key] = {
+                    key,
+                    label,
+                    fullLabel: label,
+                    present: 0,
+                    attendanceRateTotal: 0,
+                    lateRateTotal: 0,
+                    absentRateTotal: 0,
+                    avgClockInTotal: 0,
+                    avgClockOutTotal: 0,
+                    avgClockInCount: 0,
+                    avgClockOutCount: 0,
+                    points: 0,
+                };
+            }
+
+            acc[key].present += item.present;
+            acc[key].attendanceRateTotal += item.attendanceRate;
+            acc[key].lateRateTotal += item.lateRate;
+            acc[key].absentRateTotal += item.absentRate;
+            if (item.avgClockInHour != null) {
+                acc[key].avgClockInTotal += item.avgClockInHour;
+                acc[key].avgClockInCount += 1;
+            }
+            if (item.avgClockOutHour != null) {
+                acc[key].avgClockOutTotal += item.avgClockOutHour;
+                acc[key].avgClockOutCount += 1;
+            }
+            acc[key].points += 1;
+            return acc;
+        }, {});
+
+        return Object.values(grouped).map((item) => ({
+            key: item.key,
+            label: item.label,
+            fullLabel: item.fullLabel,
+            present: item.present,
+            attendanceRate: item.points ? +(item.attendanceRateTotal / item.points).toFixed(1) : 0,
+            lateRate: item.points ? +(item.lateRateTotal / item.points).toFixed(1) : 0,
+            absentRate: item.points ? +(item.absentRateTotal / item.points).toFixed(1) : 0,
+            avgClockInHour: item.avgClockInCount ? +(item.avgClockInTotal / item.avgClockInCount).toFixed(2) : null,
+            avgClockOutHour: item.avgClockOutCount ? +(item.avgClockOutTotal / item.avgClockOutCount).toFixed(2) : null,
+            avgClockInLabel: item.avgClockInCount ? hourLabel(item.avgClockInTotal / item.avgClockInCount) : '—',
+            avgClockOutLabel: item.avgClockOutCount ? hourLabel(item.avgClockOutTotal / item.avgClockOutCount) : '—',
+        }));
+    };
+
+    const todayDepartmentMap = todaysUnique.reduce((acc, item) => {
+        const key = item.department || 'Unassigned';
+        if (!acc[key]) acc[key] = { present: 0, late: 0, clockedIn: 0 };
+        acc[key].present += 1;
+        if (item.isLate) acc[key].late += 1;
+        if (item.openSession) acc[key].clockedIn += 1;
+        return acc;
+    }, {});
+
+    const leaveDepartmentMap = leaveAvailable
+        ? Array.from(activeLeavesToday.values()).reduce((acc, leave) => {
+            const key = leave.department || 'Unassigned';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {})
+        : {};
+
+    const departmentAttendance = departmentSource
+        .map((dept) => {
+            const headcount = parseNum(dept.headcount);
+            const present = todayDepartmentMap[dept.name]?.present || 0;
+            const late = todayDepartmentMap[dept.name]?.late || 0;
+            const clockedIn = todayDepartmentMap[dept.name]?.clockedIn || 0;
+            const onLeave = leaveAvailable ? (leaveDepartmentMap[dept.name] || 0) : null;
+            const absent = Math.max(headcount - present - (onLeave || 0), 0);
+            return {
+                name: dept.name,
+                headcount,
+                present,
+                absent,
+                late,
+                clockedIn,
+                onLeave,
+                attendanceRate: headcount ? +((present / headcount) * 100).toFixed(1) : 0,
+                lateRate: present ? +((late / present) * 100).toFixed(1) : 0,
+                absentRate: headcount ? +((absent / headcount) * 100).toFixed(1) : 0,
+                totalHours: parseNum(dept.totalHours),
+                averageHoursPerStaff: parseNum(dept.averageHoursPerStaff),
+                stations: dept.stations || [],
+                overworked: !!dept.overworked,
+            };
+        })
+        .sort((a, b) => b.present - a.present || a.name.localeCompare(b.name));
+
+    const todayStationMap = todaysUnique.reduce((acc, item) => {
+        const key = item.station || 'Unassigned';
+        if (!acc[key]) acc[key] = { present: 0, late: 0, clockedIn: 0 };
+        acc[key].present += 1;
+        if (item.isLate) acc[key].late += 1;
+        if (item.openSession) acc[key].clockedIn += 1;
+        return acc;
+    }, {});
+
+    const leaveStationMap = leaveAvailable
+        ? Array.from(activeLeavesToday.values()).reduce((acc, leave) => {
+            const key = leave.station || 'Unassigned';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {})
+        : {};
+
+    const stationAttendance = stationSource
+        .map((station) => {
+            const headcount = parseNum(station.headcount);
+            const present = todayStationMap[station.name]?.present || 0;
+            const late = todayStationMap[station.name]?.late || 0;
+            const clockedIn = todayStationMap[station.name]?.clockedIn || 0;
+            const onLeave = leaveAvailable ? (leaveStationMap[station.name] || 0) : null;
+            const absent = Math.max(headcount - present - (onLeave || 0), 0);
+            return {
+                name: station.name,
+                headcount,
+                present,
+                absent,
+                late,
+                clockedIn,
+                onLeave,
+                attendanceRate: headcount ? +((present / headcount) * 100).toFixed(1) : 0,
+                lateRate: present ? +((late / present) * 100).toFixed(1) : 0,
+                absentRate: headcount ? +((absent / headcount) * 100).toFixed(1) : 0,
+                totalHours: parseNum(station.totalHours),
+            };
+        })
+        .sort((a, b) => b.present - a.present || a.name.localeCompare(b.name));
+
+    return {
+        headline: {
+            totalEmployees,
+            presentCount,
+            absentCount,
+            lateCount,
+            clockedInCount,
+            onLeaveCount,
+            attendanceRate: totalEmployees ? +((presentCount / totalEmployees) * 100).toFixed(1) : 0,
+            lateRate: presentCount ? +((lateCount / presentCount) * 100).toFixed(1) : 0,
+            absentRate: totalEmployees ? +((absentCount / totalEmployees) * 100).toFixed(1) : 0,
+            leaveDataAvailable: leaveAvailable,
+        },
+        dailyTrendData,
+        trendSeries: {
+            daily: dailyTrendData.slice(-14),
+            weekly: groupTrendPoints(dailyTrendData, 'weekly').slice(-8),
+            monthly: groupTrendPoints(dailyTrendData, 'monthly').slice(-6),
+        },
+        departmentAttendance,
+        stationAttendance,
+        todayRoster: todaysUnique,
+    };
+}
+
 /* ── Performance description helper ── */
 const getPerformanceInsight = (p, isTop) => {
     const hrs = parseFloat(p.hours || 0);
@@ -154,12 +458,14 @@ const getPerformanceInsight = (p, isTop) => {
     const ar = parseFloat(p.attendanceRate || 0);
     const score = Math.round(p.score || 0);
     if (isTop) {
-        if (ar >= 90 && ot < 10) return 'Exemplary attendance with a sustainable workload. A benchmark for peers.';
-        if (ar >= 80 && hrs >= 140) return 'Consistent performer with above-standard hours logged this period.';
-        if (ot > 15 && ar >= 80) return 'Highly dedicated — note elevated overtime; monitor for burnout risk.';
+        if (ar >= 80 && ot < 10) return 'Exemplary attendance with a sustainable workload. A benchmark for peers.';
+        if (ar >= 70 && ot < 10) return 'Excellent attendance with a sustainable workload. Consistently exceeds expectations.';
+        if (ar >= 60 && ot < 10) return 'Good attendance with a sustainable workload. Consistently meets expectations.';
+        if (ar >= 50 && hrs >= 140) return 'Consistent performer with above-standard hours logged this period.';
         return `Reliable contributor with a strong score of ${score}pts. Recognized for consistency.`;
     } else {
-        if (ar < 50) return 'Critically low attendance rate. Immediate HR review and support plan required.';
+        if (ar >= 40) return 'Fairly and almost meeting expectations.HR support plan required.';
+        if (ar < 40) return 'Critically low attendance rate. Immediate HR review and support plan required.';
         if (hrs < 80) return 'Significantly below 160h standard. Review leave/absence records urgently.';
         if (ot > 20) return 'High overtime despite low productivity score. Task allocation review recommended.';
         return `Below-average score of ${score}pts. A performance improvement plan is advisable.`;
@@ -203,9 +509,9 @@ const Reveal = ({ children, delay = 0, y = 22 }) => {
     const ref = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-50px' });
     return (
-        <motion.div ref={ref} initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}>
+        <Motion.div ref={ref} initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}>
             {children}
-        </motion.div>
+        </Motion.div>
     );
 };
 
@@ -271,7 +577,7 @@ const SectionLabel = ({ children, accent, chip, chipColor, icon }) => (
 ══════════════════════════════════════════════════════════════════════════ */
 const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
     const ov = data?.overview;
-    const tabLabels = ['Records', 'Performance'];
+    const tabLabels = ['Overview', 'Records', 'Performance'];
     return (
         <Box sx={{ borderRadius: '24px', background: G.heroBg, position: 'relative', overflow: 'hidden', mb: 3, p: { xs: 3, md: 4 } }}>
             <Box sx={{ position: 'absolute', top: -60, right: -60, width: 230, height: 230, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(45px)', pointerEvents: 'none' }} />
@@ -288,21 +594,21 @@ const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
                         {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
                     </Typography>
                     <Stack direction="row" alignItems="baseline" spacing={1.5} mt={0.5}>
-                        <motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
+                        <Motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
                             <Typography variant="h2" fontWeight={900} sx={{ fontSize: { xs: '3rem', md: '4.2rem' }, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: '#fff', textShadow: '0 4px 24px rgba(0,0,0,0.28)' }}>
                                 {loading ? '—' : safe(ov?.averageStaffEfficiency)}
                             </Typography>
-                        </motion.div>
+                        </Motion.div>
                         <Typography variant="h6" sx={{ opacity: 0.65, color: '#fff' }}>Efficiency</Typography>
                     </Stack>
-                    <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+                    <Motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
                         <Stack direction="row" alignItems="center" spacing={0.8} mt={1}>
                             <TrendingUp sx={{ fontSize: '1rem', color: '#00e5ff', opacity: 0.8 }} />
                             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }}>
                                 {loading ? 'Loading…' : `${ov?.activeStaffThisMonth ?? 0} of ${ov?.totalStaff ?? 0} staff active this month`}
                             </Typography>
                         </Stack>
-                    </motion.div>
+                    </Motion.div>
                 </Grid>
                 <Grid item xs={12} md={7}>
                     <Grid container spacing={1.8}>
@@ -315,12 +621,12 @@ const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
                             { label: 'Stations', val: data?.stationList?.length ?? '—' },
                         ].map(({ label, val }, i) => (
                             <Grid item xs={6} sm={4} key={label}>
-                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
+                                <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
                                     <Box sx={{ ...G.tile, p: 1.6, borderRadius: '16px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.22)', transform: 'translateY(-4px)' } }}>
                                         <Typography variant="h5" fontWeight={900} sx={{ fontVariantNumeric: 'tabular-nums', color: '#fff', lineHeight: 1.2 }}>{loading ? '…' : val ?? '—'}</Typography>
                                         <Typography variant="caption" sx={{ opacity: 0.62, color: '#fff', display: 'block', mt: 0.3 }}>{label}</Typography>
                                     </Box>
-                                </motion.div>
+                                </Motion.div>
                             </Grid>
                         ))}
                     </Grid>
@@ -338,6 +644,7 @@ const TabNav = ({ activeTab, setActiveTab }) => (
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}
             sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' } }}>
             {[
+                { label: 'Overview', icon: <InsertChart sx={{ fontSize: '1rem' }} /> },
                 { label: 'Records', icon: <TableChart sx={{ fontSize: '1rem' }} /> },
                 { label: 'Performance', icon: <EmojiEvents sx={{ fontSize: '1rem' }} /> },
             ].map(({ label, icon }, i) => (
@@ -402,7 +709,7 @@ const OverviewTab = ({ data, loading, stationList }) => {
 
     const ov = data?.overview;
     const hs = data?.healthSignals;
-    const depts = data?.departmentBreakdown || [];
+    const depts = useMemo(() => data?.departmentBreakdown || [], [data?.departmentBreakdown]);
     const topPerfs = data?.topPerformers || [];
 
     const deptOptions = useMemo(() => {
@@ -450,11 +757,11 @@ const OverviewTab = ({ data, loading, stationList }) => {
             {/* Overworked alert */}
             <AnimatePresence>
                 {!loading && overworkedDepts.length > 0 && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                    <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                         <Alert severity="warning" variant="filled" icon={<Warning />} sx={{ mb: 2.5, borderRadius: '14px', fontWeight: 700, background: 'linear-gradient(90deg, #f59e0b, #f97316)', color: '#fff' }}>
                             ⚠ {overworkedDepts.length} department{overworkedDepts.length > 1 ? 's' : ''} ({overworkedDepts.map(d => d.name).join(', ')}) flagged as <strong>overworked</strong> (avg &gt;160h/staff). Review recommended.
                         </Alert>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
 
@@ -651,7 +958,7 @@ const OverviewTab = ({ data, loading, stationList }) => {
                                                 const hrs = parseNum(dept.totalHours);
                                                 const loadPct = Math.min((hrs / deptMaxHours) * 100, 100);
                                                 return (
-                                                    <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04 }} style={{ display: 'table-row' }}>
+                                                    <Motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04 }} style={{ display: 'table-row' }}>
                                                         <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}>{dept.name}</TableCell>
                                                         <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}><Chip label={dept.headcount} size="small" sx={{ height: 20, fontWeight: 800, fontSize: '0.7rem', borderRadius: '7px', bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue }} /></TableCell>
                                                         <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}>{dept.totalHours}h</TableCell>
@@ -662,7 +969,7 @@ const OverviewTab = ({ data, loading, stationList }) => {
                                                             <LinearProgress variant="determinate" value={loadPct} sx={{ height: 6, borderRadius: 99, bgcolor: `${colorPalette.seafoamGreen}14`, '& .MuiLinearProgress-bar': { bgcolor: colorPalette.seafoamGreen, borderRadius: 99 } }} />
                                                             <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.62rem' }}>{loadPct.toFixed(0)}%</Typography>
                                                         </TableCell>
-                                                    </motion.tr>
+                                                    </Motion.tr>
                                                 );
                                             })}
                                     </TableBody>
@@ -683,7 +990,7 @@ const OverviewTab = ({ data, loading, stationList }) => {
                                     const rs = [{ bg: 'rgba(254,243,199,0.82)', border: 'rgba(253,230,138,0.72)', color: '#d97706' }, { bg: 'rgba(241,245,249,0.82)', border: 'rgba(226,232,240,0.72)', color: '#64748b' }, { bg: 'rgba(255,247,237,0.82)', border: 'rgba(254,215,170,0.72)', color: '#c2410c' }][idx] || { bg: `${colorPalette.oceanBlue}08`, border: `${colorPalette.oceanBlue}22`, color: colorPalette.oceanBlue };
                                     const emailLocal = p.email?.split('@')[0] || '??';
                                     return (
-                                        <motion.div key={idx} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}>
+                                        <Motion.div key={idx} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}>
                                             <Box sx={{ p: 1.8, borderRadius: '14px', background: rs.bg, border: `1px solid ${rs.border}`, mb: 1.2, '&:hover': { transform: 'translateX(4px)' }, transition: 'all 0.18s' }}>
                                                 <Stack direction="row" alignItems="center" spacing={1.5}>
                                                     <Typography sx={{ fontSize: '1.3rem', lineHeight: 1 }}>{medals[idx] || `#${idx + 1}`}</Typography>
@@ -701,7 +1008,7 @@ const OverviewTab = ({ data, loading, stationList }) => {
                                                     </Box>
                                                 </Stack>
                                             </Box>
-                                        </motion.div>
+                                        </Motion.div>
                                     );
                                 })}
                         </Box>
@@ -715,6 +1022,456 @@ const OverviewTab = ({ data, loading, stationList }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    TAB 1 — RECORDS
 ══════════════════════════════════════════════════════════════════════════ */
+const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, user }) => {
+    const isCEO = user?.rank === 'ceo';
+    const [selectedStation, setSelectedStation] = useState('');
+    const [selectedDept, setSelectedDept] = useState('');
+    const [trendView, setTrendView] = useState('daily');
+    const [detailDept, setDetailDept] = useState(null);
+    const [detailTrend, setDetailTrend] = useState(null);
+
+    const analytics = useMemo(() => buildAttendanceAnalytics(data, records, leaves), [data, records, leaves]);
+    const headline = analytics.headline;
+    const hs = data?.healthSignals;
+
+    const deptOptions = useMemo(() => {
+        if (!selectedStation) return (data?.allDeptNames || []);
+        const station = stationList.find((entry) => entry.name === selectedStation);
+        return (station?.departments || []).map((dept) => dept.name).sort();
+    }, [data, selectedStation, stationList]);
+
+    const visibleDepartments = useMemo(() => analytics.departmentAttendance.filter((dept) => {
+        if (selectedDept && dept.name !== selectedDept) return false;
+        if (!selectedStation) return true;
+        return dept.stations?.includes(selectedStation);
+    }), [analytics.departmentAttendance, selectedDept, selectedStation]);
+
+    const visibleStations = useMemo(() => analytics.stationAttendance.filter((station) => !selectedStation || station.name === selectedStation), [analytics.stationAttendance, selectedStation]);
+    const visibleTrendSeries = analytics.trendSeries[trendView] || [];
+
+    const summaryRows = useMemo(() => ([
+        { Metric: 'Total employees today', Value: headline.totalEmployees },
+        { Metric: 'Present today', Value: headline.presentCount },
+        { Metric: 'Absent today', Value: headline.absentCount },
+        { Metric: 'Late arrivals', Value: headline.lateCount },
+        { Metric: 'Currently clocked in', Value: headline.clockedInCount },
+        { Metric: 'Employees on leave today', Value: headline.leaveDataAvailable ? headline.onLeaveCount : 'Unavailable' },
+        { Metric: 'Overall attendance rate', Value: `${headline.attendanceRate}%` },
+        { Metric: 'Late arrival rate', Value: `${headline.lateRate}%` },
+        { Metric: 'Absenteeism rate', Value: `${headline.absentRate}%` },
+    ]), [headline]);
+
+    const exportTrendRows = visibleTrendSeries.map((item) => ({
+        Period: item.fullLabel || item.label,
+        Present: item.present,
+        'Attendance Rate (%)': item.attendanceRate,
+        'Late Rate (%)': item.lateRate,
+        'Absent Rate (%)': item.absentRate,
+        'Avg Clock In': item.avgClockInLabel || '—',
+        'Avg Clock Out': item.avgClockOutLabel || '—',
+    }));
+
+    const exportDeptRows = visibleDepartments.map((dept) => ({
+        Department: dept.name,
+        Headcount: dept.headcount,
+        Present: dept.present,
+        Absent: dept.absent,
+        Late: dept.late,
+        'Clocked In': dept.clockedIn,
+        'On Leave': dept.onLeave ?? '—',
+        'Attendance Rate (%)': dept.attendanceRate,
+        'Late Rate (%)': dept.lateRate,
+        'Absenteeism Rate (%)': dept.absentRate,
+        'Monthly Hours': dept.totalHours,
+        'Avg Hours/Staff': dept.averageHoursPerStaff,
+    }));
+
+    const exportStationRows = visibleStations.map((station) => ({
+        Station: station.name,
+        Headcount: station.headcount,
+        Present: station.present,
+        Absent: station.absent,
+        Late: station.late,
+        'Clocked In': station.clockedIn,
+        'On Leave': station.onLeave ?? '—',
+        'Attendance Rate (%)': station.attendanceRate,
+        'Late Rate (%)': station.lateRate,
+        'Absenteeism Rate (%)': station.absentRate,
+        'Monthly Hours': station.totalHours,
+    }));
+
+    const handleOverviewExportCSV = () => exportCSV([
+        ...summaryRows.map((row) => ({ Section: 'Summary', ...row })),
+        ...exportTrendRows.map((row) => ({ Section: `Trend ${trendView}`, ...row })),
+        ...exportDeptRows.map((row) => ({ Section: 'Department', ...row })),
+        ...exportStationRows.map((row) => ({ Section: 'Station', ...row })),
+    ], `KMFRI_Attendance_Overview_${Date.now()}.csv`);
+
+    const handleOverviewExportExcel = () => {
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportTrendRows), 'Trends');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportDeptRows), 'Departments');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportStationRows), 'Stations');
+        XLSX.writeFile(wb, `KMFRI_Attendance_Overview_${Date.now()}.xlsx`);
+    };
+
+    const handleOverviewExportPDF = async () => {
+        const { default: jsPDF } = await import('jspdf');
+        const { default: autoTable } = await import('jspdf-autotable');
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pw = doc.internal.pageSize.getWidth();
+        doc.setFillColor(10, 61, 98);
+        doc.rect(0, 0, pw, 34, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.text('KMFRI Attendance Executive Overview', pw / 2, 12, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text(`Generated ${new Date().toLocaleString()} · ${RANK_LABELS[user?.rank] || 'Executive View'} · Trend ${trendView}`, pw / 2, 21, { align: 'center' });
+        doc.text(`${selectedStation || 'All stations'} · ${selectedDept || 'All departments'}`, pw / 2, 28, { align: 'center' });
+
+        autoTable(doc, {
+            startY: 40,
+            head: [['Metric', 'Value']],
+            body: summaryRows.map((row) => [row.Metric, row.Value]),
+            headStyles: { fillColor: [10, 61, 98], textColor: 255 },
+            styles: { fontSize: 8, cellPadding: 2.2 },
+        });
+        autoTable(doc, {
+            startY: doc.lastAutoTable.finalY + 6,
+            head: [['Period', 'Present', 'Attendance %', 'Late %', 'Absent %', 'Avg In', 'Avg Out']],
+            body: exportTrendRows.map((row) => [row.Period, row.Present, row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absent Rate (%)'], row['Avg Clock In'], row['Avg Clock Out']]),
+            headStyles: { fillColor: [0, 121, 140], textColor: 255 },
+            styles: { fontSize: 7.5, cellPadding: 1.8 },
+        });
+        autoTable(doc, {
+            startY: doc.lastAutoTable.finalY + 6,
+            head: [['Department', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %', 'Late %', 'Absent %']],
+            body: exportDeptRows.map((row) => [row.Department, row.Headcount, row.Present, row.Absent, row.Late, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absenteeism Rate (%)']]),
+            headStyles: { fillColor: [7, 58, 82], textColor: 255 },
+            styles: { fontSize: 7.1, cellPadding: 1.6 },
+        });
+        autoTable(doc, {
+            startY: doc.lastAutoTable.finalY + 6,
+            head: [['Station', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %', 'Late %', 'Absent %']],
+            body: exportStationRows.map((row) => [row.Station, row.Headcount, row.Present, row.Absent, row.Late, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absenteeism Rate (%)']]),
+            headStyles: { fillColor: [24, 110, 99], textColor: 255 },
+            styles: { fontSize: 7.1, cellPadding: 1.6 },
+        });
+        doc.save(`KMFRI_Attendance_Overview_${Date.now()}.pdf`);
+    };
+
+    return (
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+            <Reveal>
+                <Box sx={{ ...G.filterBg, borderRadius: '18px', p: 2, mb: 3 }}>
+                    <Stack direction={{ xs: 'column', lg: 'row' }} alignItems={{ xs: 'stretch', lg: 'center' }} spacing={2} justifyContent="space-between">
+                        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2} flexWrap="wrap">
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <FilterList sx={{ color: colorPalette.deepNavy, fontSize: '1.1rem' }} />
+                                <Typography variant="body2" fontWeight={800} color={colorPalette.deepNavy}>Attendance scope</Typography>
+                            </Stack>
+                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                                <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Station</InputLabel>
+                                <Select value={selectedStation} label="Station" onChange={(e) => { setSelectedStation(e.target.value); setSelectedDept(''); }} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
+                                    <MenuItem value=""><em>All Stations</em></MenuItem>
+                                    {stationList.map((station) => <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Department</InputLabel>
+                                <Select value={selectedDept} label="Department" onChange={(e) => setSelectedDept(e.target.value)} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
+                                    <MenuItem value=""><em>All Departments</em></MenuItem>
+                                    {deptOptions.map((dept) => <MenuItem key={dept} value={dept}>{dept}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                            {(selectedStation || selectedDept) && <Button variant="outlined" onClick={() => { setSelectedStation(''); setSelectedDept(''); }} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>Clear</Button>}
+                        </Stack>
+                        <ExportMenu onPDF={handleOverviewExportPDF} onCSV={handleOverviewExportCSV} onExcel={handleOverviewExportExcel} loading={loading} />
+                    </Stack>
+                </Box>
+            </Reveal>
+
+            <Reveal>
+                <SectionLabel accent={colorPalette.aquaVibrant} chip={isCEO ? 'CEO view' : 'Organisation view'} icon={<QueryStats sx={{ fontSize: '1.1rem' }} />}>
+                    {isCEO ? 'Executive Attendance KPIs' : 'Overall Attendance Snapshot'}
+                </SectionLabel>
+            </Reveal>
+            <Grid container spacing={2.5} mb={4}>
+                {[
+                    { label: isCEO ? 'Overall Attendance Rate' : 'Total Employees Today', value: isCEO ? `${headline.attendanceRate}%` : headline.totalEmployees, subtitle: isCEO ? 'Present workforce vs total staff' : 'All staff in the organisation', icon: <Person sx={{ color: colorPalette.oceanBlue, fontSize: '1.3rem' }} />, accent: colorPalette.oceanBlue, progress: isCEO ? headline.attendanceRate : null },
+                    { label: isCEO ? 'Late Arrival Rate' : 'Present / Absent / Late', value: isCEO ? `${headline.lateRate}%` : `${headline.presentCount} / ${headline.absentCount} / ${headline.lateCount}`, subtitle: isCEO ? 'Late employees among those present today' : 'Today workforce split', icon: <Warning sx={{ color: '#f59e0b', fontSize: '1.3rem' }} />, accent: '#f59e0b', progress: isCEO ? headline.lateRate : null },
+                    { label: isCEO ? 'Absenteeism Rate' : 'Currently Clocked In', value: isCEO ? `${headline.absentRate}%` : headline.clockedInCount, subtitle: isCEO ? 'Absent workforce excluding approved leave' : 'Live count of open attendance sessions', icon: <History sx={{ color: colorPalette.coralSunset, fontSize: '1.3rem' }} />, accent: colorPalette.coralSunset, progress: isCEO ? headline.absentRate : null },
+                    { label: isCEO ? 'Total Workforce Present Today' : 'Employees On Leave', value: isCEO ? headline.presentCount : (headline.leaveDataAvailable ? headline.onLeaveCount : '—'), subtitle: isCEO ? 'Headcount currently marked present today' : (headline.leaveDataAvailable ? 'Approved leave covering today' : 'Leave records unavailable'), icon: <Apartment sx={{ color: colorPalette.seafoamGreen, fontSize: '1.3rem' }} />, accent: colorPalette.seafoamGreen },
+                ].map((card, index) => (
+                    <Grid item xs={12} sm={6} lg={3} key={card.label}>
+                        <Reveal delay={index * 0.05}>
+                            {loading ? <Skeleton variant="rounded" height={150} sx={{ borderRadius: '20px' }} /> : <StatCard {...card} />}
+                        </Reveal>
+                    </Grid>
+                ))}
+            </Grid>
+
+            <Grid container spacing={2.5} mb={4}>
+                <Grid item xs={12} lg={7}>
+                    <Reveal>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5} flexWrap="wrap" gap={1}>
+                                <Box>
+                                    <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Daily Time-In and Time-Out Trends</Typography>
+                                    <Typography variant="caption" color="text.disabled">Average check-in and check-out times for the last 14 active attendance days.</Typography>
+                                </Box>
+                                <Chip label="Daily trend" size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue, fontWeight: 700 }} />
+                            </Stack>
+                            <ResponsiveContainer width="100%" height={260}>
+                                <ComposedChart data={analytics.dailyTrendData.slice(-14)} margin={{ top: 6, right: 8, left: -14, bottom: 4 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 24]} tickFormatter={hourLabel} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <RTooltip content={<GlassTooltip />} formatter={(value, name) => (name === 'Avg Clock In' || name === 'Avg Clock Out' ? [hourLabel(value), name] : [value, name])} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar yAxisId="left" dataKey="present" name="Present" fill={colorPalette.cyanFresh} radius={[6, 6, 0, 0]} />
+                                    <Line yAxisId="right" type="monotone" dataKey="avgClockInHour" name="Avg Clock In" stroke={colorPalette.oceanBlue} strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                                    <Line yAxisId="right" type="monotone" dataKey="avgClockOutHour" name="Avg Clock Out" stroke={colorPalette.coralSunset} strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </Box>
+                    </Reveal>
+                </Grid>
+                <Grid item xs={12} lg={5}>
+                    <Reveal delay={0.05}>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Today at a glance</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={2}>Present, absent, late, live clock-ins and leave coverage.</Typography>
+                            <Stack spacing={1.2}>
+                                {[
+                                    { label: 'Present today', value: headline.presentCount, color: colorPalette.seafoamGreen },
+                                    { label: 'Absent today', value: headline.absentCount, color: colorPalette.coralSunset },
+                                    { label: 'Late today', value: headline.lateCount, color: '#f59e0b' },
+                                    { label: 'Currently clocked in', value: headline.clockedInCount, color: colorPalette.oceanBlue },
+                                    { label: 'Employees on leave today', value: headline.leaveDataAvailable ? headline.onLeaveCount : '—', color: '#7c3aed' },
+                                ].map((item) => (
+                                    <Box key={item.label} sx={{ p: 1.6, borderRadius: '14px', bgcolor: `${item.color}10`, border: `1px solid ${item.color}20` }}>
+                                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                            <Typography variant="body2" fontWeight={700} color={colorPalette.deepNavy}>{item.label}</Typography>
+                                            <Typography variant="h6" fontWeight={900} sx={{ color: item.color }}>{item.value}</Typography>
+                                        </Stack>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        </Box>
+                    </Reveal>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={2.5} mb={4}>
+                <Grid item xs={12}>
+                    <Reveal>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
+                            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" mb={1.5} gap={1.5}>
+                                <Box>
+                                    <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{isCEO ? 'Daily / Weekly / Monthly Attendance Trends' : 'Attendance Trend Explorer'}</Typography>
+                                    <Typography variant="caption" color="text.disabled">Click any point on the chart to open a breakdown for that period.</Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1}>
+                                    {['daily', 'weekly', 'monthly'].map((view) => <Button key={view} variant={trendView === view ? 'contained' : 'outlined'} onClick={() => setTrendView(view)} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, ...(trendView === view ? { background: colorPalette.oceanGradient } : { color: colorPalette.deepNavy }) }}>{view[0].toUpperCase() + view.slice(1)}</Button>)}
+                                </Stack>
+                            </Stack>
+                            <ResponsiveContainer width="100%" height={290}>
+                                <ComposedChart data={visibleTrendSeries} margin={{ top: 6, right: 8, left: -10, bottom: 4 }} onClick={(state) => {
+                                    const payload = state?.activePayload?.[0]?.payload;
+                                    if (payload) setDetailTrend(payload);
+                                }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <RTooltip content={<GlassTooltip />} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar yAxisId="left" dataKey="present" name="Present" fill={colorPalette.seafoamGreen} radius={[6, 6, 0, 0]} cursor="pointer" />
+                                    <Line yAxisId="right" type="monotone" dataKey="attendanceRate" name="Attendance Rate %" stroke={colorPalette.oceanBlue} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                                    <Line yAxisId="right" type="monotone" dataKey="lateRate" name="Late Rate %" stroke="#f59e0b" strokeWidth={2.2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                                    <Line yAxisId="right" type="monotone" dataKey="absentRate" name="Absenteeism Rate %" stroke={colorPalette.coralSunset} strokeWidth={2.2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </Box>
+                    </Reveal>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={2.5} mb={4}>
+                <Grid item xs={12} lg={6}>
+                    <Reveal>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Attendance by Department</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={1.6}>Click a department bar or row to view detailed metrics.</Typography>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={visibleDepartments.slice(0, 10)} margin={{ top: 6, right: 8, left: -12, bottom: 36 }} onClick={(state) => {
+                                    const payload = state?.activePayload?.[0]?.payload;
+                                    if (payload) setDetailDept(payload);
+                                }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                                    <XAxis dataKey="name" angle={-24} textAnchor="end" height={48} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <RTooltip content={<GlassTooltip />} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar dataKey="present" name="Present" fill={colorPalette.seafoamGreen} radius={[6, 6, 0, 0]} cursor="pointer" />
+                                    <Bar dataKey="absent" name="Absent" fill={colorPalette.coralSunset} radius={[6, 6, 0, 0]} cursor="pointer" />
+                                    <Bar dataKey="late" name="Late" fill="#f59e0b" radius={[6, 6, 0, 0]} cursor="pointer" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Box>
+                    </Reveal>
+                </Grid>
+                <Grid item xs={12} lg={6}>
+                    <Reveal delay={0.05}>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Attendance by Station / Center</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={1.6}>Daily presence compared with absenteeism across centers.</Typography>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <ComposedChart data={visibleStations} margin={{ top: 6, right: 8, left: -12, bottom: 18 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <RTooltip content={<GlassTooltip />} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar yAxisId="left" dataKey="present" name="Present" fill={colorPalette.aquaVibrant} radius={[6, 6, 0, 0]} />
+                                    <Line yAxisId="right" type="monotone" dataKey="attendanceRate" name="Attendance Rate %" stroke={colorPalette.oceanBlue} strokeWidth={2.5} dot={{ r: 3 }} />
+                                    <Line yAxisId="right" type="monotone" dataKey="absentRate" name="Absenteeism %" stroke={colorPalette.coralSunset} strokeWidth={2.2} dot={{ r: 3 }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </Box>
+                    </Reveal>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={2.5} mb={4}>
+                <Grid item xs={12} lg={7}>
+                    <Reveal>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Department Comparison Chart</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={1.6}>Attendance, late arrival, and absenteeism rates compared side by side.</Typography>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={visibleDepartments.slice(0, 8)} margin={{ top: 6, right: 8, left: -10, bottom: 36 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
+                                    <XAxis dataKey="name" angle={-24} textAnchor="end" height={48} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <RTooltip content={<GlassTooltip />} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar dataKey="attendanceRate" name="Attendance %" fill={colorPalette.oceanBlue} radius={[6, 6, 0, 0]} />
+                                    <Bar dataKey="lateRate" name="Late %" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                                    <Bar dataKey="absentRate" name="Absent %" fill={colorPalette.coralSunset} radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Box>
+                    </Reveal>
+                </Grid>
+                <Grid item xs={12} lg={5}>
+                    <Reveal delay={0.05}>
+                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>Executive signals</Typography>
+                            <Typography variant="caption" color="text.disabled" display="block" mb={1.6}>Operational hotspots for CEO and leadership monitoring.</Typography>
+                            <Stack spacing={1.2}>
+                                {[
+                                    { label: 'Most active station', value: hs?.mostActiveStation || '—', accent: colorPalette.seafoamGreen },
+                                    { label: 'Busiest department', value: hs?.busiestDept || '—', accent: colorPalette.aquaVibrant },
+                                    { label: 'Burnout risk staff', value: hs?.burnoutRiskCount ?? '—', accent: colorPalette.coralSunset },
+                                    { label: 'Overworked departments', value: hs?.overworkedDepts ?? '—', accent: '#f59e0b' },
+                                ].map((item) => (
+                                    <Box key={item.label} sx={{ p: 1.6, borderRadius: '14px', bgcolor: `${item.accent}10`, border: `1px solid ${item.accent}20` }}>
+                                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 0.4 }}>{item.label}</Typography>
+                                        <Typography variant="h6" fontWeight={900} sx={{ color: item.accent }}>{item.value}</Typography>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        </Box>
+                    </Reveal>
+                </Grid>
+            </Grid>
+
+            <Reveal>
+                <Box sx={{ ...G.card, borderRadius: '22px', overflow: 'hidden' }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 3, pt: 3, pb: 2 }}>
+                        <Box>
+                            <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Department Attendance Breakdown</Typography>
+                            <Typography variant="caption" color="text.disabled">Break attendance by departments with click-through details.</Typography>
+                        </Box>
+                        <Chip label={`${visibleDepartments.length} departments`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700 }} />
+                    </Stack>
+                    <Divider sx={{ borderColor: 'rgba(10,61,98,0.07)' }} />
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
+                                    {['Department', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %'].map((header) => (
+                                        <TableCell key={header} sx={{ fontWeight: 900, fontSize: '0.7rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, whiteSpace: 'nowrap' }}>{header}</TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {loading ? Array.from({ length: 6 }).map((_, rowIndex) => <TableRow key={rowIndex}>{Array.from({ length: 8 }).map((__, cellIndex) => <TableCell key={cellIndex}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>) : visibleDepartments.map((dept) => (
+                                    <TableRow key={dept.name} hover onClick={() => setDetailDept(dept)} sx={{ cursor: 'pointer' }}>
+                                        <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy }}>{dept.name}</TableCell>
+                                        <TableCell>{dept.headcount}</TableCell>
+                                        <TableCell>{dept.present}</TableCell>
+                                        <TableCell>{dept.absent}</TableCell>
+                                        <TableCell>{dept.late}</TableCell>
+                                        <TableCell>{dept.clockedIn}</TableCell>
+                                        <TableCell>{dept.onLeave ?? '—'}</TableCell>
+                                        <TableCell><Chip label={`${dept.attendanceRate}%`} size="small" sx={{ bgcolor: `${colorPalette.seafoamGreen}12`, color: colorPalette.seafoamGreen, fontWeight: 700 }} /></TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Box>
+            </Reveal>
+
+            <Dialog open={Boolean(detailDept)} onClose={() => setDetailDept(null)} maxWidth="sm" fullWidth>
+                <DialogTitle>{detailDept?.name || 'Department'} details</DialogTitle>
+                <DialogContent dividers>
+                    {detailDept && <Grid container spacing={2}>
+                        {[
+                            { label: 'Headcount', value: detailDept.headcount },
+                            { label: 'Present today', value: detailDept.present },
+                            { label: 'Absent today', value: detailDept.absent },
+                            { label: 'Late today', value: detailDept.late },
+                            { label: 'Currently clocked in', value: detailDept.clockedIn },
+                            { label: 'On leave today', value: detailDept.onLeave ?? '—' },
+                            { label: 'Attendance rate', value: `${detailDept.attendanceRate}%` },
+                            { label: 'Late arrival rate', value: `${detailDept.lateRate}%` },
+                            { label: 'Monthly hours', value: `${detailDept.totalHours}h` },
+                            { label: 'Avg hours / staff', value: `${detailDept.averageHoursPerStaff}h` },
+                        ].map((item) => <Grid item xs={6} key={item.label}><Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'rgba(10,61,98,0.04)' }}><Typography variant="caption" color="text.disabled">{item.label}</Typography><Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{item.value}</Typography></Box></Grid>)}
+                    </Grid>}
+                </DialogContent>
+                <DialogActions><Button onClick={() => setDetailDept(null)} sx={{ textTransform: 'none', fontWeight: 700 }}>Close</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={Boolean(detailTrend)} onClose={() => setDetailTrend(null)} maxWidth="sm" fullWidth>
+                <DialogTitle>{detailTrend?.fullLabel || detailTrend?.label || 'Trend'} breakdown</DialogTitle>
+                <DialogContent dividers>
+                    {detailTrend && <Grid container spacing={2}>
+                        {[
+                            { label: 'Present', value: detailTrend.present },
+                            { label: 'Attendance rate', value: `${detailTrend.attendanceRate}%` },
+                            { label: 'Late arrival rate', value: `${detailTrend.lateRate}%` },
+                            { label: 'Absenteeism rate', value: `${detailTrend.absentRate}%` },
+                            { label: 'Avg clock in', value: detailTrend.avgClockInLabel || '—' },
+                            { label: 'Avg clock out', value: detailTrend.avgClockOutLabel || '—' },
+                        ].map((item) => <Grid item xs={6} key={item.label}><Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'rgba(10,61,98,0.04)' }}><Typography variant="caption" color="text.disabled">{item.label}</Typography><Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{item.value}</Typography></Box></Grid>)}
+                    </Grid>}
+                </DialogContent>
+                <DialogActions><Button onClick={() => setDetailTrend(null)} sx={{ textTransform: 'none', fontWeight: 700 }}>Close</Button></DialogActions>
+            </Dialog>
+        </Box>
+    );
+};
+
 const RecordsTab = ({ stationList, allDeptNames, user }) => {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -807,9 +1564,6 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         doc.save(`KMFRI_Records_${Date.now()}.pdf`);
     };
 
-    const lateCount = filteredRecords.filter(r => r.timing === 'Late').length;
-    const lateRate = filteredRecords.length > 0 ? ((lateCount / filteredRecords.length) * 100).toFixed(1) : 0;
-
     return (
         <Box sx={{ position: 'relative', zIndex: 1 }}>
             {/* Records table */}
@@ -838,13 +1592,13 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                         sx={G.input} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <TextField select fullWidth size="small" label="Station" value={filterStation} onChange={e => { setFilterStation(e.target.value); setFilterDept(''); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Stations' }}>
+                                    <TextField select fullWidth size="small" value={filterStation} onChange={e => { setFilterStation(e.target.value); setFilterDept(''); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Stations' }}>
                                         <MenuItem value=""><em>All Stations</em></MenuItem>
                                         {stationList.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
                                     </TextField>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <TextField select fullWidth size="small" label="Department" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Departments' }}>
+                                    <TextField select fullWidth size="small" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Departments' }}>
                                         <MenuItem value=""><em>All Departments</em></MenuItem>
                                         {deptOptions.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                     </TextField>
@@ -897,14 +1651,14 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                             </Stack>
                                         </TableCell></TableRow>
                                         : paginatedRecords.map((row, idx) => (
-                                            <motion.tr key={idx} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }} style={{ display: 'table-row' }}>
+                                            <Motion.tr key={idx} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }} style={{ display: 'table-row' }}>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{row.name}</TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.date}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}>{row.clockIn}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, color: 'text.secondary' }}>{row.clockOut}</TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 120 }}>{row.station}</Typography></TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 130 }}>{row.department}</Typography></TableCell>
-                                            </motion.tr>
+                                            </Motion.tr>
                                         ))}
                             </TableBody>
                         </Table>
@@ -935,7 +1689,7 @@ const PerformerCard = ({ performer, rank, isBottom }) => {
                 : { bg: 'rgba(255,247,237,0.88)', border: 'rgba(254,215,170,0.65)', accent: '#c2410c', label: '🥉 #3', chipBg: '#f9731614' };
 
     return (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.08, ease: [0.22, 1, 0.36, 1] }}>
+        <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.08, ease: [0.22, 1, 0.36, 1] }}>
             <Box sx={{ p: 2.5, borderRadius: '18px', background: rankStyles.bg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${rankStyles.border}`, transition: 'all 0.22s', '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 12px 32px ${rankStyles.accent}22` } }}>
                 <Stack direction="row" alignItems="flex-start" spacing={2}>
                     <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
@@ -978,7 +1732,7 @@ const PerformerCard = ({ performer, rank, isBottom }) => {
                     </Box>
                 )}
             </Box>
-        </motion.div>
+        </Motion.div>
     );
 };
 
@@ -1012,12 +1766,6 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
     }, [scope, perfStation, perfDept, allOverall, stationList, data]); // eslint-disable-line
 
     const topThree = currentPerformers.slice(0, 3);
-
-    const perfDeptOptions = useMemo(() => {
-        if (!perfStation) return allDeptNames;
-        const s = stationList.find(st => st.name === perfStation);
-        return (s?.departments || []).map(d => d.name).sort();
-    }, [perfStation, stationList, allDeptNames]);
 
     const exportPerformers = (list, label) => list.map((p, i) => ({
         'Rank': `#${i + 1}`, 'Email': p.email, 'Hours': p.hours, 'Overtime': p.overtime,
@@ -1094,7 +1842,6 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
                         )}
                         {scope === 'department' && (
                             <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Select Department</InputLabel>
                                 <Select value={perfDept} label="Select Department" displayEmpty renderValue={selected => selected || 'Choose a department…'} onChange={e => setPerfDept(e.target.value)} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
                                     <MenuItem value=""><em>Choose a department…</em></MenuItem>
                                     {allDeptNames.map(d => <MenuItem key={d} value={d}><Stack direction="row" alignItems="center" spacing={1}><Apartment sx={{ fontSize: '0.85rem', color: colorPalette.seafoamGreen }} /><span>{d}</span></Stack></MenuItem>)}
@@ -1142,13 +1889,7 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
                                     {topThree.length > 0 ? topThree.map((p, i) => <PerformerCard key={i} performer={p} rank={i + 1} isBottom={false} />)
                                         : <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="body2" color="text.disabled">No performers available</Typography></Box>}
                                 </Stack>
-                                {/* Formula note */}
-                                {/* <Box sx={{ mt: 2.5, p: 1.8, borderRadius: '12px', background: 'rgba(10,61,98,0.04)', border: '1px dashed rgba(10,61,98,0.12)' }}>
-                                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.64rem', lineHeight: 1.7, display: 'block' }}>
-                                        <strong style={{ color: colorPalette.deepNavy }}>Score Formula:</strong> (Hours × 0.6) + (Early arrivals × 2) − (Late arrivals × 1.5) + (Overtime × 0.5).
-                                        Higher scores reflect consistent attendance and punctuality.
-                                    </Typography>
-                                </Box> */}
+
                             </Box>
                         </Reveal>
                     </Grid>
@@ -1218,9 +1959,11 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function OverallAttendanceStats({ readOnly = false }) {
+export default function OverallAttendanceStats() {
     const { user } = useSelector(s => s.currentUser);
     const [data, setData] = useState(null);
+    const [overviewRecords, setOverviewRecords] = useState([]);
+    const [overviewLeaves, setOverviewLeaves] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -1230,8 +1973,22 @@ export default function OverallAttendanceStats({ readOnly = false }) {
     const loadData = async () => {
         setLoading(true);
         try {
-            const res = await fetchOverallOrgStats();
-            setData(processRawData(res));
+            const startDate = dateKey(getPeriodStart(5));
+            const endDate = dateKey(new Date());
+            const [statsRes, recordsRes, leavesRes] = await Promise.allSettled([
+                fetchOverallOrgStats(),
+                fetchOverallAttendanceRecords({ startDate, endDate }),
+                fetchAllLeavesAdmin(),
+            ]);
+
+            if (statsRes.status === 'fulfilled') {
+                setData(processRawData(statsRes.value));
+            } else {
+                throw statsRes.reason;
+            }
+
+            setOverviewRecords(recordsRes.status === 'fulfilled' ? (recordsRes.value || []) : []);
+            setOverviewLeaves(leavesRes.status === 'fulfilled' ? (leavesRes.value || []) : null);
         } catch {
             notify('Failed to load organisation data.', 'error');
         } finally {
@@ -1253,9 +2010,9 @@ export default function OverallAttendanceStats({ readOnly = false }) {
             </Snackbar>
 
             {/* Hero */}
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 <OrgHeroBanner data={data} loading={loading} rank={user?.rank} activeTab={activeTab} />
-            </motion.div>
+            </Motion.div>
 
             {/* Toolbar */}
             <Reveal>
@@ -1279,10 +2036,11 @@ export default function OverallAttendanceStats({ readOnly = false }) {
 
             {/* Tab panels */}
             <AnimatePresence mode="wait">
-                <motion.div key={activeTab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
-                    {activeTab === 0 && <RecordsTab stationList={stationList} allDeptNames={allDeptNames} user={user} />}
-                    {activeTab === 1 && <PerformanceTab data={data} stationList={stationList} allDeptNames={allDeptNames} user={user} />}
-                </motion.div>
+                <Motion.div key={activeTab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
+                    {activeTab === 0 && <ExecutiveOverviewTab data={data} loading={loading} stationList={stationList} records={overviewRecords} leaves={overviewLeaves} user={user} />}
+                    {activeTab === 1 && <RecordsTab stationList={stationList} allDeptNames={allDeptNames} user={user} />}
+                    {activeTab === 2 && <PerformanceTab data={data} stationList={stationList} allDeptNames={allDeptNames} user={user} />}
+                </Motion.div>
             </AnimatePresence>
         </Box>
     );

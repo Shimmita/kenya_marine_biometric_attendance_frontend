@@ -18,6 +18,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
@@ -131,6 +132,7 @@ const AmbientOrbs = () => (
 
 /* ══ SIGN IN CARD ═══════════════════════════════════════════════════════════ */
 const SignInCard = ({ onBack, onSwitchToSignup }) => {
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -206,13 +208,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
     };
 
     const switchToResetPassword = () => {
-        setCurrentView('reset');
-        setResetPasswordEmail('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setResetPasswordErrors('');
-        setHasPendingReset(false);
-        setIsPasswordChangeEnabled(false);
+        navigate('/reset-password');
     };
 
     const switchToSignin = () => {

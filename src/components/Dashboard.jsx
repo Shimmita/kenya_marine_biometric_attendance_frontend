@@ -24,7 +24,7 @@ import {
     List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
     Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -36,7 +36,6 @@ import coreDataDetails from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
 import UserProfileDialog from './UserProfileDialog';
 import AdminLeaveManager from './dashboard/AdminLeaveManager';
-import PasswordResetRequests from './dashboard/PasswordResetRequests';
 import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 import SupervisorDeptRequest from './dashboard/supervisor/SupervisorDeptRequest';
@@ -88,7 +87,6 @@ const ADMIN_SHARED_ITEMS = [
 
 const ADMIN_ONLY_ITEMS = [
     { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
-    { text: 'Password Requests', icon: <Lock />, color: '#f97316' },
 ];
 
 const HR_EXTRA_ITEMS = [
@@ -825,7 +823,6 @@ const EnhancedDashboard = () => {
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;

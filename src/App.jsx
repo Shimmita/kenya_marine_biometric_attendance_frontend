@@ -3,6 +3,7 @@ import { lazy } from "react";
 const HomeLanding = lazy(() => import("./components/BodyLanding"));
 const DashboardHome = lazy(() => import("./components/Dashboard"));
 const AuthCheck = lazy(() => import("./components/auth/AuthCheck"));
+const ResetPasswordPage = lazy(() => import("./components/ResetPasswordPage"));
 const VerifyDocument = lazy(() => import("./components/VerifyDocument"));
 
 function App() {
@@ -35,6 +36,10 @@ function App() {
         <Route
           path="/verify/:token"
           element={<VerifyDocument />}
+        />
+        <Route
+          path="/reset-password"
+          element={<ResetPasswordPage />}
         />
         </Routes>
     </BrowserRouter>
