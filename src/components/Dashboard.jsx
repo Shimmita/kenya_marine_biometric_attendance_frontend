@@ -24,7 +24,7 @@ import {
     List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
     Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence,motion } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -34,15 +34,14 @@ import { fetchAllLostDevices } from '../service/DeviceService';
 import { updateUserProfile, userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
-import UserProfileDialog from './UserProfileDialog';
-import AdminLeaveManager from './dashboard/AdminLeaveManager';
-import UserManagementContent from './dashboard/UserManagementContent';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
-import SupervisorDeptRequest from './dashboard/supervisor/SupervisorDeptRequest';
-import SupervisorDeptStats from './dashboard/supervisor/SupervisorDeptStats';
-import SupervisorManageLeaves from './dashboard/supervisor/SupervisorManageLeaves';
-import SupervisorManageMembers from './dashboard/supervisor/SupervisorManageMembers';
-
+const AdminLeaveManager =lazy(()=>import ('./dashboard/AdminLeaveManager')) ;
+const UserProfileDialog =lazy(()=>import ('./UserProfileDialog')) ;
+const SupervisorDeptRequest =lazy(()=>import('./dashboard/supervisor/SupervisorDeptRequest')) ;
+const SupervisorDeptStats =lazy(()=> import('./dashboard/supervisor/SupervisorDeptStats')) ;
+const SupervisorManageLeaves =lazy(()=> import('./dashboard/supervisor/SupervisorManageLeaves')) ;
+const  SupervisorManageMembers =lazy(()=>import('./dashboard/supervisor/SupervisorManageMembers')) ;
+const UserManagementContent =lazy(() => import('./dashboard/UserManagementContent'));
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
