@@ -24,6 +24,7 @@ import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
 import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
+import { markSessionStarted } from '../service/SessionTimeout';
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails from './CoreDataDetails';
 
@@ -179,6 +180,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
         setProcessing(true);
         try {
             const user = await loginStaff(formData.userId, formData.password);
+            markSessionStarted();
             dispatch(updateUserCurrentUserRedux(user));
             const devices = await fetchMyDevices()
             dispatch(updateUserCurrentDeviceRedux(devices))
@@ -192,6 +194,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
         setProcessing(true);
         try {
             const user = await loginUser(formData.email, formData.password);
+            markSessionStarted();
             dispatch(updateUserCurrentUserRedux(user));
             const devices = await fetchMyDevices()
             dispatch(updateUserCurrentDeviceRedux(devices))

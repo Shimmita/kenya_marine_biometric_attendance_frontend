@@ -1,5 +1,6 @@
 import imageCompression from "browser-image-compression";
 import api from "./Api.jsx";
+import { clearSessionStarted } from "./SessionTimeout.js";
 
 
 // get user profile
@@ -18,6 +19,7 @@ export const getUserProfile = async () => {
 export const userSignOut = async () => {
     try {
         await api.post("/user/signout");
+        clearSessionStarted();
 
     } catch (err) {
         console.log(err)

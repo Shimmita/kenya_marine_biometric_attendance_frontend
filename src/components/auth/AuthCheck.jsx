@@ -4,35 +4,71 @@ import { useDispatch, useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 import { resetClearCurrentUserRedux } from "../../redux/CurrentUser";
 import api from "../../service/Api";
+import {
+  clearSessionStarted,
+  getSessionTimeRemaining,
+} from "../../service/SessionTimeout";
 import coreDataDetails from "../CoreDataDetails";
 
 const { colorPalette } = coreDataDetails;
 
 const AuthCheck = ({ children, redirectIfAuth = false }) => {
   const dispatch = useDispatch();
-  const {isOnline } = useSelector((state) => state.currentUser);
+  const { isOnline } = useSelector((state) => state.currentUser);
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const POLL_INTERVAL_MS = 60 * 1000; // 1 minute
 
-      // 🔄 Only check backend if Redux says no user
-      try {
-        setLoading(true)
-        const res = await api.get("/valid");
-        if (!res.data.valid) {
-          throw new Error("please login")
-        }
-      } catch {
-        dispatch(resetClearCurrentUserRedux());
-      }
+    let refreshTimeout = null;
+    let pollInterval = null;
+    let active = true;
 
-      setLoading(false);
+    const clearClientSession = () => {
+      clearSessionStarted();
+      dispatch(resetClearCurrentUserRedux());
     };
 
-    checkAuth();
-  }, []);
+    const checkAuth = async () => {
+      try {
+        const res = await api.get("/valid");
+        if (!res.data.valid) {
+          throw new Error("please login");
+        }
+
+        return true;
+      } catch {
+        clearClientSession();
+        return false;
+      }
+    };
+
+    checkAuth().then((valid) => {
+      if (!active) return;
+
+      setLoading(false);
+
+      if (!valid || redirectIfAuth) return;
+
+      refreshTimeout = setTimeout(() => {
+        clearClientSession();
+        window.location.reload();
+      }, getSessionTimeRemaining());
+
+      pollInterval = setInterval(async () => {
+        if (!(await checkAuth())) {
+          window.location.reload();
+        }
+      }, POLL_INTERVAL_MS);
+    });
+
+    return () => {
+      active = false;
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [dispatch, redirectIfAuth]);
 
   if (loading) {
     return (
