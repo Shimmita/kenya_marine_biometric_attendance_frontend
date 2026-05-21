@@ -1,12 +1,17 @@
-import { CloudUpload, DeleteSweep, PeopleRounded } from '@mui/icons-material';
+import { CheckCircleRounded, CloudUpload, DeleteSweep, PeopleRounded } from '@mui/icons-material';
 import {
     Alert, Box, Button,
     Card,
-    CircularProgress, Divider, Fade,
+    CircularProgress, Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider, Fade,
     Grid,
     IconButton,
     LinearProgress,
     Paper,
+    Stack,
     Table, TableBody, TableCell, TableContainer, TableHead,
     TableRow, TextField,
     Tooltip,
@@ -24,6 +29,9 @@ const BatchRegistration = ({ readOnly = false }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+    const [batchResult, setBatchResult] = useState(null);
 
     const headersList = ['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Gender'];
 
@@ -129,11 +137,20 @@ const BatchRegistration = ({ readOnly = false }) => {
                 gender: row['Gender'],
             }));
 
-            result= await registerBatchUsers(mappedData);
-            setSuccess(`Successfully registered ${data.length} users!`);
+            const result = await registerBatchUsers(mappedData);
+            const count = result?.count || mappedData.length;
+            const message = result?.message || `Successfully registered ${count} users!`;
+            setSuccess(message);
+            setBatchResult(result);
+            setDialogOpen(true);
             setData([]);
         } catch (err) {
-            setError(err || 'Failed to register users.');
+            const message =
+                typeof err === 'string'
+                    ? err
+                    : err?.message || 'Failed to register users.';
+            setError(message);
+            setErrorDialogOpen(true);
         } finally {
             setLoading(false);
         }
@@ -193,8 +210,68 @@ const BatchRegistration = ({ readOnly = false }) => {
                     )}
                 </Box>
 
-                {error && <Fade in><Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert></Fade>}
                 {success && <Fade in><Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{success}</Alert></Fade>}
+
+                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle sx={{ bgcolor: '#eef6ff', color: '#0f172a', fontWeight: 800, px: 4, py: 3 }}>
+                        Batch Registration Complete
+                    </DialogTitle>
+                    <DialogContent dividers sx={{ p: 4, bgcolor: '#f8fbff' }}>
+                        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+                            <Box sx={{ width: 52, height: 52, borderRadius: 3, bgcolor: '#dbeafe', display: 'grid', placeItems: 'center' }}>
+                                <CheckCircleRounded sx={{ color: '#2563eb', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h6" fontWeight={900} color="#0f172a">
+                                    {batchResult?.message || 'Users registered successfully'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {`Total registered: ${batchResult?.count || 0}`}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                        {batchResult?.registeredUsers?.length ? (
+                            <Box>
+                                <Typography fontWeight={700} mb={2} color="#0f172a">
+                                    Registered users
+                                </Typography>
+                                <Box sx={{ maxHeight: 300, overflowY: 'auto', pr: 1, pb: 1 }}>
+                                    {batchResult.registeredUsers.map((user, index) => (
+                                        <Box key={user?.id || index} sx={{ mb: 1, p: 2, borderRadius: 3, bgcolor: '#ffffff', border: '1px solid rgba(59,130,246,0.12)' }}>
+                                            <Typography variant="subtitle2" fontWeight={800} color="#1e3a8a">
+                                                {user?.name || 'Unknown'}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Box>
+                            </Box>
+                        ) : null}
+                    </DialogContent>
+                    <DialogActions sx={{ px: 4, py: 3, bgcolor: '#f8fafc' }}>
+                        <Button onClick={() => setDialogOpen(false)} variant="contained" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                            Close
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={errorDialogOpen} onClose={() => setErrorDialogOpen(false)} maxWidth="xs" fullWidth>
+                    <DialogTitle sx={{ bgcolor: '#fef2f2', color: '#991b1b', fontWeight: 800, px: 4, py: 3 }}>
+                        Registration Error
+                    </DialogTitle>
+                    <DialogContent dividers sx={{ p: 4, bgcolor: '#fff1f2' }}>
+                        <Typography variant="body1" color="#991b1b" sx={{ mb: 2 }}>
+                            {error || 'An unexpected error occurred while registering users.'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Please fix the issue and try again. If the problem persists, contact your administrator.
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 4, py: 3, bgcolor: '#fef2f2' }}>
+                        <Button onClick={() => setErrorDialogOpen(false)} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                            Close
+                        </Button>
+                    </DialogActions>
+                </Dialog>
 
                 {data.length > 0 && <Divider />}
                 {

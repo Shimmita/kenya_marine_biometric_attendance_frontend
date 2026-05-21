@@ -1,9 +1,13 @@
 import {
-    AccessTimeRounded,
+    AccountCircle,
+    Business,
+    Description,
     DownloadRounded,
     FilterListRounded,
     PeopleRounded,
+    Person,
     PictureAsPdfRounded,
+    Place,
     RotateLeftRounded,
     SearchRounded,
     SecurityRounded,
@@ -13,15 +17,24 @@ import {
 } from "@mui/icons-material";
 import {
     Alert,
+    Avatar,
     Box,
     Button,
     Card,
     CardContent,
     Chip,
     CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Divider,
     Grid,
     InputAdornment,
+    List,
+    ListItem,
+    ListItemAvatar,
+    ListItemText,
     Menu,
     MenuItem,
     Stack,
@@ -34,7 +47,7 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { fetchAuditLogs } from "../../service/AuditorService.jsx";
 import coreDataDetails from "../CoreDataDetails.jsx";
 const { colorPalette } = coreDataDetails;
@@ -93,15 +106,17 @@ const columns = [
     { field: 'targetName', headerName: 'Target Name', width: 150, valueGetter: (value, row) => row.target?.name || '' },
     { field: 'targetEmail', headerName: 'Target Email', width: 200, valueGetter: (value, row) => row.target?.email || '' },
     { field: 'description', headerName: 'Description', width: 300 },
-    { field: 'metadata', headerName: 'Metadata', width: 200, valueFormatter: (value) => {
-        const entries = Object.entries(value || {}).filter(([, val]) => val !== null && val !== undefined && val !== "" && typeof val !== "object");
-        return entries.map(([key, val]) => `${compactKey(key)}: ${val}`).join(', ');
-    }},
+    {
+        field: 'metadata', headerName: 'Metadata', width: 200, valueFormatter: (value) => {
+            const entries = Object.entries(value || {}).filter(([, val]) => val !== null && val !== undefined && val !== "" && typeof val !== "object");
+            return entries.map(([key, val]) => `${compactKey(key)}: ${val}`).join(', ');
+        }
+    },
 ];
 
 const exportToCSV = (logs) => {
     const headers = columns.map(col => col.headerName).join(',');
-    const rows = logs.map(log => 
+    const rows = logs.map(log =>
         columns.map(col => {
             let value;
             if (col.valueGetter) {
@@ -129,19 +144,19 @@ const exportToCSV = (logs) => {
 const exportToPDF = (logs) => {
     try {
         const doc = new jsPDF('l', 'mm', 'a4'); // landscape, millimeters, A4
-        
+
         // Add title
         doc.setFontSize(18);
         doc.text('System Audit Trail Report', 14, 20);
-        
+
         // Add timestamp
         doc.setFontSize(10);
         doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
         doc.text(`Total Records: ${logs.length}`, 14, 35);
-        
+
         // Prepare table data
         const tableColumns = columns.map(col => col.headerName);
-        const tableRows = logs.map(log => 
+        const tableRows = logs.map(log =>
             columns.map(col => {
                 let value;
                 if (col.valueGetter) {
@@ -156,7 +171,7 @@ const exportToPDF = (logs) => {
                 return strValue.length > 50 ? strValue.substring(0, 47) + '...' : strValue;
             })
         );
-        
+
         // Add table using autoTable function
         autoTable(doc, {
             head: [tableColumns],
@@ -191,13 +206,13 @@ const exportToPDF = (logs) => {
             },
             margin: { top: 45, left: 10, right: 10 },
             theme: 'grid',
-            didDrawPage: function(data) {
+            didDrawPage: function (data) {
                 // Add page number
                 doc.setFontSize(8);
                 doc.text(`Page ${data.pageNumber}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
             }
         });
-        
+
         // Save the PDF
         doc.save('audit_logs.pdf');
     } catch (error) {
@@ -277,6 +292,8 @@ export default function AuditLogsContent() {
     const [error, setError] = useState("");
     const [data, setData] = useState({ logs: [], metrics: {}, actionCounts: {} });
     const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [selectedLog, setSelectedLog] = useState(null);
 
     useEffect(() => {
         let active = true;
@@ -363,6 +380,158 @@ export default function AuditLogsContent() {
                                 lost-device workflows, password-reset workflows, and high-privilege admin or HR changes.
                             </Typography>
                         </Box>
+                        {/* Detail dialog for selected audit entry */}
+                        <Dialog
+                            open={dialogOpen}
+                            onClose={() => setDialogOpen(false)}
+                            maxWidth="md"
+                            fullWidth
+                            PaperProps={{
+                                sx: { borderRadius: '24px', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.15)' }
+                            }}
+                        >
+                            {/* Header */}
+                            <DialogTitle sx={{ bgcolor: 'rgba(14,165,233,0.04)', fontWeight: 800, px: 4, py: 3, color: '#062c4d' }}>
+                                {selectedLog?.action ? compactKey(selectedLog.action) : 'Audit Entry'}
+                            </DialogTitle>
+
+                            <DialogContent dividers sx={{ p: 4 }}>
+                                <Stack spacing={4}>
+
+                                    {/* Actor & Action Summary Card */}
+                                    <Card variant="outlined" sx={{ borderRadius: '16px', border: '1px solid #edf2f7', bgcolor: '#f8fafc' }}>
+                                        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+                                            <Stack spacing={2}>
+                                                <Stack direction="row" spacing={2} alignItems="center">
+                                                    <AccountCircle sx={{ color: colorPalette.aquaVibrant || '#0ea5e9' }} />
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+                                                            ACTOR SECURE PROFILE
+                                                        </Typography>
+                                                        <Typography variant="body1" fontWeight={700} color="#041421">
+                                                            {selectedLog?.actor?.name || 'Unknown User'}
+                                                        </Typography>
+                                                        {selectedLog?.actor?.email && (
+                                                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                                                {selectedLog.actor.email}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                </Stack>
+
+                                                <Divider />
+
+                                                <Stack direction="row" spacing={2} alignItems="start">
+                                                    <Description sx={{ color: 'text.secondary', mt: 0.5 }} />
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+                                                            ACTIVITY DESCRIPTION
+                                                        </Typography>
+                                                        <Typography variant="body2" color="text.primary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+                                                            {selectedLog?.description || 'No descriptive snapshot attached.'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Stack>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Target Records Display Block */}
+                                    {selectedLog?.metadata?.registeredUsers?.length ? (
+                                        <Box>
+                                            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, color: '#062c4d', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Person sx={{ fontSize: 20 }} /> Registered Users ({selectedLog.metadata.registeredUsers.length})
+                                            </Typography>
+                                            <List disablePadding sx={{ border: '1px solid #edf2f7', borderRadius: '16px', overflow: 'hidden' }}>
+                                                {selectedLog.metadata.registeredUsers.map((u, i) => (
+                                                    <React.Fragment key={u.id || i}>
+                                                        <ListItem sx={{ px: 3, py: 2, bgcolor: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+                                                            <ListItemAvatar>
+                                                                <Avatar sx={{ bgcolor: colorPalette.aquaVibrant || '#0ea5e9', fontWeight: 700 }}>
+                                                                    {(u.name || "?").charAt(0).toUpperCase()}
+                                                                </Avatar>
+                                                            </ListItemAvatar>
+                                                            <ListItemText
+                                                                primary={<Typography fontWeight={700} color="#041421">{u.name}</Typography>}
+                                                                secondary={
+                                                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 0.5 }}>
+                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Business sx={{ fontSize: 12 }} /> Dept: {u.department || '—'}
+                                                                        </Typography>
+                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Place sx={{ fontSize: 12 }} /> Station: {u.station || '—'}
+                                                                        </Typography>
+                                                                        <Typography component="span" variant="caption" color="text.secondary">
+                                                                            Gender: {u.gender || '—'}
+                                                                        </Typography>
+                                                                    </Stack>
+                                                                }
+                                                            />
+                                                        </ListItem>
+                                                        {i < selectedLog.metadata.registeredUsers.length - 1 && <Divider />}
+                                                    </React.Fragment>
+                                                ))}
+                                            </List>
+                                        </Box>
+                                    ) : selectedLog?.metadata?.registeredUser || selectedLog?.target ? (
+                                        (() => {
+                                            const singleUser = selectedLog?.metadata?.registeredUser || selectedLog?.target;
+                                            return (
+                                                <Box>
+                                                    <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, color: '#062c4d' }}>
+                                                        Target Registered User
+                                                    </Typography>
+                                                    <List disablePadding sx={{ border: '1px solid #edf2f7', borderRadius: '16px' }}>
+                                                        <ListItem sx={{ px: 3, py: 2 }}>
+                                                            <ListItemAvatar>
+                                                                <Avatar sx={{ bgcolor: colorPalette.aquaVibrant || '#0ea5e9', fontWeight: 700 }}>
+                                                                    {(singleUser?.name || "?").charAt(0).toUpperCase()}
+                                                                </Avatar>
+                                                            </ListItemAvatar>
+                                                            <ListItemText
+                                                                primary={<Typography fontWeight={700} color="#041421">{singleUser?.name}</Typography>}
+                                                                secondary={
+                                                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 0.5 }}>
+                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Business sx={{ fontSize: 12 }} /> Dept: {singleUser?.department || '—'}
+                                                                        </Typography>
+                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Place sx={{ fontSize: 12 }} /> Station: {singleUser?.station || '—'}
+                                                                        </Typography>
+                                                                        <Typography component="span" variant="caption" color="text.secondary">
+                                                                            Gender: {singleUser?.gender || '—'}
+                                                                        </Typography>
+                                                                    </Stack>
+                                                                }
+                                                            />
+                                                        </ListItem>
+                                                    </List>
+                                                </Box>
+                                            );
+                                        })()
+                                    ) : null}
+                                </Stack>
+                            </DialogContent>
+
+                            {/* Actions */}
+                            <DialogActions sx={{ p: 3, px: 4, bgcolor: '#f8fafc' }}>
+                                <Button
+                                    onClick={() => setDialogOpen(false)}
+                                    variant="outlined"
+                                    sx={{
+                                        borderRadius: '12px',
+                                        textTransform: 'none',
+                                        fontWeight: 700,
+                                        px: 4,
+                                        borderColor: '#edf2f7',
+                                        color: 'text.primary',
+                                        '&:hover': { borderColor: 'text.primary', bgcolor: 'rgba(0,0,0,0.02)' }
+                                    }}
+                                >
+                                    Close
+                                </Button>
+                            </DialogActions>
+                        </Dialog>
 
                         <Stack direction="row" spacing={1} alignItems="center">
                             <Chip
@@ -621,6 +790,10 @@ export default function AuditLogsContent() {
                                 pageSize={10}
                                 rowsPerPageOptions={[10, 25, 50]}
                                 disableSelectionOnClick
+                                onRowClick={(params) => {
+                                    setSelectedLog(params.row);
+                                    setDialogOpen(true);
+                                }}
                                 sx={{
                                     border: 'none',
                                     '& .MuiDataGrid-cell': {
