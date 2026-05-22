@@ -36,7 +36,8 @@ import {
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useState } from 'react';
-import { addNewDevice, fetchMyDevices } from '../../service/DeviceService';
+import { registerFingerprint } from '../../service/Biometrics';
+import { fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import coreDataDetails from '../CoreDataDetails';
 
@@ -210,7 +211,13 @@ const AddDeviceContent = () => {
         if (devices.length >= MAX_DEVICES) return;
         setEnrolling(true); setEnrollError('');
         try {
-            await addNewDevice({ device_name: current.deviceName, device_os: current.os, device_browser: current.browser });
+            const fp = deviceHashFingerPrint || await getDeviceFingerprint();
+            await registerFingerprint({
+                device_name: current.deviceName,
+                device_os: current.os,
+                device_browser: current.browser,
+                device_fingerprint: fp,
+            });
             setEnrolled(true); setTimeout(() => setEnrolled(false), 5000);
             await loadDevices();
         } catch (err) {

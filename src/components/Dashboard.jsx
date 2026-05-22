@@ -7,6 +7,7 @@ import {
     History,
     InsightsRounded,
     Lock,
+    LockResetRounded,
     Logout,
     Menu as MenuIcon,
     PersonAdd,
@@ -57,6 +58,7 @@ const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const UserRegistrationContent = lazy(() => import('./dashboard/UserRegistration'));
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
+const PasswordResetRequests = lazy(() => import('./dashboard/PasswordResetRequests'));
 const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
 
 const { colorPalette } = coreDataDetails;
@@ -86,6 +88,7 @@ const ADMIN_SHARED_ITEMS = [
 
 const ADMIN_ONLY_ITEMS = [
     { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
+    { text: 'Password Requests', icon: <LockResetRounded />, color: '#f97316' },
 ];
 
 const HR_EXTRA_ITEMS = [
@@ -824,6 +827,7 @@ const EnhancedDashboard = () => {
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers />;

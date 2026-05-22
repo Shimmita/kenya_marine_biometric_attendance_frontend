@@ -19,3 +19,23 @@ export const resetPassword = async (email, code, newPassword) => {
         throw ("Password reset failed").toString();
     }
 };
+
+export const fetchPasswordResetRequests = async () => {
+    try {
+        const response = await api.get("/admin/password-reset/requests");
+        return response.data;
+    } catch (err) {
+        console.error(err);
+        throw ("Failed to load password reset requests").toString();
+    }
+};
+
+export const allowPasswordReset = async (email) => {
+    try {
+        const response = await api.put("/admin/password-reset/approve", { email });
+        return response.data;
+    } catch (err) {
+        console.error(err);
+        throw ("Password reset approval failed").toString();
+    }
+};
