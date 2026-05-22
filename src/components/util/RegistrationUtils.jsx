@@ -133,7 +133,7 @@ const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
             label={cfg.label} placeholder={cfg.placeholder}
             value={value} onChange={onChange}
             error={!!error} helperText={error}
-            type='number'
+            type={role === 'intern' ? 'number' : 'text'}
             InputProps={{
                 startAdornment: (
                     <InputAdornment position="start">
