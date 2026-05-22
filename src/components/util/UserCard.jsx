@@ -1,4 +1,4 @@
-import { Close, LocationOnRounded, ShieldRounded, WorkRounded } from "@mui/icons-material";
+import { Close, DeleteRounded, LocationOnRounded, ShieldRounded, WorkRounded } from "@mui/icons-material";
 import {
     Alert,
     Avatar,
@@ -6,6 +6,10 @@ import {
     Button,
     Chip,
     CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     FormControl,
     FormHelperText,
     IconButton,
@@ -56,7 +60,7 @@ const RANK_ACCENT = {
     user: C.cyanFresh,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user",'auditor'];
+const RANKS = ["admin", "hr", "supervisor", "ceo", "user", 'auditor'];
 const ROLES = ["employee", "intern", "attachee"];
 const { availableDepartments, AvailableStations } = coreDataDetails;
 
@@ -269,7 +273,7 @@ const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormD
 const UserCard = ({
     user, supervisors, updatingId,
     onRankChange, onRoleChange, onDepartmentSave,
-    onSupervisorChange, onToggleActive,
+    onSupervisorChange, onToggleActive, onDeleteUser,
     isMobile, index, onStationSave, readOnly = false
 }) => {
     const [hovered, setHovered] = useState(false);
@@ -284,6 +288,8 @@ const UserCard = ({
     const [clockOutside, setClockOutside] = useState(user.canClockOutside ? "yes" : "no");
     const [openModal, setOpenModal] = useState(false);
     const [formData, setFormData] = useState({ startDate: "", endDate: "", reason: "" });
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleClockOutsideChange = async (e) => {
         const val = e.target.value;
@@ -337,6 +343,19 @@ const UserCard = ({
             setError(err || "Failed to update authorization");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleDeleteUser = async () => {
+        setIsDeleting(true);
+        try {
+            await onDeleteUser(user._id);
+            setDeleteConfirmOpen(false);
+        } catch (err) {
+            console.error("Delete failed:", err);
+            setError("Failed to delete user");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -541,41 +560,104 @@ const UserCard = ({
 
                         {/* Activate / Deactivate */}
                         {currentUser?.rank === 'hr' && !readOnly && (
-                            <Box sx={{ flex: "0 0 auto" }}>
-                                <FieldLabel>Account</FieldLabel>
-                                <Button
-                                    size="small"
-                                    variant="contained"
-                                    disabled={isUpdating}
-                                    onClick={() => onToggleActive(user._id)}
-                                    disableElevation
-                                    sx={{
-                                        height: 38, px: 2.5, borderRadius: "12px",
-                                        fontWeight: 800, fontSize: "0.72rem",
-                                        letterSpacing: "0.06em", textTransform: "uppercase",
-                                        minWidth: 112,
-                                        background: user.isAccountActive
-                                            ? `linear-gradient(135deg, ${C.coralSunset}, #d73527)`
-                                            : `linear-gradient(135deg, ${C.seafoamGreen}, #1abc9c)`,
-                                        color: "#fff",
-                                        boxShadow: user.isAccountActive
-                                            ? `0 4px 14px rgba(255,92,74,0.4)`
-                                            : `0 4px 14px rgba(72,201,176,0.4)`,
-                                        "&:hover": {
-                                            filter: "brightness(1.1)",
-                                            boxShadow: user.isAccountActive
-                                                ? `0 6px 20px rgba(255,92,74,0.58)`
-                                                : `0 6px 20px rgba(72,201,176,0.58)`,
-                                        },
-                                        "&:disabled": { opacity: 0.4 },
-                                        transition: "all 0.2s",
-                                    }}
-                                >
-                                    {isUpdating
-                                        ? <CircularProgress size={13} sx={{ color: "#fff" }} />
-                                        : user.isAccountActive ? "Deactivate" : "Activate"}
-                                </Button>
-                            </Box>
+                            <>
+                                {/* Account Activation Toggle Button */}
+                                {/* Account Activation Toggle Button */}
+                                <Box sx={{ flex: "0 0 auto" }}>
+                                    <FieldLabel>Account</FieldLabel>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        disabled={isUpdating || isDeleting}
+                                        onClick={() => onToggleActive(user?._id)}
+                                        disableElevation
+                                        sx={{
+                                            height: 38,
+                                            px: 2.5,
+                                            borderRadius: "12px",
+                                            fontWeight: 700,
+                                            fontSize: "0.75rem",
+                                            textTransform: "none",
+                                            minWidth: 120,
+                                            // Deactivate uses a rich warning orange (#E6A100) derived from warmSand, Activate uses seafoamGreen
+                                            background: user?.isAccountActive ? '#E6A100' : '#48C9B0',
+                                            color: "#fff",
+                                            boxShadow: user?.isAccountActive
+                                                ? `0 4px 12px rgba(230, 161, 0, 0.25)`
+                                                : `0 4px 12px rgba(72, 201, 176, 0.25)`,
+                                            "&:hover": {
+                                                background: user?.isAccountActive ? '#CC8F00' : '#3cbda4',
+                                                boxShadow: user?.isAccountActive
+                                                    ? `0 6px 16px rgba(230, 161, 0, 0.4)`
+                                                    : `0 6px 16px rgba(72, 201, 176, 0.4)`,
+                                            },
+                                            "&:disabled": {
+                                                opacity: 0.5,
+                                                boxShadow: "none",
+                                                background: "rgba(66, 62, 62, 0.12)",
+                                                color: "rgba(66, 62, 62, 0.35)"
+                                            },
+                                            transition: "all 0.2s",
+                                        }}
+                                    >
+                                        {isUpdating ? (
+                                            <Stack direction="row" alignItems="center" gap={1} justifyContent="center">
+                                                <CircularProgress size={12} sx={{ color: "#fff" }} thickness={5} />
+                                                <span>Updating...</span>
+                                            </Stack>
+                                        ) : user?.isAccountActive ? (
+                                            "Deactivate"
+                                        ) : (
+                                            "Activate"
+                                        )}
+                                    </Button>
+                                </Box>
+
+                                {/* Delete User Button */}
+                                <Box sx={{ flex: "0 0 auto" }}>
+                                    <FieldLabel>Actions</FieldLabel>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        disabled={isDeleting || isUpdating}
+                                        onClick={() => setDeleteConfirmOpen(true)}
+                                        disableElevation
+                                        startIcon={!isDeleting && <DeleteRounded sx={{ fontSize: "0.95rem" }} />}
+                                        sx={{
+                                            height: 38,
+                                            px: 2.5,
+                                            borderRadius: "12px",
+                                            fontWeight: 700,
+                                            fontSize: "0.75rem",
+                                            textTransform: "none",
+                                            minWidth: 112,
+                                            background: '#FF6F61', // coralSunset for structural deletion alerts
+                                            color: "#fff",
+                                            boxShadow: `0 4px 12px rgba(255, 111, 97, 0.35)`,
+                                            "&:hover": {
+                                                background: '#e55b4e',
+                                                boxShadow: `0 6px 16px rgba(255, 111, 97, 0.5)`,
+                                            },
+                                            "&:disabled": {
+                                                opacity: 0.5,
+                                                boxShadow: "none",
+                                                background: "rgba(66, 62, 62, 0.12)",
+                                                color: "rgba(66, 62, 62, 0.35)"
+                                            },
+                                            transition: "all 0.2s",
+                                        }}
+                                    >
+                                        {isDeleting ? (
+                                            <Stack direction="row" alignItems="center" gap={1} justifyContent="center">
+                                                <CircularProgress size={12} sx={{ color: "#fff" }} thickness={5} />
+                                                <span>Deleting...</span>
+                                            </Stack>
+                                        ) : (
+                                            "Delete"
+                                        )}
+                                    </Button>
+                                </Box>
+                            </>
                         )}
                     </Stack>
 
@@ -605,6 +687,128 @@ const UserCard = ({
                     )}
                 </Box>
             </Box>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteConfirmOpen}
+                onClose={(event, reason) => {
+                    if (isDeleting) return;
+                    setDeleteConfirmOpen(false);
+                }}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{
+                    bgcolor: "rgba(255, 111, 97, 0.08)", // 8% opacity coralSunset
+                    color: '#0A3D62', // deepNavy for institutional headers
+                    fontWeight: 800,
+                    px: 3,
+                    py: 2.5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    borderBottom: `1px solid #E8EEF7`, // softGray
+                }}>
+                    <DeleteRounded sx={{ color: '#FF6F61', fontSize: "1.4rem" }} /> {/* coralSunset */}
+                    <Typography component="span" sx={{ fontWeight: 800, fontSize: "1.1rem", color: '#0A3D62' }}>
+                        Delete Staff Record
+                    </Typography>
+                </DialogTitle>
+
+                <DialogContent sx={{ py: 3, bgcolor: '#f8fafd' }}> {/* cloudWhite background */}
+                    <Stack spacing={2.5}>
+                        <Box sx={{
+                            p: 2,
+                            borderRadius: "12px",
+                            background: "rgba(255, 111, 97, 0.05)", // 5% coralSunset
+                            border: "1px solid rgba(255, 111, 97, 0.25)",
+                            borderLeft: `4px solid #FF6F61`, // Deep coral accent strip
+                        }}>
+                            <Typography sx={{ color: '#FF6F61', fontWeight: 800, fontSize: "0.85rem", mb: 1, letterSpacing: "0.03em" }}>
+                                ⚠️ CRITICAL: THIS ACTION CANNOT BE UNDONE
+                            </Typography>
+                            <Typography sx={{ color: '#424242', fontSize: "0.85rem", lineHeight: 1.6 }}> {/* charcoal */}
+                                You are about to permanently purge <strong style={{ color: '#0A3D62' }}>{user?.name}</strong> ({user?.email}) from the KMFRI staff registry database. This will completely remove:
+                            </Typography>
+                            <Box
+                                component="ul"
+                                sx={{
+                                    color: '#424242', // charcoal
+                                    fontSize: "0.8rem",
+                                    mt: 1.5,
+                                    pl: 2.5,
+                                    marginBlockStart: 0,
+                                    marginBlockEnd: 0,
+                                    "& li": { mb: 0.8, lineHeight: 1.4 }
+                                }}
+                            >
+                                <li>Staff identity configurations & ERP linkages</li>
+                                <li>Historical attendance patterns and clocking logs</li>
+                                <li>Active leave balances, allocations, and requests</li>
+                            </Box>
+                        </Box>
+                        <Typography sx={{ color: '#060317', opacity: 0.8, fontSize: "0.78rem", fontStyle: "italic" }}>
+                            Institutional Directive: For regulatory tracking, this transactional will be committed directly to the system audit ledger for future auditing purposes.
+                        </Typography>
+                    </Stack>
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, py: 2, bgcolor: '#E8EEF7', borderTop: `1px solid rgba(10, 61, 98, 0.1)`, gap: 1 }}> {/* softGray footer */}
+                    <Button
+                        onClick={() => setDeleteConfirmOpen(false)}
+                        variant="outlined"
+                        disabled={isDeleting}
+                        sx={{
+                            textTransform: "none",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            px: 2.5,
+                            color: '#424242', // charcoal
+                            borderColor: 'rgba(66, 62, 62, 0.25)',
+                            "&:hover": {
+                                borderColor: '#424242',
+                                bgcolor: "rgba(66, 62, 62, 0.05)",
+                            },
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleDeleteUser}
+                        variant="contained"
+                        disabled={isDeleting}
+                        sx={{
+                            textTransform: "none",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            px: 3,
+                            minWidth: "160px",
+                            background: '#FF6F61', // coralSunset used purely for destructive context
+                            color: "#fff",
+                            boxShadow: `0 4px 12px rgba(255, 111, 97, 0.35)`,
+                            "&:hover": {
+                                background: '#e55b4e', // slightly darker tint of coral
+                                boxShadow: `0 6px 16px rgba(255, 111, 97, 0.5)`,
+                            },
+                            "&:disabled": {
+                                opacity: 0.5,
+                                boxShadow: "none",
+                                background: "rgba(66, 62, 62, 0.12)",
+                                color: "rgba(66, 62, 62, 0.35)"
+                            },
+                        }}
+                    >
+                        {isDeleting ? (
+                            <Stack direction="row" alignItems="center" gap={1} justifyContent="center">
+                                <CircularProgress size={14} sx={{ color: "#fff" }} thickness={5} />
+                                <span>Purging Database...</span>
+                            </Stack>
+                        ) : (
+                            "Confirm Deletion"
+                        )}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <ClockOutsideModal
                 open={openModal}

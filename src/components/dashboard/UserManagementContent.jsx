@@ -23,6 +23,7 @@ import {
     updateUserRole,
     updateUserStation,
     updateUserSupervisor,
+    deleteUser,
 } from "../../service/UserManagement";
 import coreDataDetails from "../CoreDataDetails";
 import UserCard from "../util/UserCard";
@@ -380,6 +381,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); fetchSupervisors() } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleDeleteUser = async (id) => { try { setUpdatingId(id); await deleteUser(id); alert("User deleted successfully"); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
 
     if (loading) {
         return (
@@ -442,6 +444,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                             onSupervisorChange={readOnly ? null : handleSupervisorChange}
                             onStationSave={readOnly ? null : handleStationSave}
                             onToggleActive={readOnly ? null : handleToggleActive}
+                            onDeleteUser={readOnly ? null : handleDeleteUser}
                             isMobile={isMobile}
                             readOnly={readOnly}
                             index={index}

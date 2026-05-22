@@ -129,3 +129,13 @@ export const revokeClockOutsideStatus = async (userId) => {
         throw err.response?.data?.message || "Failed to revoke authorization";
     }
 };
+
+export const deleteUser = async (userId) => {
+    try {
+        const res = await api.delete(`/admin/user/${userId}`);
+        return res.data;
+    } catch (err) {
+        console.error("Error deleting user:", err);
+        throw err.response?.data?.message || "Failed to delete user";
+    }
+};
