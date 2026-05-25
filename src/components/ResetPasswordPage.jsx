@@ -114,8 +114,9 @@ export default function ResetPasswordPage() {
         setSubmitting(true);
         try {
             const response = await requestPasswordReset(email.trim());
-            setSuccess(response?.message || 'A reset code has been sent to your email');
-            setStep('reset');
+            setSuccess(response?.message || 'Your password reset request has been submitted. The administrator will reset your password shortly.');
+            // Redirect to login after 2 seconds instead of showing password form
+            setTimeout(() => navigate('/'), 2000);
         } catch (err) {
             setError(String(err || 'Failed to send password reset code'));
         } finally {
@@ -190,7 +191,7 @@ export default function ResetPasswordPage() {
                                 Reset Password
                             </Typography>
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                                Request a reset code by email, then enter the code and your new password.
+                                Submit your email to request a password reset from the administrator.
                             </Typography>
                         </Box>
 
@@ -200,8 +201,7 @@ export default function ResetPasswordPage() {
 
                             <TextField
                                 fullWidth
-                                label="Registered Email"
-                                placeholder="example@kmfri.go.ke"
+                                label="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 sx={G.lightInput}
@@ -210,77 +210,15 @@ export default function ResetPasswordPage() {
                                 }}
                             />
 
-                            {step === 'reset' && (
-                                <>
-                                    <TextField
-                                        fullWidth
-                                        label="Reset Code"
-                                        placeholder="Enter the 6-digit code sent to your email"
-                                        value={code}
-                                        onChange={(e) => setCode(e.target.value)}
-                                        sx={G.lightInput}
-                                        InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Security sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                                        }}
-                                    />
-
-                                    <TextField
-                                        fullWidth
-                                        label="New Password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        sx={G.lightInput}
-                                        InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                                            endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowPassword((v) => !v)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>,
-                                        }}
-                                    />
-
-                                    <TextField
-                                        fullWidth
-                                        label="Confirm Password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        sx={G.lightInput}
-                                        InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                                        }}
-                                    />
-                                </>
-                            )}
-
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                                {step === 'request' ? (
-                                    <Button
-                                        variant="contained"
-                                        fullWidth
-                                        disabled={submitting}
-                                        onClick={handleRequestCode}
-                                        sx={{ background: colorPalette.oceanGradient, py: 1.55, borderRadius: '14px', fontWeight: 800, textTransform: 'none' }}>
-                                        {submitting ? 'Sending code...' : 'Send Reset Code'}
-                                    </Button>
-                                ) : (
-                                    <>
-                                        <Button
-                                            variant="outlined"
-                                            fullWidth
-                                            disabled={submitting}
-                                            onClick={handleRequestCode}
-                                            sx={{ py: 1.55, borderRadius: '14px', fontWeight: 800, textTransform: 'none', borderColor: 'rgba(10,61,98,0.22)', color: colorPalette.deepNavy }}>
-                                            {submitting ? 'Resending...' : 'Resend Code'}
-                                        </Button>
-                                        <Button
-                                            variant="contained"
-                                            fullWidth
-                                            disabled={submitting}
-                                            onClick={handleResetPassword}
-                                            sx={{ background: colorPalette.oceanGradient, py: 1.55, borderRadius: '14px', fontWeight: 800, textTransform: 'none' }}>
-                                            {submitting ? 'Resetting...' : 'Reset Password'}
-                                        </Button>
-                                    </>
-                                )}
+                                <Button
+                                    variant="contained"
+                                    fullWidth
+                                    disabled={submitting}
+                                    onClick={handleRequestCode}
+                                    sx={{ background: colorPalette.oceanGradient, py: 1.55, borderRadius: '14px', fontWeight: 800, textTransform: 'none' }}>
+                                    {submitting ? 'Submitting request...' : 'Submit Reset Request'}
+                                </Button>
                             </Stack>
 
                             <Button

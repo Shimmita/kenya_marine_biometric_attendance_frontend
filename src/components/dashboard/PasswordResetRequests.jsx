@@ -1,5 +1,5 @@
 import { CheckCircle, Refresh } from '@mui/icons-material';
-import { Alert, Avatar, Box, Button, Card, CircularProgress, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, Card, CircularProgress, Grid, Stack, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchPasswordResetRequests, allowPasswordReset } from '../../service/ResetPasswordService';
 import coreDataDetails from '../CoreDataDetails';
@@ -26,6 +26,12 @@ const PasswordResetRequests = ({ readOnly = false }) => {
     const [actionMessage, setActionMessage] = useState('');
     const [actionError, setActionError] = useState('');
     const [processingEmail, setProcessingEmail] = useState('');
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogEmail, setDialogEmail] = useState('');
+    const [adminNewPassword, setAdminNewPassword] = useState('');
+    const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+    const [dialogError, setDialogError] = useState('');
+    const [dialogProcessing, setDialogProcessing] = useState(false);
 
     const loadRequests = useCallback(async () => {
         setLoading(true);
@@ -45,16 +51,36 @@ const PasswordResetRequests = ({ readOnly = false }) => {
     }, [loadRequests]);
 
     const handleAllow = async (email) => {
-        setActionError('');
-        setActionMessage('');
-        setProcessingEmail(email);
+        // Open dialog so admin can enter new password for the user
+        setDialogError('');
+        setAdminNewPassword('');
+        setAdminConfirmPassword('');
+        setDialogEmail(email);
+        setDialogOpen(true);
+    };
+
+    const handleConfirmAllow = async () => {
+        setDialogError('');
+        if (!adminNewPassword || adminNewPassword.length < 6) {
+            setDialogError('Password must be at least 6 characters');
+            return;
+        }
+        if (adminNewPassword !== adminConfirmPassword) {
+            setDialogError('Passwords do not match');
+            return;
+        }
+
+        setDialogProcessing(true);
+        setProcessingEmail(dialogEmail);
         try {
-            await allowPasswordReset(email);
-            setActionMessage(`Password reset approved for ${email}`);
+            await allowPasswordReset(dialogEmail, adminNewPassword);
+            setActionMessage(`Password reset completed for ${dialogEmail}`);
+            setDialogOpen(false);
             await loadRequests();
         } catch (err) {
             setActionError(typeof err === 'string' ? err : 'Action failed');
         } finally {
+            setDialogProcessing(false);
             setProcessingEmail('');
         }
     };
@@ -131,6 +157,84 @@ const PasswordResetRequests = ({ readOnly = false }) => {
             ) : (
                 <Grid container spacing={2}>{cards}</Grid>
             )}
+
+            <Dialog
+                open={dialogOpen}
+                onClose={() => !dialogProcessing && setDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: { maxWidth: 400 } // Clean, compact size ideal for a password prompt
+                }}
+            >
+                <DialogTitle sx={{ pb: 1, fontWeight: 600 }}>
+                    Set New Password
+                </DialogTitle>
+
+                {/* Wrapping in a form allows submission on pressing 'Enter' */}
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!dialogProcessing) handleConfirmAllow();
+                }}>
+                    <DialogContent dividers sx={{ pt: 2, pb: 3 }}>
+                        <Stack spacing={2.5}>
+                            {dialogError && (
+                                <Alert severity="error" variant="outlined" sx={{ width: '100%' }}>
+                                    {dialogError}
+                                </Alert>
+                            )}
+
+                            <TextField
+                                autoFocus
+                                label="New Password"
+                                type="password"
+                                fullWidth
+                                variant="outlined"
+                                value={adminNewPassword}
+                                onChange={(e) => setAdminNewPassword(e.target.value)}
+                                disabled={dialogProcessing}
+                            />
+
+                            <TextField
+                                label="Confirm New Password"
+                                type="password"
+                                fullWidth
+                                value={adminConfirmPassword}
+                                onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                                error={adminConfirmPassword.length > 0 && adminNewPassword !== adminConfirmPassword}
+                                helperText={adminConfirmPassword.length > 0 && adminNewPassword !== adminConfirmPassword ? "Passwords do not match" : ""}
+                                disabled={dialogProcessing}
+                            />
+                        </Stack>
+                    </DialogContent>
+
+                    <DialogActions sx={{ p: 2, px: 3 }}>
+                        <Button
+                            onClick={() => setDialogOpen(false)}
+                            disabled={dialogProcessing}
+                            variant="text"
+                            color="inherit"
+                            sx={{
+                                borderRadius:2
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            sx={{
+                                borderRadius:2
+                            }}
+                            variant="contained"
+                            color="primary"
+                            disabled={dialogProcessing || !adminNewPassword || !adminConfirmPassword}
+                            startIcon={dialogProcessing ? null : <CheckCircle />}
+                        >
+                            {dialogProcessing ? <CircularProgress size={20} color="inherit" /> : 'Set Password'}
+                        </Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
         </Box>
     );
 };
