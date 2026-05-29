@@ -37,7 +37,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useState } from 'react';
 import { registerFingerprint } from '../../service/Biometrics';
-import { fetchMyDevices } from '../../service/DeviceService';
+import { fetchMyDevices, removeDevice } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import coreDataDetails from '../CoreDataDetails';
 
@@ -187,6 +187,8 @@ const AddDeviceContent = () => {
     const [alreadyEnrolled,       setAlreadyEnrolled]       = useState(false);
     const [deviceHashFingerPrint, setDeviceHashFingerPrint] = useState();
     const [removeTarget,          setRemoveTarget]          = useState(null);
+    const [removing,              setRemoving]              = useState(false);
+    const [removeError,           setRemoveError]           = useState('');
 
     const current = detectCurrentDevice();
 
@@ -225,10 +227,19 @@ const AddDeviceContent = () => {
         } finally { setEnrolling(false); }
     };
 
-    const handleRemoveConfirm = () => {
+    const handleRemoveConfirm = async () => {
         if (!removeTarget) return;
-        setDevices(prev => prev.filter(d => (d._id || d.id) !== (removeTarget._id || removeTarget.id)));
-        setRemoveTarget(null);
+        setRemoving(true);
+        setRemoveError('');
+        try {
+            await removeDevice(removeTarget._id || removeTarget.id);
+            setDevices(prev => prev.filter(d => (d._id || d.id) !== (removeTarget._id || removeTarget.id)));
+            setRemoveTarget(null);
+        } catch (err) {
+            setRemoveError(typeof err === 'string' ? err : 'Failed to remove device. Please try again.');
+        } finally {
+            setRemoving(false);
+        }
     };
 
     const capacityPct   = (devices.length / MAX_DEVICES) * 100;
@@ -575,14 +586,21 @@ const AddDeviceContent = () => {
                         You will no longer be able to clock in from this device until you re-enrol it.
                     </DialogContentText>
                 </DialogContent>
+                {removeError && (
+                    <Box sx={{ px: 3, mb: 2 }}>
+                        <Alert severity="error" onClose={() => setRemoveError('')}>
+                            {removeError}
+                        </Alert>
+                    </Box>
+                )}
                 <DialogActions sx={{ pb: 2.5, px: 3, gap: 1 }}>
-                    <Button onClick={() => setRemoveTarget(null)}
+                    <Button onClick={() => setRemoveTarget(null)} disabled={removing}
                         sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '12px', color: 'text.secondary', bgcolor: 'rgba(10,61,98,0.05)', border: '1px solid rgba(10,61,98,0.10)', '&:hover': { bgcolor: 'rgba(10,61,98,0.08)' }, px: 2.5 }}>
                         Cancel
                     </Button>
-                    <Button variant="contained" color="error" onClick={handleRemoveConfirm}
+                    <Button variant="contained" color="error" onClick={handleRemoveConfirm} disabled={removing}
                         sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '12px', boxShadow: `0 4px 16px ${colorPalette.coralSunset}32`, '&:hover': { boxShadow: `0 6px 22px ${colorPalette.coralSunset}48`, transform: 'translateY(-1px)' }, transition: 'all 0.2s ease', px: 2.5 }}>
-                        Remove Device
+                        {removing ? <><CircularProgress size={15} color="inherit" sx={{ mr: 1 }} />Removing…</> : 'Remove Device'}
                     </Button>
                 </DialogActions>
             </Dialog>

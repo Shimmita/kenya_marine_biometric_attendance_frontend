@@ -69,3 +69,14 @@ export const fetchMyLostRequests = async () => {
 };
 
 
+// remove device
+export const removeDevice = async (deviceId) => {
+  try {
+    const res = await api.delete(`/device/remove/${deviceId}`);
+    return res.data;
+  } catch (err) {
+    throw err.response?.data?.message || "Failed to remove device";
+  }
+};
+
+
