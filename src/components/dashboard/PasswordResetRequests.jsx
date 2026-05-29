@@ -99,7 +99,7 @@ const PasswordResetRequests = ({ readOnly = false }) => {
                                 <Typography fontWeight={800} sx={{ fontSize: '0.92rem' }}>{req.userName || 'Unknown User'}</Typography>
                                 <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{req.email}</Typography>
                             </Stack>
-                        </Stack>
+                        </Stack>nnnnnnn 
 
                         <Stack direction="row" flexWrap="wrap" spacing={1} sx={{ mb: 1 }}>
                             <Box sx={{ px: 1.05, py: 0.35, borderRadius: 1, bgcolor: status.bg, color: status.color, fontWeight: 700, fontSize: '0.7rem' }}>{status.label}</Box>
