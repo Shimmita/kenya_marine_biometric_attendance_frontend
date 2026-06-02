@@ -380,7 +380,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                                 Staff
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                               Sign in with your staff credentials
+                                                Sign in with your staff credentials
                                             </Typography>
                                         </Box>
                                     </Stack>
@@ -697,7 +697,7 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography noWrap fontWeight={800} onClick={() => onNavigate('landing')}
                             sx={{ fontSize: { xs: '0.88rem', md: '1rem' }, letterSpacing: 0.35, color: '#fff', cursor: 'pointer', textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-                            {isMdUp ? 'Kenya Marine and Fisheries Research Institute'.toUpperCase() : 'KMFRI Attendance'.toUpperCase()}
+                            {isMdUp ? 'Kenya Marine and Fisheries Research Institute'.toUpperCase() : 'KMFRI Attendance System'.toUpperCase()}
                         </Typography>
                         {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>
                             Staff Attendance System</Typography>}
@@ -741,7 +741,7 @@ const EnhancedLandingPage = () => {
                                 <Grid container spacing={5} alignItems="center">
                                     <Grid item xs={12} md={6}>
                                         <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
-                                            <Chip label="Digital Attendance Platform" size="small"
+                                            <Chip label="Attendance System" size="small"
                                                 sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
                                             <Typography variant={'h5'} fontWeight={900}
                                                 sx={{ color: '#fff', mb: 2, lineHeight: 1.16, textShadow: '0 4px 18px rgba(0,0,0,0.24)' }}>

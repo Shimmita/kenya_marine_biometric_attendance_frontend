@@ -754,7 +754,7 @@ const EnhancedDashboard = () => {
         const handleAppInstalled = () => {
             setCanInstall(false);
             setDeferredInstallPrompt(null);
-            setInstallStatus('KMFRI Attendance has been installed and is ready to use.');
+            setInstallStatus('KMFRI Attendance System has been installed');
         };
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstall);
@@ -911,7 +911,7 @@ const EnhancedDashboard = () => {
 
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography variant="h6" noWrap sx={{ fontWeight: 800, letterSpacing: 0.3, fontSize: { xs: '0.88rem', md: '1rem' }, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-                            {isMobile ? 'KMFRI' : isTablet ? 'KMFRI ATTENDANCE' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
+                            {isMobile  || isTablet? 'KMFRI ATTENDANCE SYSTEM' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
                         </Typography>
                         <Typography variant="caption" sx={{ opacity: 0.6, display: { xs: 'none', sm: 'block' }, fontSize: '0.67rem', color: 'rgba(255,255,255,0.8)' }}>
                             Staff Attendance System

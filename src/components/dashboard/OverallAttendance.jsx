@@ -1560,7 +1560,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
             columnStyles: { 5: { fontStyle: 'bold' } },
         });
         const tp = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Digital Attendance Platform  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
+        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
         doc.save(`KMFRI_Records_${Date.now()}.pdf`);
     };
 
@@ -1804,7 +1804,7 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
             });
         }
         const tp = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Digital Attendance Platform  |  HR Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
+        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  HR Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
         doc.save(`KMFRI_Performance_${scope}_${Date.now()}.pdf`);
     };
 
