@@ -5,6 +5,7 @@ import {
     DevicesOther,
     EmojiPeopleRounded,
     History,
+    InstallDesktop,
     InsightsRounded,
     Lock,
     LockResetRounded,
@@ -695,6 +696,9 @@ const EnhancedDashboard = () => {
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
+    const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+    const [canInstall, setCanInstall] = useState(false);
+    const [installStatus, setInstallStatus] = useState('');
 
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
@@ -739,6 +743,44 @@ const EnhancedDashboard = () => {
     const closeProfile = useCallback(() => setProfileOpen(false), []);
     const expandSidebar = useCallback(() => setSidebarCollapsed(false), []);
     const collapseSidebar = useCallback(() => setSidebarCollapsed(true), []);
+
+    useEffect(() => {
+        const handleBeforeInstall = (event) => {
+            event.preventDefault();
+            setDeferredInstallPrompt(event);
+            setCanInstall(true);
+        };
+
+        const handleAppInstalled = () => {
+            setCanInstall(false);
+            setDeferredInstallPrompt(null);
+            setInstallStatus('KMFRI Attendance has been installed and is ready to use.');
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+        window.addEventListener('appinstalled', handleAppInstalled);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }, []);
+
+    const handleInstall = async () => {
+        if (!deferredInstallPrompt) return;
+
+        deferredInstallPrompt.prompt();
+        const choiceResult = await deferredInstallPrompt.userChoice;
+
+        if (choiceResult.outcome === 'accepted') {
+            setInstallStatus('Installation accepted. You can now launch the app from your device home screen.');
+        } else {
+            setInstallStatus('Installation dismissed. You can install later from the browser menu.');
+        }
+
+        setCanInstall(false);
+        setDeferredInstallPrompt(null);
+    };
 
     const handleProfileSave = useCallback(async ({ phone, newPassword, avatarFile }) => {
         const updatedUser = await updateUserProfile({ phone, newPassword, avatarFile });
@@ -818,7 +860,7 @@ const EnhancedDashboard = () => {
             case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
             case 'Request for Leave': return <LeaveManagementContent {...sharedProps} />;
             case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Notification Panel': return <NotificationManagementContent {...sharedProps} />;
+            case 'Notification Panel': return <NotificationManagementContent {...sharedProps} currentUser={user} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
             case 'Organisations Stats': return canViewAdminFeatures ? <OverallAttendanceStats readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
@@ -875,6 +917,31 @@ const EnhancedDashboard = () => {
                             Staff Attendance System
                         </Typography>
                     </Box>
+
+                    {canInstall && (
+                        <Tooltip title="Install KMFRI Digital Attendance System">
+                            <IconButton
+                                color="inherit"
+                                onClick={handleInstall}
+                                sx={{
+                                    bgcolor: 'rgba(255,255,255,0.12)',
+                                    borderRadius: '12px',
+                                    p: 1,
+                                    mr: 1,
+                                    '&:hover': {
+                                        bgcolor: 'rgba(255,255,255,0.22)',
+                                    },
+                                }}
+                            >
+                                <InstallDesktop sx={{ fontSize: 22 }} />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+                    {installStatus && (
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)', mr: 1, whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline-flex' } }}>
+                            {installStatus}
+                        </Typography>
+                    )}
 
                     <Tooltip title="View Profile">
                         <Avatar src={user?.avatar} onClick={openProfile} sx={{

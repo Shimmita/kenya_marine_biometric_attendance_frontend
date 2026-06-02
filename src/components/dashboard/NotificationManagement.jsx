@@ -24,6 +24,8 @@ import {
 } from "../../service/Notification";
 import coreDataDetails from "../CoreDataDetails";
 
+const CLOCKING_REMINDERS_STORAGE_KEY = 'kmfri_clocking_reminders';
+
 const { colorPalette } = coreDataDetails;
 
 export default function NotificationManagementContent({ currentUser }) {
@@ -33,6 +35,7 @@ export default function NotificationManagementContent({ currentUser }) {
     const [tab, setTab] = useState(0);
     const [userNotifs, setUserNotifs] = useState([]);
     const [adminNotifs, setAdminNotifs] = useState([]);
+    const [reminderNotifs, setReminderNotifs] = useState([]);
     const [filterStatus, setFilterStatus] = useState("");
 
     const isAdminLevel = ["admin", "hr", "ceo", "supervisor"].includes(
@@ -51,14 +54,23 @@ export default function NotificationManagementContent({ currentUser }) {
             }
         };
 
+        const stored = typeof window !== 'undefined' ? window.localStorage.getItem(CLOCKING_REMINDERS_STORAGE_KEY) : null;
+        if (stored) {
+            try {
+                setReminderNotifs(JSON.parse(stored));
+            } catch (err) {
+                console.error('Failed to parse clocking reminders', err);
+            }
+        }
+
         load();
-    }, []);
+    }, [isAdminLevel]);
 
     // 🔥 MERGE
     const allNotifications = useMemo(() => {
-        if (isAdminLevel) return [...userNotifs, ...adminNotifs];
-        return userNotifs;
-    }, [userNotifs, adminNotifs]);
+        const base = isAdminLevel ? [...userNotifs, ...adminNotifs] : userNotifs;
+        return [...reminderNotifs, ...base];
+    }, [userNotifs, adminNotifs, reminderNotifs, isAdminLevel]);
 
     const displayedNotifications = useMemo(() => {
         let base = [];
@@ -73,6 +85,13 @@ export default function NotificationManagementContent({ currentUser }) {
     }, [tab, userNotifs, adminNotifs, filterStatus]);
 
     const handleDelete = async (id) => {
+        if (id?.startsWith('clocking-reminder-')) {
+            const next = reminderNotifs.filter((n) => n._id !== id);
+            setReminderNotifs(next);
+            window.localStorage.setItem(CLOCKING_REMINDERS_STORAGE_KEY, JSON.stringify(next));
+            return;
+        }
+
         await deleteUserNotification(id);
         setUserNotifs((prev) => prev.filter((n) => n._id !== id));
     };
@@ -226,6 +245,19 @@ export default function NotificationManagementContent({ currentUser }) {
                                                             fontWeight: 700,
                                                             backdropFilter: "blur(6px)",
                                                             boxShadow: `0 4px 12px ${colorPalette.coralSunset}40`,
+                                                        }}
+                                                    />
+                                                )}
+                                                {notif.source === 'clocking' && (
+                                                    <Chip
+                                                        label="Clocking System"
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: colorPalette.oceanBlue,
+                                                            color: "white",
+                                                            fontWeight: 700,
+                                                            backdropFilter: "blur(6px)",
+                                                            boxShadow: `0 4px 12px ${colorPalette.oceanBlue}40`,
                                                         }}
                                                     />
                                                 )}

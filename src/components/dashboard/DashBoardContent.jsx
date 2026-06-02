@@ -13,7 +13,7 @@ import {
     TextField, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { AnimatePresence, motion, useInView } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
     Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, RadialBar,
@@ -90,9 +90,108 @@ const G = {
 const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
 const useNotification = () => {
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
-    const notify = (msg, sev = 'success') => setSnack({ open: true, message: msg, severity: sev });
-    const close = () => setSnack(s => ({ ...s, open: false }));
+    const notify = useCallback((msg, sev = 'success') => setSnack({ open: true, message: msg, severity: sev }), []);
+    const close = useCallback(() => setSnack(s => ({ ...s, open: false })), []);
     return { snack, notify, close };
+};
+
+const CLOCKING_REMINDERS_STORAGE_KEY = 'kmfri_clocking_reminders';
+
+const morningClockInReminders = [
+    'Please confirm your station attendance by clocking in before beginning your shift.',
+    'A friendly reminder to clock in so your presence at the station is recorded.',
+    'Please clock in to confirm you have reported at your assigned station this morning.',
+    'Ensure your morning arrival is documented: please clock in now.',
+    'Kindly clock in to confirm your presence at the station before you proceed with your duties.',
+];
+
+const afternoonClockOutReminders = [
+    'Please clock out to confirm your exit from the station at the end of your shift.',
+    'A reminder to clock out so your departure is properly recorded.',
+    'Please confirm your end-of-day exit by clocking out before leaving.',
+    'Ensure your departure is registered: please clock out now.',
+    'Kindly clock out to confirm you have completed your shift and exited the station.',
+];
+
+const getRandomReminder = (messages) => messages[Math.floor(Math.random() * messages.length)];
+
+const playReminderTone = () => {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gain.gain.value = 0.12;
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.18);
+        oscillator.onended = () => context.close();
+    } catch (error) {
+        // Audio playback may be blocked in some environments; ignore silently.
+    }
+};
+
+const sendBrowserNotification = (title, body) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const createNotification = () => {
+        try {
+            new Notification(title, {
+                body,
+                badge: '/favicon.ico',
+                icon: '/favicon.ico',
+                tag: 'clocking-reminder',
+                renotify: true,
+            });
+            playReminderTone();
+        } catch (error) {
+            console.error('Browser notification failed:', error);
+        }
+    };
+
+    if (Notification.permission === 'granted') {
+        createNotification();
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') createNotification();
+        });
+    }
+};
+
+const persistClockingReminder = (message) => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    const stored = localStorage.getItem(CLOCKING_REMINDERS_STORAGE_KEY);
+    let reminders = [];
+
+    try {
+        reminders = stored ? JSON.parse(stored) : [];
+    } catch (err) {
+        reminders = [];
+    }
+
+    const alreadyStored = reminders.some((item) => item.message === trimmed);
+    if (alreadyStored) return;
+
+    const next = [
+        {
+            _id: `clocking-reminder-${new Date().toISOString()}`,
+            title: 'Clocking System Reminder',
+            message: trimmed,
+            status: 'info',
+            label: 'clocking',
+            source: 'clocking',
+            createdAt: new Date().toISOString(),
+        },
+        ...reminders,
+    ].slice(0, 10);
+
+    localStorage.setItem(CLOCKING_REMINDERS_STORAGE_KEY, JSON.stringify(next));
 };
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
@@ -650,6 +749,32 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         return () => { alive = false; };
     }, []);
 
+    useEffect(() => {
+        const sendReminder = () => {
+            const now = new Date();
+            const hour = now.getHours();
+
+            if (hour >= 6 && hour < 11 && !isClockedIn) {
+                const message = getRandomReminder(morningClockInReminders);
+                notify(message, 'info');
+                persistClockingReminder(message);
+                sendBrowserNotification('Clocking System Reminder', message);
+                return;
+            }
+
+            if (hour >= 16 && hour < 18 && isClockedIn && isToClockOut) {
+                const message = getRandomReminder(afternoonClockOutReminders);
+                notify(message, 'info');
+                persistClockingReminder(message);
+                sendBrowserNotification('Clocking System Reminder', message);
+            }
+        };
+
+        sendReminder();
+        const reminderInterval = setInterval(sendReminder, 9 * 60 * 1000);
+        return () => clearInterval(reminderInterval);
+    }, [isClockedIn, isToClockOut, notify]);
+
     const requestLocation = () => {
         if (!navigator.geolocation) { notify('Geolocation not supported.', 'error'); return; }
         navigator.geolocation.getCurrentPosition(
@@ -738,7 +863,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         <Box sx={{ width: '100%', position: 'relative' }}>
             <AmbientOrbs />
 
-            <Snackbar open={snack.open} autoHideDuration={5000} onClose={close} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+            <Snackbar open={snack.open} onClose={close} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert onClose={close} severity={snack.severity} variant="filled" elevation={6}
                     sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)', boxShadow: '0 8px 28px rgba(0,0,0,0.14)' }}>
                     {snack.message}
