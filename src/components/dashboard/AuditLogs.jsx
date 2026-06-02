@@ -114,33 +114,6 @@ const columns = [
     },
 ];
 
-const exportToCSV = (logs) => {
-    const headers = columns.map(col => col.headerName).join(',');
-    const rows = logs.map(log =>
-        columns.map(col => {
-            let value;
-            if (col.valueGetter) {
-                value = col.valueGetter(log[col.field], log);
-            } else if (col.valueFormatter) {
-                value = col.valueFormatter(log[col.field]);
-            } else {
-                value = log[col.field];
-            }
-            return value;
-        }).join(',')
-    );
-    const csvContent = [headers, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'audit_logs.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
 const exportToPDF = (logs) => {
     try {
         const doc = new jsPDF('l', 'mm', 'a4'); // landscape, millimeters, A4
@@ -358,11 +331,6 @@ export default function AuditLogsContent() {
 
     const handleExportPDF = () => {
         exportToPDF(data.logs);
-        handleExportMenuClose();
-    };
-
-    const handleExportCSV = () => {
-        exportToCSV(data.logs);
         handleExportMenuClose();
     };
 
@@ -763,10 +731,6 @@ export default function AuditLogsContent() {
                                 <MenuItem onClick={handleExportPDF}>
                                     <PictureAsPdfRounded sx={{ mr: 1, color: '#d32f2f' }} />
                                     Export as PDF
-                                </MenuItem>
-                                <MenuItem onClick={handleExportCSV}>
-                                    <DownloadRounded sx={{ mr: 1, color: '#2e7d32' }} />
-                                    Export as CSV
                                 </MenuItem>
                             </Menu>
                             <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>

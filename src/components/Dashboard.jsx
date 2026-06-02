@@ -624,7 +624,7 @@ const SuspenseFallback = (
 /* ─── Page meta ─────────────────────────────────────────────────────────── */
 const PAGE_TITLES = {
     'Clocking Dashboard': null, // set dynamically
-    'Attendance History': 'Attendance History',
+    'Attendance History': 'My Attendance History',
     'Organisations Stats': 'Organisation Overview',
     'Tasks & Activities': 'Tasks & Activities',
     'Analytics & Reports': 'Analytics & Reports',

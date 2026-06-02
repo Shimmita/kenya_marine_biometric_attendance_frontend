@@ -31,6 +31,7 @@ const BatchRegistration = ({ readOnly = false }) => {
     const [success, setSuccess] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+    const [formatDialogOpen, setFormatDialogOpen] = useState(false);
     const [batchResult, setBatchResult] = useState(null);
 
     const headersList = ['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Gender'];
@@ -38,36 +39,59 @@ const BatchRegistration = ({ readOnly = false }) => {
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        setError('');
+        setSuccess('');
         setLoading(true);
 
         const fileExtension = file.name.split('.').pop().toLowerCase();
         const reader = new FileReader();
 
         reader.onload = (e) => {
-            const binaryStr = e.target.result;
-            let parsedData = [];
-
             try {
                 if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-                    const workbook = XLSX.read(binaryStr, { type: 'binary' });
+                    const workbook = XLSX.read(e.target.result, { type: 'array' });
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
-                    parsedData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    setLoading(false);
-                } else if (fileExtension === 'csv') {
-                    Papa.parse(binaryStr, {
-                        complete: (results) => processData(results.data),
+                    processData(XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }));
+                    return;
+                }
+
+                if (fileExtension === 'csv') {
+                    Papa.parse(e.target.result, {
+                        complete: (results) => {
+                            processData(results.data);
+                        },
+                        error: () => {
+                            setError("Failed to parse file. Ensure it's a valid CSV.");
+                            setLoading(false);
+                        },
                         header: false,
+                        skipEmptyLines: true,
                     });
                     return;
                 }
-                processData(parsedData);
-            } catch (err) {
+
+                setError('Unsupported file type. Upload an Excel or CSV file.');
+                setLoading(false);
+            } catch {
                 setError("Failed to parse file. Ensure it's a valid Excel or CSV.");
                 setLoading(false);
             }
         };
-        reader.readAsBinaryString(file);
+
+        reader.onerror = () => {
+            setError('Failed to read file. Please try again.');
+            setLoading(false);
+        };
+
+        if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
+
+        event.target.value = '';
     };
 
     const stats = useMemo(() => {
@@ -86,15 +110,17 @@ const BatchRegistration = ({ readOnly = false }) => {
 
 
     const processData = (rawData) => {
-        const cleanRows = rawData.filter(row => row.length > 0 && row.some(cell => cell !== ''));
+        const cleanRows = rawData.filter(row => row.length > 0 && row.some(cell => cell !== undefined && cell !== null && cell.toString().trim() !== ''));
         if (cleanRows.length < 2) {
             setError('File must have at least a header row and one data row.');
+            setLoading(false);
             return;
         }
 
-        const headers = cleanRows[0].map(h => h?.toString().trim());
+        const headers = cleanRows[0].map(h => h?.toString().replace(/^\uFEFF/, '').trim());
         if (!headersList.every(h => headers.includes(h))) {
             setError('Invalid format. Missing columns: ' + headersList.filter(h => !headers.includes(h)).join(', '));
+            setLoading(false);
             return;
         }
 
@@ -106,9 +132,22 @@ const BatchRegistration = ({ readOnly = false }) => {
             return obj;
         });
 
+        const allowedTypes = ['staff', 'employee', 'intern', 'attachee', 'attache'];
+        const invalidTypeRow = processedData.find((row) => {
+            const typeValue = row['Type']?.toString().trim().toLowerCase();
+            return typeValue && !allowedTypes.includes(typeValue);
+        });
+
+        if (invalidTypeRow) {
+            setError('Invalid Type value found. Only intern, attachee, (staff or employee) are allowed.');
+            setLoading(false);
+            return;
+        }
+
         setData(processedData);
         setError('');
         setSuccess('');
+        setLoading(false);
     };
 
     const handleCellEdit = (index, field, value) => {
@@ -161,55 +200,81 @@ const BatchRegistration = ({ readOnly = false }) => {
             <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 3, bgcolor: '#fcfcfc' }}>
                 <Typography variant="h5" fontWeight="600" gutterBottom>Batch User Registration</Typography>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                    Upload your staff directory. You can edit information directly in the table before final submission.
+                    Upload your table for batch user registration . You can edit information directly in the table before final submission.
                 </Typography>
 
-                
-
-                <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', justifyContent: 'space-between' }}>
-                    {!data.length > 0 && <>
-                        <input accept=".xlsx,.xls,.csv" style={{ display: 'none' }} id="file-upload" type="file" onChange={handleFileUpload} />
-                        <label htmlFor="file-upload">
+                <Box sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.20)' }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={8}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Required upload format</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, lineHeight: 1.7 }}>
+                                Your Table must include these header columns in the first row:
+                            </Typography>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
+                                {['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Gender'].map(col => (
+                                    <Box key={col} sx={{ px: 1.5, py: 0.6, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.06)', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}>
+                                        {col}
+                                    </Box>
+                                ))}
+                            </Stack>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                                For interns, <strong>User ID</strong> should be the National ID number. For attachees, use university/college registration or admission number. For staff, use the organization-assigned User ID used to login to the staff section. <strong>Staff No</strong> may be left blank for interns and attachees. In the <strong>Type</strong> column enter only <em>intern</em>, <em>attachee</em>, (<em>staff</em> or <em>employee</em>).
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
+                            <input accept=".xlsx,.xls,.csv" style={{ display: 'none' }} id="file-upload" type="file" onChange={handleFileUpload} />
+                            <label htmlFor="file-upload">
+                                <Button
+                                    variant="outlined"
+                                    component="span"
+                                    disabled={loading}
+                                    startIcon={loading ? <CircularProgress size={15} color="inherit" /> : <CloudUpload />}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                >
+                                   {loading ? 'Uploading...' : 'Upload Excel or CSV'}
+                                </Button>
+                            </label>
                             <Button
                                 variant="outlined"
-                                component="span"
-                                disabled={loading}
-                                startIcon={loading ? <CircularProgress size={15} color="inherit" /> : <CloudUpload />}
-                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                onClick={() => setFormatDialogOpen(true)}
+                                sx={{ textTransform: 'none', fontWeight: 700 }}
                             >
-                               {loading ? 'Uploading...' : 'Upload Excel/CSV'}
+                                View upload guide
                             </Button>
-                        </label>
-                    </>}
+                        </Grid>
+                    </Grid>
+                </Box>
 
-                    {data.length > 0 && <Grid item xs={12} md={8}>
-                        <Grid container spacing={2}>
-                            {stats.map((stat, i) => (
-                                <Grid item xs={6} sm={4} key={stat.name}>
-                                    <Card variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3, borderLeft: `5px solid ${COLORS[i % COLORS.length]}` }}>
-                                        <Typography variant="h4" fontWeight="bold">{stat.value}</Typography>
-                                        <Typography variant="body2" color="textSecondary">{stat.name}s</Typography>
+                {data.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Grid item xs={12} md={8}>
+                            <Grid container spacing={2}>
+                                {stats.map((stat, i) => (
+                                    <Grid item xs={6} sm={4} key={stat.name}>
+                                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3, borderLeft: `5px solid ${COLORS[i % COLORS.length]}` }}>
+                                            <Typography variant="h4" fontWeight="bold">{stat.value}</Typography>
+                                            <Typography variant="body2" color="textSecondary">{stat.name}s</Typography>
+                                        </Card>
+                                    </Grid>
+                                ))}
+                                <Grid item xs={6} sm={4}>
+                                    <Card variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: 'primary.main', color: 'white' }}>
+                                        <Typography variant="h4" fontWeight="bold">{data.length}</Typography>
+                                        <Typography variant="body2">Total Records</Typography>
                                     </Card>
                                 </Grid>
-                            ))}
-                            <Grid item xs={6} sm={4}>
-                                <Card variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: 'primary.main', color: 'white' }}>
-                                    <Typography variant="h4" fontWeight="bold">{data.length}</Typography>
-                                    <Typography variant="body2">Total Records</Typography>
-                                </Card>
                             </Grid>
                         </Grid>
-                    </Grid>}
 
-                    {data.length > 0 && (
                         <Tooltip title="Clear table">
                             <IconButton onClick={() => setData([])} color="error">
                                 <DeleteSweep />
                             </IconButton>
                         </Tooltip>
-                    )}
-                </Box>
+                    </Box>
+                )}
 
+                {error && <Fade in><Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert></Fade>}
                 {success && <Fade in><Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{success}</Alert></Fade>}
 
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -254,6 +319,56 @@ const BatchRegistration = ({ readOnly = false }) => {
                     </DialogActions>
                 </Dialog>
 
+                <Dialog open={formatDialogOpen} onClose={() => setFormatDialogOpen(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle sx={{ bgcolor: '#eff6ff', color: '#0f172a', fontWeight: 800, px: 4, py: 3 }}>
+                        Batch Upload Format Guide
+                    </DialogTitle>
+                    <DialogContent dividers sx={{ p: 4, bgcolor: '#f8fbff' }}>
+                        <Typography variant="body1" fontWeight={700} sx={{ mb: 2 }}>
+                            Required columns for Excel/CSV upload
+                        </Typography>
+                        <TableContainer component={Paper} variant="outlined" sx={{ mb: 3, boxShadow: 'none' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        {['Column', 'Description'].map((col) => (
+                                            <TableCell key={col} sx={{ bgcolor: '#e0f2fe', fontWeight: 800, color: '#0c4a6e' }}>
+                                                {col}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {[
+                                        { col: 'User ID', desc: 'Staff: assigned org User ID; Intern: National ID; Attachee: university/college registration number' },
+                                        { col: 'Type', desc: 'intern / attachee / (staff or employee) (only these values are allowed)' },
+                                        { col: 'Staff No', desc: 'Organization-issued staff number; leave blank for interns and attachees' },
+                                        { col: 'Full Name', desc: 'Employee or intern full name' },
+                                        { col: 'Email', desc: 'Valid email address' },
+                                        { col: 'Phone', desc: 'Phone number in international or local format' },
+                                        { col: 'Station', desc: 'Work location, branch or station assignment' },
+                                        { col: 'Department', desc: 'Assigned department or team' },
+                                        { col: 'Gender', desc: 'Gender identifier (e.g. Male, Female, Other)' },
+                                    ].map((row) => (
+                                        <TableRow key={row.col}>
+                                            <TableCell sx={{ fontWeight: 700 }}>{row.col}</TableCell>
+                                            <TableCell>{row.desc}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                            The file header must exactly include these columns in the first row. Any missing required column will prevent upload. Make sure the file is formatted as a valid Excel or CSV file before choosing it.
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 4, py: 3, bgcolor: '#eff6ff' }}>
+                        <Button onClick={() => setFormatDialogOpen(false)} variant="contained" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                            Got it
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
                 <Dialog open={errorDialogOpen} onClose={() => setErrorDialogOpen(false)} maxWidth="xs" fullWidth>
                     <DialogTitle sx={{ bgcolor: '#fef2f2', color: '#991b1b', fontWeight: 800, px: 4, py: 3 }}>
                         Registration Error
@@ -294,6 +409,9 @@ const BatchRegistration = ({ readOnly = false }) => {
                                     <Table stickyHeader size="medium">
                                         <TableHead>
                                             <TableRow>
+                                                <TableCell sx={{ bgcolor: '#f5f5f5', fontWeight: 'bold', color: '#555', whiteSpace: 'nowrap', width: '60px' }}>
+                                                    No.
+                                                </TableCell>
                                                 {headersList.map((header) => (
                                                     <TableCell
                                                         key={header}
@@ -307,6 +425,9 @@ const BatchRegistration = ({ readOnly = false }) => {
                                         <TableBody>
                                             {data.map((row, index) => (
                                                 <TableRow key={index} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                    <TableCell sx={{ minWidth: 60, fontWeight: 700 }}>
+                                                        {index + 1}
+                                                    </TableCell>
                                                     {headersList.map(field => (
                                                         <TableCell key={field} sx={{ minWidth: 150 }}>
                                                             <TextField

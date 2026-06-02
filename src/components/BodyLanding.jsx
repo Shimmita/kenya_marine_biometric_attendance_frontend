@@ -27,6 +27,7 @@ import { requestPasswordReset, resetPassword } from '../service/ResetPasswordSer
 import { markSessionStarted } from '../service/SessionTimeout';
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails from './CoreDataDetails';
+import GmailIcon from './custom/Gmail';
 
 const { colorPalette } = coreDataDetails;
 
@@ -416,7 +417,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                             justifyContent: 'center',
                                             color: '#22c55e',
                                         }}>
-                                            <Email sx={{ fontSize: 24 }} />
+                                            <GmailIcon size={24} />
                                         </Box>
                                         <Box sx={{ flex: 1 }}>
                                             <Typography variant="subtitle1" fontWeight={800} sx={{ color: colorPalette.deepNavy }}>

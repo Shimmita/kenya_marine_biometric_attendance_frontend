@@ -16,7 +16,6 @@ import {
     TablePagination, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
 import { AnimatePresence, motion as Motion, useInView } from 'framer-motion';
-import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
@@ -24,7 +23,6 @@ import {
     Legend, Line, Pie, PieChart, RadialBar, RadialBarChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
-import * as XLSX from 'xlsx';
 import { fetchOverallAttendanceRecords, fetchOverallOrgStats } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import coreDataDetails from '../CoreDataDetails';
@@ -473,20 +471,6 @@ const getPerformanceInsight = (p, isTop) => {
 };
 
 /* ── Export helpers ── */
-const exportCSV = (rows, filename) => {
-    const csv = Papa.unparse(rows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-};
-const exportExcel = (rows, filename, sheetName = 'Data') => {
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, filename);
-};
-
 /* ══════════════════════════════════════════════════════════════════════════
    AMBIENT ORBS
 ══════════════════════════════════════════════════════════════════════════ */
@@ -662,7 +646,7 @@ const TabNav = ({ activeTab, setActiveTab }) => (
 /* ══════════════════════════════════════════════════════════════════════════
    EXPORT MENU — shared across tabs
 ══════════════════════════════════════════════════════════════════════════ */
-const ExportMenu = ({ onPDF, onCSV, onExcel, loading = false }) => {
+const ExportMenu = ({ onPDF, loading = false }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [exporting, setExporting] = useState('');
     const handle = async (type, fn) => {
@@ -681,20 +665,14 @@ const ExportMenu = ({ onPDF, onCSV, onExcel, loading = false }) => {
                 <Box sx={{ px: 2, py: 1, borderBottom: '1px solid rgba(10,61,98,0.07)' }}>
                     <Typography variant="caption" fontWeight={800} color="text.disabled" sx={{ letterSpacing: 0.8, textTransform: 'uppercase', fontSize: '0.63rem' }}>Export Format</Typography>
                 </Box>
-                {[
-                    { label: 'PDF Document', type: 'pdf', fn: onPDF, color: '#ef4444' },
-                    { label: 'CSV File', type: 'csv', fn: onCSV, color: '#22c55e' },
-                    { label: 'Excel Spreadsheet', type: 'xlsx', fn: onExcel, color: '#1d6f42' },
-                ].map(({ label, type, fn, color }) => (
-                    <MenuItem key={type} onClick={() => handle(type, fn)} sx={{ py: 1.2, px: 2 }}>
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                            <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: `${color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Download sx={{ fontSize: '0.9rem', color }} />
-                            </Box>
-                            <Typography variant="body2" fontWeight={700}>{label}</Typography>
-                        </Stack>
-                    </MenuItem>
-                ))}
+                <MenuItem onClick={() => handle('pdf', onPDF)} sx={{ py: 1.2, px: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: '#ef444414', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Download sx={{ fontSize: '0.9rem', color: '#ef4444' }} />
+                        </Box>
+                        <Typography variant="body2" fontWeight={700}>PDF Document</Typography>
+                    </Stack>
+                </MenuItem>
             </Menu>
         </>
     );
@@ -1100,22 +1078,6 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         'Monthly Hours': station.totalHours,
     }));
 
-    const handleOverviewExportCSV = () => exportCSV([
-        ...summaryRows.map((row) => ({ Section: 'Summary', ...row })),
-        ...exportTrendRows.map((row) => ({ Section: `Trend ${trendView}`, ...row })),
-        ...exportDeptRows.map((row) => ({ Section: 'Department', ...row })),
-        ...exportStationRows.map((row) => ({ Section: 'Station', ...row })),
-    ], `KMFRI_Attendance_Overview_${Date.now()}.csv`);
-
-    const handleOverviewExportExcel = () => {
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportTrendRows), 'Trends');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportDeptRows), 'Departments');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportStationRows), 'Stations');
-        XLSX.writeFile(wb, `KMFRI_Attendance_Overview_${Date.now()}.xlsx`);
-    };
-
     const handleOverviewExportPDF = async () => {
         const { default: jsPDF } = await import('jspdf');
         const { default: autoTable } = await import('jspdf-autotable');
@@ -1126,7 +1088,7 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(15);
-        doc.text('KMFRI Attendance Executive Overview', pw / 2, 12, { align: 'center' });
+        doc.text('KMFRI Attendance System Executive Overview', pw / 2, 12, { align: 'center' });
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
         doc.text(`Generated ${new Date().toLocaleString()} · ${RANK_LABELS[user?.rank] || 'Executive View'} · Trend ${trendView}`, pw / 2, 21, { align: 'center' });
@@ -1189,7 +1151,7 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                             </FormControl>
                             {(selectedStation || selectedDept) && <Button variant="outlined" onClick={() => { setSelectedStation(''); setSelectedDept(''); }} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>Clear</Button>}
                         </Stack>
-                        <ExportMenu onPDF={handleOverviewExportPDF} onCSV={handleOverviewExportCSV} onExcel={handleOverviewExportExcel} loading={loading} />
+                        <ExportMenu onPDF={handleOverviewExportPDF} loading={loading} />
                     </Stack>
                 </Box>
             </Reveal>
@@ -1536,8 +1498,6 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         'Station': r.station, 'Department': r.department,
     }));
 
-    const handleExportCSV = () => exportCSV(exportRows, `KMFRI_Records_${Date.now()}.csv`);
-    const handleExportExcel = () => exportExcel(exportRows, `KMFRI_Records_${Date.now()}.xlsx`, 'Attendance Records');
     const handleExportPDF = async () => {
         const { default: jsPDF } = await import('jspdf');
         const { default: autoTable } = await import('jspdf-autotable');
@@ -1579,7 +1539,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                             <Chip label={`${filteredRecords.length} records`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />
                         </Stack>
                         <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
-                            <ExportMenu onPDF={handleExportPDF} onCSV={handleExportCSV} onExcel={handleExportExcel} loading={loading} />
+                            <ExportMenu onPDF={handleExportPDF} loading={loading} />
                         </Stack>
                     </Stack>
 
@@ -1776,8 +1736,6 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
         ...exportPerformers(topThree, 'Top Performer'),
     ];
 
-    const handleExportCSV = () => exportCSV(allExportRows, `KMFRI_Performance_${scope}_${Date.now()}.csv`);
-    const handleExportExcel = () => exportExcel(allExportRows, `KMFRI_Performance_${scope}_${Date.now()}.xlsx`, 'Performance');
     const handleExportPDF = async () => {
         const { default: jsPDF } = await import('jspdf');
         const { default: autoTable } = await import('jspdf-autotable');
@@ -1850,7 +1808,7 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
                         )}
                         {scopeReady && currentPerformers.length > 0 && (
                             <Box sx={{ ml: 'auto' }}>
-                                <ExportMenu onPDF={handleExportPDF} onCSV={handleExportCSV} onExcel={handleExportExcel} />
+                                <ExportMenu onPDF={handleExportPDF} />
                             </Box>
                         )}
                     </Stack>
