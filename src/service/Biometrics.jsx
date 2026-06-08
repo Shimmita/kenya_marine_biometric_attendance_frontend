@@ -80,7 +80,8 @@ export const registerFingerprint = async (device = {}) => {
 export const verifyFingerprint = async (
   selectedStation,
   userCoords,
-  device_fingerprint
+  device_fingerprint,
+  outsideLocation = null
 ) => {
   try {
     ensureWebAuthnSupport();
@@ -101,6 +102,7 @@ export const verifyFingerprint = async (
         selectedStation,
         userCoords,
         device_fingerprint,
+        outsideLocation,
       }
     );
 

@@ -474,14 +474,6 @@ const UserCardDepart = ({
                     {/* ── Controls — supervisor has limited permissions ── */}
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
 
-                        {/* Role — read-only for supervisor */}
-                        <ControlField label="Role" minWidth={155} disabled>
-                            <FormControl size="small" fullWidth disabled>
-                                <Select value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                    {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                        </ControlField>
 
                         <ControlField label="Department" minWidth={185} disabled={isCurrentUser}>
                             <FormControl size="small" fullWidth disabled={isCurrentUser}>

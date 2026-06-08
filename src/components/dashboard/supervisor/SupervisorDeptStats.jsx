@@ -8,10 +8,21 @@ import {
   Button,
   Chip,
   Divider,
-  Avatar,
+  Paper,
+  Stack,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TextField,
+  MenuItem,
+  Tooltip as MuiTooltip,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { fetchDepartmentStats } from "../../../service/ClockingService";
+import coreDataDetails from "../../CoreDataDetails";
 import {
   ResponsiveContainer,
   BarChart,
@@ -26,39 +37,31 @@ import {
   Pie,
   Cell,
   Legend,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
   AreaChart,
   Area,
+  ComposedChart,
 } from "recharts";
+import { Download, TrendingUp, WarningAmber, CheckCircle } from "@mui/icons-material";
+
+const { colorPalette } = coreDataDetails;
 
 /* ──────────────────────────────────────────────
-   DESIGN TOKENS
+   DESIGN TOKENS (App Consistent)
 ────────────────────────────────────────────── */
 const T = {
-  deepNavy:    "#0A2540",
-  navy:        "#0A3D62",
-  oceanBlue:   "#005B96",
-  skyBlue:     "#1E8BC3",
-  aqua:        "#00CFD5",
-  gold:        "#C9A84C",
-  goldLight:   "#F0D080",
-  coral:       "#E05C4B",
-  mint:        "#3ECFB2",
-  amber:       "#F5A623",
-  softGray:    "#E8EEF7",
-  cloudWhite:  "#F4F7FB",
-  ink:         "#1A2B3C",
-  muted:       "#637280",
-  border:      "#D0DAE8",
+  deepNavy:    colorPalette.deepNavy,
+  oceanBlue:   colorPalette.oceanBlue,
+  aqua:        colorPalette.cyanFresh,
+  coralSunset: colorPalette.coralSunset,
+  seafoamGreen: colorPalette.seafoamGreen,
+  warmSand:    colorPalette.warmSand,
+  softGray:    colorPalette.softGray,
+  cloudWhite:  colorPalette.cloudWhite,
+  charcoal:    colorPalette.charcoal,
   white:       "#FFFFFF",
 };
 
-const PIE_COLORS   = [T.mint, T.amber, T.coral];
-const RADAR_COLOR  = T.aqua;
+const PIE_COLORS = [T.seafoamGreen, T.warmSand, T.coralSunset];
 
 /* ──────────────────────────────────────────────
    CUSTOM TOOLTIP
@@ -70,18 +73,18 @@ const CustomTooltip = ({ active, payload, label }) => {
       sx={{
         background: T.deepNavy,
         border: `1px solid ${T.aqua}`,
-        borderRadius: "10px",
+        borderRadius: "8px",
         px: 2,
-        py: 1.5,
-        boxShadow: `0 8px 32px rgba(0,0,0,0.35)`,
-        minWidth: 140,
+        py: 1.2,
+        boxShadow: `0 8px 24px rgba(10,61,98,0.3)`,
+        minWidth: 120,
       }}
     >
-      <Typography sx={{ color: T.aqua, fontWeight: 700, fontSize: 12, mb: 0.5, fontFamily: "Syne, sans-serif" }}>
+      <Typography sx={{ color: T.aqua, fontWeight: 700, fontSize: 12, mb: 0.5 }}>
         {label}
       </Typography>
       {payload.map((p) => (
-        <Typography key={p.name} sx={{ color: T.white, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
+        <Typography key={p.name} sx={{ color: T.white, fontSize: 12 }}>
           <span style={{ color: p.fill || p.stroke, fontWeight: 700 }}>{p.name}: </span>
           {typeof p.value === "number" ? p.value.toFixed(1) : p.value}
         </Typography>
@@ -91,118 +94,73 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 /* ──────────────────────────────────────────────
-   SECTION HEADER
-────────────────────────────────────────────── */
-const SectionHeader = ({ title, subtitle, icon }) => (
-  <Box mb={2}>
-    <Box display="flex" alignItems="center" gap={1.2}>
-      <Box
-        sx={{
-          width: 4,
-          height: 28,
-          borderRadius: 8,
-          background: `linear-gradient(180deg, ${T.aqua}, ${T.oceanBlue})`,
-        }}
-      />
-      <Typography
-        sx={{
-          fontFamily: "Syne, sans-serif",
-          fontWeight: 800,
-          fontSize: 17,
-          color: T.ink,
-          letterSpacing: "-0.3px",
-        }}
-      >
-        {icon && <span style={{ marginRight: 6 }}>{icon}</span>}
-        {title}
-      </Typography>
-    </Box>
-    {subtitle && (
-      <Typography
-        sx={{
-          fontFamily: "DM Sans, sans-serif",
-          fontSize: 13,
-          color: T.muted,
-          mt: 0.5,
-          ml: "20px",
-          lineHeight: 1.55,
-        }}
-      >
-        {subtitle}
-      </Typography>
-    )}
-  </Box>
-);
-
-/* ──────────────────────────────────────────────
    KPI CARD
 ────────────────────────────────────────────── */
-const KpiCard = ({ label, value, icon, accent, trend }) => (
+const KpiCard = ({ label, value, icon, accent, subtext }) => (
   <Card
     elevation={0}
     sx={{
       background: T.white,
-      border: `1px solid ${T.border}`,
-      borderRadius: "16px",
+      border: `1px solid ${T.softGray}`,
+      borderRadius: "12px",
       overflow: "hidden",
-      position: "relative",
-      transition: "transform .2s, box-shadow .2s",
+      transition: "all .2s ease",
       "&:hover": {
-        transform: "translateY(-3px)",
-        boxShadow: `0 12px 40px rgba(10,61,98,0.10)`,
+        transform: "translateY(-2px)",
+        boxShadow: `0 8px 24px rgba(0,91,150,0.12)`,
       },
       "&::before": {
         content: '""',
         position: "absolute",
         top: 0, left: 0, right: 0,
-        height: 3,
-        background: `linear-gradient(90deg, ${accent}, ${accent}88)`,
+        height: 2.5,
+        background: accent,
       },
+      position: "relative",
     }}
   >
-    <CardContent sx={{ p: "22px 22px 18px" }}>
+    <CardContent sx={{ p: "16px 18px" }}>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
         <Box>
           <Typography
             sx={{
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 12,
-              fontWeight: 600,
-              color: T.muted,
+              fontSize: 11,
+              fontWeight: 700,
+              color: T.charcoal,
               textTransform: "uppercase",
-              letterSpacing: "0.8px",
+              letterSpacing: "0.5px",
               mb: 0.8,
+              opacity: 0.7,
             }}
           >
             {label}
           </Typography>
           <Typography
             sx={{
-              fontFamily: "Syne, sans-serif",
               fontWeight: 800,
-              fontSize: 30,
-              color: T.ink,
+              fontSize: 28,
+              color: T.deepNavy,
               lineHeight: 1,
             }}
           >
             {value}
           </Typography>
-          {trend && (
-            <Typography sx={{ fontSize: 12, color: T.mint, fontFamily: "DM Sans, sans-serif", mt: 0.6 }}>
-              {trend}
+          {subtext && (
+            <Typography sx={{ fontSize: 11, color: T.charcoal, opacity: 0.6, mt: 0.5 }}>
+              {subtext}
             </Typography>
           )}
         </Box>
         <Box
           sx={{
-            width: 46,
-            height: 46,
-            borderRadius: "12px",
-            background: `${accent}18`,
+            width: 42,
+            height: 42,
+            borderRadius: "10px",
+            background: `${accent}15`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 22,
+            fontSize: 20,
           }}
         >
           {icon}
@@ -215,31 +173,46 @@ const KpiCard = ({ label, value, icon, accent, trend }) => (
 /* ──────────────────────────────────────────────
    CHART WRAPPER CARD
 ────────────────────────────────────────────── */
-const ChartCard = ({ children, sx = {} }) => (
+const ChartCard = ({ title, icon, children, sx = {} }) => (
   <Card
     elevation={0}
     sx={{
       background: T.white,
-      border: `1px solid ${T.border}`,
-      borderRadius: "18px",
-      p: "26px 22px 18px",
+      border: `1px solid ${T.softGray}`,
+      borderRadius: "14px",
       ...sx,
     }}
   >
-    {children}
+    <Box sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
+      <Box display="flex" alignItems="center" gap={1}>
+        <Typography sx={{ fontSize: 18 }}>{icon}</Typography>
+        <Typography
+          sx={{
+            fontWeight: 700,
+            fontSize: 15,
+            color: T.deepNavy,
+          }}
+        >
+          {title}
+        </Typography>
+      </Box>
+    </Box>
+    <Box sx={{ px: 3, pb: 2.5 }}>
+      {children}
+    </Box>
   </Card>
 );
 
 /* ──────────────────────────────────────────────
-   BURNOUT BADGE
+   STATUS BADGE
 ────────────────────────────────────────────── */
-const BurnoutBadge = ({ level }) => {
-  const map = {
-    Low:      { bg: "#E8F7F1", color: "#1C7A56", label: "Low Risk" },
-    Moderate: { bg: "#FFF4E0", color: "#9A6B00", label: "Moderate" },
-    High:     { bg: "#FDECEA", color: "#B52A1C", label: "High Risk" },
+const StatusBadge = ({ level }) => {
+  const burnoutMap = {
+    Low:      { bg: "#E8F7F1", color: "#1C7A56", label: "✓ Low" },
+    Moderate: { bg: "#FFF4E0", color: "#9A6B00", label: "⚠ Moderate" },
+    High:     { bg: "#FDECEA", color: "#B52A1C", label: "🔴 High" },
   };
-  const s = map[level] || map["Low"];
+  const s = burnoutMap[level] || burnoutMap["Low"];
   return (
     <Chip
       label={s.label}
@@ -248,7 +221,6 @@ const BurnoutBadge = ({ level }) => {
         background: s.bg,
         color: s.color,
         fontWeight: 700,
-        fontFamily: "DM Sans, sans-serif",
         fontSize: 11,
         height: 22,
       }}
@@ -257,20 +229,57 @@ const BurnoutBadge = ({ level }) => {
 };
 
 /* ──────────────────────────────────────────────
+   INSIGHT CARD
+────────────────────────────────────────────── */
+const InsightCard = ({ title, value, trend, icon: Icon, color }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2,
+      borderRadius: "12px",
+      border: `1px solid ${T.softGray}`,
+      background: T.white,
+    }}
+  >
+    <Box display="flex" gap={1.5} alignItems="flex-start">
+      <Box
+        sx={{
+          p: 1,
+          borderRadius: "8px",
+          background: `${color}15`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon sx={{ color, fontSize: 20 }} />
+      </Box>
+      <Box flex={1}>
+        <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7, mb: 0.3 }}>
+          {title}
+        </Typography>
+        <Typography sx={{ fontWeight: 800, fontSize: 18, color: T.deepNavy }}>
+          {value}
+        </Typography>
+        {trend && (
+          <Typography sx={{ fontSize: 11, color: trend.color, fontWeight: 700, mt: 0.4 }}>
+            {trend.label}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  </Paper>
+);
+
+/* ──────────────────────────────────────────────
    MAIN COMPONENT
 ────────────────────────────────────────────── */
 const SupervisorDeptStats = () => {
   const [stats, setStats]       = useState(null);
   const [loading, setLoading]   = useState(true);
   const [exporting, setExporting] = useState(false);
-
-  // Inject Google Fonts
-  useEffect(() => {
-    const link = document.createElement("link");
-    link.rel  = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }, []);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("score");
 
   useEffect(() => {
     const loadStats = async () => {
@@ -287,6 +296,109 @@ const SupervisorDeptStats = () => {
     loadStats();
   }, []);
 
+  /* ── Derived data ── */
+  const employees = useMemo(() => stats?.employeeMetrics || [], [stats?.employeeMetrics]);
+  const topPerformers = useMemo(() => stats?.topPerformers || [], [stats?.topPerformers]);
+  const dailyTrend = useMemo(() => stats?.dailyTrend || [], [stats?.dailyTrend]);
+  const stationSummary = useMemo(() => stats?.stationSummary || [], [stats?.stationSummary]);
+
+  const sortedEmployees = useMemo(() => {
+    let sorted = [...employees];
+    
+    if (searchTerm) {
+      sorted = sorted.filter(e =>
+        (e.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.station || "").toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (sortBy === "score") {
+      sorted.sort((a, b) => b.productivityScore - a.productivityScore);
+    } else if (sortBy === "hours") {
+      sorted.sort((a, b) => parseFloat(b.hours) - parseFloat(a.hours));
+    } else if (sortBy === "late") {
+      sorted.sort((a, b) => b.lateCount - a.lateCount);
+    } else if (sortBy === "outside") {
+      sorted.sort((a, b) => (b.outsideClockingCount || 0) - (a.outsideClockingCount || 0));
+    } else if (sortBy === "open") {
+      sorted.sort((a, b) => (b.openSessions || 0) - (a.openSessions || 0));
+    }
+    
+    return sorted;
+  }, [employees, searchTerm, sortBy]);
+
+  // Chart data
+  const chartDataTop10 = employees.slice(0, 10).map((e) => ({
+    name: (e.name || "Unknown").split(" ")[0],
+    Score: Number(parseFloat(e.productivityScore || 0).toFixed(1)),
+    Hours: parseFloat(e.hours),
+    Overtime: parseFloat(e.overtime),
+  }));
+
+  const burnoutData = {
+    Low: employees.filter((e) => e.burnoutLevel === "Low").length,
+    Moderate: employees.filter((e) => e.burnoutLevel === "Moderate").length,
+    High: employees.filter((e) => e.burnoutLevel === "High").length,
+  };
+
+  const pieBurnoutData = [
+    { name: "Low", value: burnoutData.Low, fill: T.seafoamGreen },
+    { name: "Moderate", value: burnoutData.Moderate, fill: T.warmSand },
+    { name: "High", value: burnoutData.High, fill: T.coralSunset },
+  ].filter(item => item.value > 0);
+
+  const attendanceData = employees.map((e) => ({
+    name: (e.name || "Unknown").split(" ")[0],
+    Attendance: parseFloat(e.attendanceRate),
+  }));
+
+  const lateData = employees.map((e) => ({
+    name: (e.name || "Unknown").split(" ")[0],
+    Late: e.lateCount,
+  }));
+
+  const stationChartData = stationSummary.map((item) => ({
+    name: item.station,
+    Staff: item.staff,
+    Hours: item.hours,
+    Late: item.lateCount,
+    Outside: item.outsideClockingCount,
+  }));
+
+  const outsideClockingData = employees
+    .filter((e) => e.outsideClockingCount > 0 || e.canClockOutside)
+    .map((e) => ({
+      name: (e.name || "Unknown").split(" ")[0],
+      Outside: e.outsideClockingCount || 0,
+      Authorized: e.canClockOutside ? 1 : 0,
+    }));
+
+  // Metrics
+  const employeeCount = employees.length || 1;
+  const avgScore = employees.length
+    ? (
+      employees.reduce((s, e) => s + parseFloat(e.productivityScore || 0), 0) /
+      employeeCount
+    ).toFixed(1)
+    : "0.0";
+
+  const avgAttendance = employees.length
+    ? (
+      employees.reduce((s, e) => s + parseFloat(e.attendanceRate || 0), 0) /
+      employeeCount
+    ).toFixed(1)
+    : "0.0";
+
+  const highBurnout = burnoutData.High;
+  const moderateBurnout = burnoutData.Moderate;
+  const activeCoverage = stats?.totalStaff
+    ? (((stats.activeStaffThisMonth || 0) / stats.totalStaff) * 100).toFixed(1)
+    : "0.0";
+  const outsideUsageRate = stats?.totalStaff
+    ? (((stats.outsideClockingStaffCount || 0) / stats.totalStaff) * 100).toFixed(1)
+    : "0.0";
+
   if (loading)
     return (
       <Box
@@ -294,11 +406,11 @@ const SupervisorDeptStats = () => {
         flexDirection="column"
         alignItems="center"
         justifyContent="center"
-        minHeight={320}
+        minHeight={400}
         gap={2}
       >
         <CircularProgress sx={{ color: T.oceanBlue }} />
-        <Typography sx={{ fontFamily: "DM Sans, sans-serif", color: T.muted, fontSize: 14 }}>
+        <Typography sx={{ color: T.charcoal, fontSize: 14, opacity: 0.7 }}>
           Loading department analytics…
         </Typography>
       </Box>
@@ -307,70 +419,11 @@ const SupervisorDeptStats = () => {
   if (!stats)
     return (
       <Box textAlign="center" mt={6}>
-        <Typography sx={{ fontFamily: "DM Sans, sans-serif", color: T.muted }}>
+        <Typography sx={{ color: T.charcoal, opacity: 0.7 }}>
           No department data available.
         </Typography>
       </Box>
     );
-
-  /* ── Derived chart data ── */
-  const chartData = stats.employeeMetrics.map((e) => ({
-    name: e.name.split(" ")[0],
-    Hours:    Number(e.hours),
-    Overtime: Number(e.overtime),
-    Score:    Number(e.productivityScore),
-  }));
-
-  const burnoutData = ["Low", "Moderate", "High"].map((level) => ({
-    level,
-    count: stats.employeeMetrics.filter((e) => e.burnoutLevel === level).length,
-  }));
-
-  const attendanceData = stats.employeeMetrics.map((e) => ({
-    name:       e.name.split(" ")[0],
-    Attendance: parseFloat(e.attendanceRate),
-  }));
-
-  const lateData = stats.employeeMetrics.map((e) => ({
-    name: e.name.split(" ")[0],
-    Late: e.lateCount,
-  }));
-
-  // Radar data — top 5 by score
-  const radarData = stats.employeeMetrics.slice(0, 5).map((e) => ({
-    subject: e.name.split(" ")[0],
-    Score:   Number(e.productivityScore),
-    Hours:   Number(e.hours),
-  }));
-
-  // Pie — burnout distribution
-  const pieBurnout = burnoutData.filter((b) => b.count > 0);
-
-  // Line — score trend (using sorted order as proxy timeline)
-  const scoreTrend = [...stats.employeeMetrics]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((e, i) => ({
-      name:  e.name.split(" ")[0],
-      Score: Number(e.productivityScore),
-      Hours: Number(e.hours),
-    }));
-
-  /* ── Executive summary ── */
-  const highBurnout = burnoutData.find((b) => b.level === "High")?.count || 0;
-  const avgScore = (
-    stats.employeeMetrics.reduce((s, e) => s + Number(e.productivityScore), 0) /
-    stats.employeeMetrics.length
-  ).toFixed(1);
-
-  const executiveSummary = `The ${stats.department} department has ${stats.totalStaff} staff members this reporting period. The average productivity score is ${avgScore}, with a total of ${stats.totalOvertime} hours of overtime logged.
-
-${
-    highBurnout > 0
-      ? `⚠ ${highBurnout} employee(s) are flagged at HIGH burnout risk due to excessive overtime. Immediate workload review is recommended.`
-      : "✓ No employees are currently at high burnout risk."
-  }
-
-Late arrivals total ${stats.totalLateCount} occurrences, representing a discipline pattern that should be monitored. Top performer is ${stats.topPerformers[0]?.name || "N/A"} with a productivity score of ${stats.topPerformers[0]?.productivityScore?.toFixed(1) || "N/A"}.`;
 
   /* ── PDF Export ── */
   const handleExportPDF = async () => {
@@ -384,76 +437,67 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
       const ph  = doc.internal.pageSize.getHeight();
 
       // ── Header band ──
-      doc.setFillColor(10, 37, 64);
-      doc.rect(0, 0, pw, 36, "F");
+      doc.setFillColor(10, 61, 98);
+      doc.rect(0, 0, pw, 32, "F");
 
-      doc.setFillColor(0, 207, 213);
-      doc.rect(0, 36, pw, 2, "F");
+      doc.setFillColor(54, 141, 197);
+      doc.rect(0, 32, pw, 2, "F");
 
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      doc.text("Kenya Marine and Fisheries Research Institute", pw / 2, 13, { align: "center" });
+      doc.setFontSize(14);
+      doc.text("Kenya Marine and Fisheries Research Institute", pw / 2, 11, { align: "center" });
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(180, 220, 240);
-      doc.text(`${stats.department} Department — Performance Report`, pw / 2, 22, { align: "center" });
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-KE", { dateStyle: "long" })}`, pw / 2, 30, { align: "center" });
+      doc.text(`${stats.department} Department — Performance Report`, pw / 2, 19, { align: "center" });
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-KE", { dateStyle: "long" })}`, pw / 2, 26, { align: "center" });
 
       // ── KPI Row ──
       const kpis = [
-        ["Total Staff",   stats.totalStaff],
-        ["Total Hours",   stats.totalHours],
-        ["Overtime Hrs",  stats.totalOvertime],
-        ["Late Events",   stats.totalLateCount],
-        ["Avg Score",     avgScore],
-        ["High Burnout",  highBurnout],
+        ["Staff", stats.totalStaff],
+        ["Hours", stats.totalHours],
+        ["OT Hrs", stats.totalOvertime],
+        ["Late", stats.totalLateCount],
+        ["Avg Score", avgScore],
+        ["Burnout High", highBurnout],
       ];
 
       const boxW = (pw - 30) / kpis.length;
       kpis.forEach(([lbl, val], i) => {
         const x = 15 + i * boxW;
-        doc.setFillColor(234, 241, 249);
-        doc.roundedRect(x, 44, boxW - 4, 22, 2, 2, "F");
+        doc.setFillColor(232, 238, 247);
+        doc.roundedRect(x, 40, boxW - 4, 18, 1.5, 1.5, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
+        doc.setFontSize(13);
         doc.setTextColor(10, 61, 98);
-        doc.text(String(val), x + (boxW - 4) / 2, 54, { align: "center" });
+        doc.text(String(val), x + (boxW - 4) / 2, 48, { align: "center" });
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(100, 120, 140);
-        doc.text(lbl, x + (boxW - 4) / 2, 61, { align: "center" });
+        doc.text(lbl, x + (boxW - 4) / 2, 56, { align: "center" });
       });
-
-      // ── Executive Summary ──
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(10, 37, 64);
-      doc.text("Executive Summary", 15, 76);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(60, 80, 100);
-      const summaryLines = doc.splitTextToSize(executiveSummary, pw - 30);
-      doc.text(summaryLines, 15, 83);
 
       // ── Employee Table ──
       autoTable(doc, {
-        startY: 83 + summaryLines.length * 4 + 6,
-        head: [["#", "Name", "Station", "Hours", "Overtime", "Attendance", "Productivity", "Late", "Burnout"]],
-        body: stats.employeeMetrics.map((e, i) => [
+        startY: 62,
+        head: [["#", "Name", "Station", "Hours", "OT", "Att%", "Score", "Late", "Outside", "Open", "Risk"]],
+        body: sortedEmployees.slice(0, 50).map((e, i) => [
           i + 1,
           e.name,
           e.station,
           e.hours,
           e.overtime,
           e.attendanceRate,
-          Number(e.productivityScore).toFixed(1),
+          parseFloat(e.productivityScore).toFixed(1),
           e.lateCount,
+          e.outsideClockingCount || 0,
+          e.openSessions || 0,
           e.burnoutLevel,
         ]),
         headStyles: {
-          fillColor: [10, 37, 64],
+          fillColor: [10, 61, 98],
           textColor: [255, 255, 255],
           fontStyle: "bold",
           fontSize: 8,
@@ -461,9 +505,9 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
         bodyStyles:  { fontSize: 8, textColor: [40, 60, 80] },
         alternateRowStyles: { fillColor: [240, 245, 252] },
         didParseCell(data) {
-          if (data.column.index === 8 && data.section === "body") {
+          if (data.column.index === 10 && data.section === "body") {
             const v = data.cell.raw;
-            if (v === "High")     data.cell.styles.textColor = [180, 42, 28];
+            if (v === "High")     data.cell.styles.textColor = [181, 42, 28];
             if (v === "Moderate") data.cell.styles.textColor = [154, 107, 0];
             if (v === "Low")      data.cell.styles.textColor = [28, 122, 86];
           }
@@ -471,39 +515,39 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
       });
 
       // ── Top Performers section ──
-      const finalY = (doc.lastAutoTable?.finalY || ph - 50) + 10;
-      if (finalY < ph - 40) {
+      const finalY = (doc.lastAutoTable?.finalY || ph - 50) + 8;
+      if (finalY < ph - 30) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
-        doc.setTextColor(10, 37, 64);
+        doc.setTextColor(10, 61, 98);
         doc.text("🏆 Top 3 Performers", 15, finalY);
 
-        stats.topPerformers.slice(0, 3).forEach((p, i) => {
+        topPerformers.slice(0, 3).forEach((p, i) => {
           const medal = ["🥇", "🥈", "🥉"][i];
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8);
           doc.setTextColor(40, 60, 80);
           doc.text(
-            `${medal} ${p.name}  |  Score: ${Number(p.productivityScore).toFixed(1)}  |  ${p.station}`,
+            `${medal} ${p.name}  |  Score: ${parseFloat(p.productivityScore).toFixed(1)}  |  ${p.station}`,
             20,
-            finalY + 7 + i * 7
+            finalY + 6 + i * 6
           );
         });
       }
 
       // ── Footer ──
-      doc.setFillColor(10, 37, 64);
-      doc.rect(0, ph - 12, pw, 12, "F");
+      doc.setFillColor(10, 61, 98);
+      doc.rect(0, ph - 10, pw, 10, "F");
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(180, 200, 220);
-      doc.text("KMFRI Confidential — For Internal Use Only", pw / 2, ph - 4, { align: "center" });
+      doc.text("KMFRI Confidential — For Internal Use Only", pw / 2, ph - 3, { align: "center" });
 
       doc.save(
         `KMFRI_${stats.department}_Report_${new Date().toISOString().split("T")[0]}.pdf`
       );
     } catch (err) {
-      console.error(err);
+      console.error("Export error:", err);
     } finally {
       setExporting(false);
     }
@@ -515,185 +559,93 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
   return (
     <Box
       sx={{
-        background: "#F0F4FA",
+        background: T.cloudWhite,
         minHeight: "100vh",
-        fontFamily: "DM Sans, sans-serif",
-        pb: 8,
+        pb: 6,
       }}
     >
       {/* ════ HERO HEADER ════ */}
       <Box
         sx={{
-          background: `linear-gradient(130deg, ${T.deepNavy} 0%, ${T.navy} 55%, ${T.oceanBlue} 100%)`,
-          px: { xs: 3, md: 5 },
-          pt: 5,
-          pb: 4,
-          position: "relative",
-          overflow: "hidden",
+          background: colorPalette.oceanGradient,
+          px: { xs: 2.5, md: 4 },
+          pt: 4,
+          pb: 3,
+          color: T.white,
         }}
       >
-        {/* decorative circles */}
-        {[
-          { size: 320, top: -120, right: -60,  opacity: 0.07 },
-          { size: 180, top:   40, right:  160, opacity: 0.06 },
-          { size:  90, top:  -20, right:  320, opacity: 0.09 },
-        ].map((c, i) => (
-          <Box
-            key={i}
-            sx={{
-              position: "absolute",
-              top: c.top,
-              right: c.right,
-              width: c.size,
-              height: c.size,
-              borderRadius: "50%",
-              border: `1.5px solid ${T.aqua}`,
-              opacity: c.opacity,
-              pointerEvents: "none",
-            }}
-          />
-        ))}
-
-        {/* KMFRI badge */}
-        <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: "10px",
-              background: `linear-gradient(135deg, ${T.aqua}, ${T.oceanBlue})`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              flexShrink: 0,
-            }}
-          >
-            🌊
-          </Box>
-          <Box>
+        <Grid container spacing={2} alignItems="flex-end">
+          <Grid item xs={12} md={8}>
             <Typography
               sx={{
-                fontFamily: "Syne, sans-serif",
                 fontWeight: 800,
-                fontSize: 11,
-                color: T.aqua,
-                letterSpacing: "2px",
-                textTransform: "uppercase",
+                fontSize: { xs: 22, md: 28 },
+                color: T.white,
+                mb: 0.5,
               }}
             >
-              KMFRI
+              {stats.department}
             </Typography>
             <Typography
               sx={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 11,
-                color: "rgba(255,255,255,0.55)",
-                lineHeight: 1,
+                fontSize: 14,
+                color: "rgba(255,255,255,0.75)",
               }}
             >
-              Kenya Marine &amp; Fisheries Research Institute
+              Supervisor Performance Dashboard — {stats.totalStaff} Staff Members
             </Typography>
-          </Box>
-        </Box>
-
-        <Typography
-          sx={{
-            fontFamily: "Syne, sans-serif",
-            fontWeight: 800,
-            fontSize: { xs: 22, md: 28 },
-            color: T.white,
-            letterSpacing: "-0.5px",
-            lineHeight: 1.15,
-          }}
-        >
-          {stats.department}
-        </Typography>
-        <Typography
-          sx={{
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            color: "rgba(255,255,255,0.55)",
-            mt: 0.4,
-          }}
-        >
-          Supervisor Performance Dashboard
-        </Typography>
-
-        {/* date + export row */}
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          mt={3}
-          flexWrap="wrap"
-          gap={2}
-        >
-          <Box display="flex" gap={1} flexWrap="wrap">
+          </Grid>
+          <Grid item xs={12} md={4} display="flex" gap={1.5} justifyContent={{ xs: "flex-start", md: "flex-end" }}>
             <Chip
-              label={`${stats.totalStaff} Staff Members`}
+              label={new Date().toLocaleDateString("en-KE", { month: "short", year: "numeric" })}
               size="small"
               sx={{
-                background: "rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.15)",
                 color: T.white,
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 12,
                 fontWeight: 600,
-                border: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 12,
               }}
             />
-            <Chip
-              label={new Date().toLocaleDateString("en-KE", { month: "long", year: "numeric" })}
-              size="small"
+            <Button
+              variant="contained"
+              onClick={handleExportPDF}
+              disabled={exporting}
+              startIcon={<Download />}
               sx={{
-                background: "rgba(0,207,213,0.15)",
-                color: T.aqua,
-                fontFamily: "DM Sans, sans-serif",
+                background: T.warmSand,
+                color: T.deepNavy,
+                fontWeight: 700,
                 fontSize: 12,
-                fontWeight: 600,
-                border: `1px solid ${T.aqua}44`,
+                textTransform: "none",
+                borderRadius: "8px",
+                px: 2,
+                py: 0.8,
+                "&:hover": {
+                  background: T.warmSand + "dd",
+                },
+                "&:disabled": { opacity: 0.6 },
               }}
-            />
-          </Box>
-
-          <Button
-            variant="contained"
-            onClick={handleExportPDF}
-            disabled={exporting}
-            startIcon={<span style={{ fontSize: 16 }}>⬇</span>}
-            sx={{
-              background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-              color: T.deepNavy,
-              fontFamily: "Syne, sans-serif",
-              fontWeight: 700,
-              fontSize: 13,
-              textTransform: "none",
-              borderRadius: "10px",
-              px: 3,
-              py: 1,
-              boxShadow: `0 4px 20px rgba(201,168,76,0.4)`,
-              "&:hover": {
-                background: `linear-gradient(135deg, ${T.goldLight}, ${T.gold})`,
-                boxShadow: `0 6px 28px rgba(201,168,76,0.55)`,
-              },
-              "&:disabled": { opacity: 0.7 },
-            }}
-          >
-            {exporting ? "Generating PDF…" : "Download Report"}
-          </Button>
-        </Box>
+            >
+              {exporting ? "Generating..." : "Download"}
+            </Button>
+          </Grid>
+        </Grid>
       </Box>
 
       {/* ════ PAGE CONTENT ════ */}
-      <Box px={{ xs: 2, md: 5 }} mt={4}>
+      <Box px={{ xs: 2.5, md: 4 }} mt={3.5}>
 
         {/* ── KPI CARDS ── */}
         <Grid container spacing={2.5} mb={4}>
           {[
-            { label: "Total Staff",      value: stats.totalStaff,      icon: "👥", accent: T.oceanBlue, trend: "Active this month" },
-            { label: "Hours Worked",     value: stats.totalHours,      icon: "⏱",  accent: T.mint,      trend: "Dept total" },
-            { label: "Overtime Hours",   value: stats.totalOvertime,   icon: "🔥", accent: T.amber,     trend: "Accumulated" },
-            { label: "Late Occurrences", value: stats.totalLateCount,  icon: "⚠", accent: T.coral,     trend: "This period" },
+            { label: "Total Staff", value: stats.totalStaff, icon: "👥", accent: T.oceanBlue, subtext: "Active this month" },
+            { label: "Hours Worked", value: stats.totalHours, icon: "⏱", accent: T.seafoamGreen, subtext: "Dept total" },
+            { label: "Overtime Hours", value: stats.totalOvertime, icon: "🔥", accent: T.warmSand, subtext: "Accumulated" },
+            { label: "Late Arrivals", value: stats.totalLateCount, icon: "⚠️", accent: T.coralSunset, subtext: "This period" },
+            { label: "Active Coverage", value: `${activeCoverage}%`, icon: "📌", accent: T.aqua, subtext: `${stats.activeStaffThisMonth || 0} staff with records` },
+            { label: "Clocked In Now", value: stats.clockedInNow || 0, icon: "🟢", accent: T.seafoamGreen, subtext: "Open sessions" },
+            { label: "Outside Clocking", value: stats.outsideClockingCount || 0, icon: "📍", accent: T.oceanBlue, subtext: `${outsideUsageRate}% staff usage` },
+            { label: "On Leave", value: stats.onLeaveCount || 0, icon: "🏖", accent: T.warmSand, subtext: "From user profiles" },
           ].map((kpi) => (
             <Grid item xs={12} sm={6} md={3} key={kpi.label}>
               <KpiCard {...kpi} />
@@ -701,27 +653,97 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
           ))}
         </Grid>
 
+        {/* ── INSIGHT ROW ── */}
+        <Grid container spacing={2.5} mb={4}>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Avg Productivity"
+              value={avgScore}
+              icon={TrendingUp}
+              color={T.oceanBlue}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Avg Attendance"
+              value={`${avgAttendance}%`}
+              icon={CheckCircle}
+              color={T.seafoamGreen}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Moderate Risk"
+              value={moderateBurnout}
+              icon={WarningAmber}
+              color={T.warmSand}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="High Risk Staff"
+              value={highBurnout}
+              icon={WarningAmber}
+              color={highBurnout > 0 ? T.coralSunset : T.seafoamGreen}
+              trend={highBurnout > 0 ? { label: "Action needed", color: T.coralSunset } : { label: "No concerns", color: T.seafoamGreen }}
+            />
+          </Grid>
+        </Grid>
+
+        {/* ── OPERATIONAL SUMMARY ── */}
+        <Grid container spacing={2.5} mb={4}>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Avg Clock In"
+              value={stats.avgClockIn || "—"}
+              icon={CheckCircle}
+              color={T.oceanBlue}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Avg Clock Out"
+              value={stats.avgClockOut || "—"}
+              icon={CheckCircle}
+              color={T.seafoamGreen}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Today's Clock-ins"
+              value={stats.today?.clockIns || 0}
+              icon={TrendingUp}
+              color={T.aqua}
+              trend={{ label: `${stats.today?.late || 0} late today`, color: (stats.today?.late || 0) > 0 ? T.coralSunset : T.seafoamGreen }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InsightCard
+              title="Outside Authorized"
+              value={stats.outsideAuthorizedCount || 0}
+              icon={WarningAmber}
+              color={T.warmSand}
+              trend={{ label: `${stats.outsideClockingStaffCount || 0} used this month`, color: T.oceanBlue }}
+            />
+          </Grid>
+        </Grid>
+
         {/* ── ROW 1: Productivity Bar + Burnout Pie ── */}
         <Grid container spacing={3} mb={3}>
           {/* Productivity Score Bar */}
           <Grid item xs={12} md={8}>
-            <ChartCard>
-              <SectionHeader
-                title="Productivity Scores"
-                icon="📊"
-                subtitle="Composite score = (hours × 0.6) + (overtime × 0.5) − (late × 1.5). Higher indicates greater contribution and punctuality."
-              />
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData} barCategoryGap="30%">
+            <ChartCard title="Productivity Scores (Top 10)" icon="📊">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartDataTop10}>
                   <defs>
                     <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.aqua}      stopOpacity={0.9} />
-                      <stop offset="100%" stopColor={T.oceanBlue} stopOpacity={0.7} />
+                      <stop offset="0%" stopColor={T.oceanBlue} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={T.aqua} stopOpacity={0.6} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="Score" fill="url(#scoreGrad)" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -731,69 +753,53 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
 
           {/* Burnout Pie */}
           <Grid item xs={12} md={4}>
-            <ChartCard sx={{ height: "100%" }}>
-              <SectionHeader
-                title="Burnout Risk"
-                icon="🔥"
-                subtitle="Distribution based on overtime thresholds (>10 h = Moderate, >20 h = High)."
-              />
-              <ResponsiveContainer width="100%" height={260}>
+            <ChartCard title="Burnout Distribution" icon="🔥" sx={{ height: "100%" }}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
-                    data={pieBurnout}
-                    dataKey="count"
-                    nameKey="level"
+                    data={pieBurnoutData}
+                    dataKey="value"
+                    nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={90}
-                    innerRadius={50}
-                    paddingAngle={4}
-                    label={({ level, percent }) =>
-                      `${level} ${(percent * 100).toFixed(0)}%`
+                    outerRadius={85}
+                    innerRadius={45}
+                    paddingAngle={3}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
                     }
                     labelLine={false}
                   >
-                    {pieBurnout.map((entry, i) => (
-                      <Cell key={i} fill={PIE_COLORS[["Low","Moderate","High"].indexOf(entry.level)]} />
+                    {pieBurnoutData.map((entry, i) => (
+                      <Cell key={`cell-${i}`} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(val, name) => [val, name]}
-                    contentStyle={{ fontFamily: "DM Sans, sans-serif", borderRadius: 10 }}
-                  />
-                  <Legend
-                    iconType="circle"
-                    wrapperStyle={{ fontFamily: "DM Sans, sans-serif", fontSize: 12 }}
-                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
           </Grid>
         </Grid>
 
-        {/* ── ROW 2: Attendance Area + Late Bar ── */}
+        {/* ── ROW 2: Attendance + Late Arrivals ── */}
         <Grid container spacing={3} mb={3}>
           {/* Attendance Area */}
           <Grid item xs={12} md={6}>
-            <ChartCard>
-              <SectionHeader
-                title="Attendance Rate"
-                icon="📅"
-                subtitle="Percentage of working days each employee was present this month. Target ≥ 90%."
-              />
-              <ResponsiveContainer width="100%" height={270}>
+            <ChartCard title="Attendance Rate" icon="📅">
+              <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={attendanceData}>
                   <defs>
                     <linearGradient id="attendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={T.mint}  stopOpacity={0.4} />
-                      <stop offset="100%" stopColor={T.mint}  stopOpacity={0}   />
+                      <stop offset="0%" stopColor={T.seafoamGreen} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={T.seafoamGreen} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="Attendance" stroke={T.mint} strokeWidth={2.5} fill="url(#attendGrad)" dot={{ r: 4, fill: T.mint }} activeDot={{ r: 6 }} />
+                  <Area type="monotone" dataKey="Attendance" stroke={T.seafoamGreen} strokeWidth={2.5} fill="url(#attendGrad)" dot={{ r: 3, fill: T.seafoamGreen }} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -801,23 +807,18 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
 
           {/* Late Arrivals Bar */}
           <Grid item xs={12} md={6}>
-            <ChartCard>
-              <SectionHeader
-                title="Late Arrival Frequency"
-                icon="🕐"
-                subtitle="Number of late clock-ins per employee. High counts signal punctuality issues requiring follow-up."
-              />
-              <ResponsiveContainer width="100%" height={270}>
+            <ChartCard title="Late Arrivals by Employee" icon="🕐">
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={lateData} barCategoryGap="35%">
                   <defs>
                     <linearGradient id="lateGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={T.amber} stopOpacity={0.95} />
-                      <stop offset="100%" stopColor={T.coral} stopOpacity={0.75} />
+                      <stop offset="0%" stopColor={T.warmSand} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={T.coralSunset} stopOpacity={0.7} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="Late" fill="url(#lateGrad)" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -826,57 +827,47 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
           </Grid>
         </Grid>
 
-        {/* ── ROW 3: Hours vs Overtime Grouped + Score Line ── */}
+        {/* ── ROW 3: Hours vs Overtime + Score Trend ── */}
         <Grid container spacing={3} mb={3}>
-          {/* Hours vs Overtime Grouped */}
+          {/* Hours vs Overtime */}
           <Grid item xs={12} md={7}>
-            <ChartCard>
-              <SectionHeader
-                title="Hours vs Overtime"
-                icon="⚡"
-                subtitle="Side-by-side comparison of regular hours and overtime per employee. Persistent overtime disparity may indicate understaffing."
-              />
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData} barCategoryGap="25%" barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+            <ChartCard title="Hours vs Overtime Comparison" icon="⚡">
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={chartDataTop10}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontFamily: "DM Sans, sans-serif", fontSize: 12, paddingTop: 8 }} />
-                  <Bar dataKey="Hours"    fill={T.oceanBlue} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Overtime" fill={T.coral}     radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Bar dataKey="Hours" fill={T.oceanBlue} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Overtime" fill={T.coralSunset} radius={[4, 4, 0, 0]} />
+                </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
           </Grid>
 
           {/* Score Line Trend */}
           <Grid item xs={12} md={5}>
-            <ChartCard>
-              <SectionHeader
-                title="Score Trend (Alphabetical)"
-                icon="📈"
-                subtitle="Productivity score sweep across all employees. Identifies outliers in either direction."
-              />
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={scoreTrend}>
+            <ChartCard title="Productivity Trend" icon="📈">
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={chartDataTop10}>
                   <defs>
                     <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"   stopColor={T.aqua}      />
+                      <stop offset="0%" stopColor={T.aqua} />
                       <stop offset="100%" stopColor={T.oceanBlue} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Line
                     type="monotone"
                     dataKey="Score"
                     stroke="url(#lineGrad)"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: T.aqua, strokeWidth: 0 }}
-                    activeDot={{ r: 7, fill: T.white, stroke: T.aqua, strokeWidth: 2 }}
+                    dot={{ r: 4, fill: T.aqua }}
+                    activeDot={{ r: 6, fill: T.white, stroke: T.aqua, strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -884,132 +875,135 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
           </Grid>
         </Grid>
 
-        {/* ── ROW 4: Radar ── */}
+        {/* ── ROW 4: Daily Trend + Station Summary ── */}
         <Grid container spacing={3} mb={3}>
-          <Grid item xs={12} md={5}>
-            <ChartCard>
-              <SectionHeader
-                title="Multi-Metric Radar"
-                icon="🎯"
-                subtitle="Radar overlay of productivity score vs hours for top-5 employees — reveals balanced vs imbalanced contributors."
-              />
-              <ResponsiveContainer width="100%" height={300}>
-                <RadarChart data={radarData} cx="50%" cy="50%" outerRadius={100}>
-                  <PolarGrid stroke={T.border} />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} />
-                  <PolarRadiusAxis angle={30} tick={{ fontSize: 10, fill: T.muted }} axisLine={false} />
-                  <Radar name="Score" dataKey="Score" stroke={T.aqua}      fill={T.aqua}      fillOpacity={0.25} strokeWidth={2} />
-                  <Radar name="Hours" dataKey="Hours" stroke={T.oceanBlue} fill={T.oceanBlue} fillOpacity={0.15} strokeWidth={2} />
-                  <Legend wrapperStyle={{ fontFamily: "DM Sans, sans-serif", fontSize: 12 }} />
+          <Grid item xs={12} md={7}>
+            <ChartCard title="Department Clocking Trend" icon="📈">
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                </RadarChart>
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Bar yAxisId="left" dataKey="clockIns" name="Clock Ins" fill={T.oceanBlue} radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="outsideClocking" name="Outside" fill={T.warmSand} radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="hours" name="Hours" stroke={T.seafoamGreen} strokeWidth={2.5} dot={{ r: 3, fill: T.seafoamGreen }} />
+                </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
           </Grid>
 
-          {/* Hours Area chart */}
-          <Grid item xs={12} md={7}>
-            <ChartCard>
-              <SectionHeader
-                title="Hours Worked — Area View"
-                icon="🕓"
-                subtitle="Smooth area representation of total hours worked per employee, useful for spotting workload concentration."
-              />
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="hoursGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={T.oceanBlue} stopOpacity={0.45} />
-                      <stop offset="100%" stopColor={T.oceanBlue} stopOpacity={0}    />
-                    </linearGradient>
-                    <linearGradient id="otGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={T.coral} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={T.coral} stopOpacity={0}    />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: T.muted }} axisLine={false} tickLine={false} />
+          <Grid item xs={12} md={5}>
+            <ChartCard title="Station Workload Summary" icon="🏢">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={stationChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10, fill: T.charcoal, opacity: 0.75 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontFamily: "DM Sans, sans-serif", fontSize: 12 }} />
-                  <Area type="monotone" dataKey="Hours"    stroke={T.oceanBlue} strokeWidth={2} fill="url(#hoursGrad)" dot={{ r: 3, fill: T.oceanBlue }} />
-                  <Area type="monotone" dataKey="Overtime" stroke={T.coral}     strokeWidth={2} fill="url(#otGrad)"    dot={{ r: 3, fill: T.coral }}     />
-                </AreaChart>
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Bar dataKey="Hours" fill={T.oceanBlue} radius={[0, 5, 5, 0]} />
+                  <Bar dataKey="Late" fill={T.coralSunset} radius={[0, 5, 5, 0]} />
+                  <Bar dataKey="Outside" fill={T.warmSand} radius={[0, 5, 5, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </ChartCard>
           </Grid>
         </Grid>
 
+        {/* ── ROW 5: Outside Clocking Focus ── */}
+        {outsideClockingData.length > 0 && (
+          <Grid container spacing={3} mb={3}>
+            <Grid item xs={12}>
+              <ChartCard title="Outside Clocking Usage" icon="📍">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={outsideClockingData} barCategoryGap="35%">
+                    <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                    <Bar dataKey="Outside" name="Outside Clockings" fill={T.oceanBlue} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+          </Grid>
+        )}
+
         {/* ── TOP 3 PERFORMERS ── */}
         <Box mb={3}>
-          <SectionHeader
-            title="Top 3 Performers"
-            icon="🏆"
-            subtitle="Ranked by composite productivity score for this reporting period."
-          />
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: 16,
+              color: T.deepNavy,
+              mb: 2,
+            }}
+          >
+            🏆 Top 3 Performers
+          </Typography>
           <Grid container spacing={2.5}>
-            {stats.topPerformers.map((emp, index) => {
+            {topPerformers.map((emp, index) => {
               const medals = ["🥇", "🥈", "🥉"];
-              const accents = [T.gold, T.muted, T.amber];
               return (
                 <Grid item xs={12} md={4} key={emp.email}>
                   <Card
                     elevation={0}
                     sx={{
-                      border: `1px solid ${index === 0 ? T.gold + "60" : T.border}`,
-                      borderRadius: "16px",
-                      background: index === 0
-                        ? `linear-gradient(135deg, #FFFBEF, #FFF6D6)`
-                        : T.white,
-                      transition: "transform .2s, box-shadow .2s",
+                      border: `1.5px solid ${index === 0 ? T.warmSand + "60" : T.softGray}`,
+                      borderRadius: "12px",
+                      background: index === 0 ? "#FFFBEF" : T.white,
+                      transition: "all .2s",
                       "&:hover": {
                         transform: "translateY(-2px)",
-                        boxShadow: `0 8px 30px rgba(0,0,0,0.08)`,
+                        boxShadow: `0 8px 24px rgba(0,91,150,0.12)`,
                       },
                     }}
                   >
-                    <CardContent sx={{ p: "20px 22px" }}>
-                      <Box display="flex" alignItems="center" gap={1.5} mb={1.5}>
+                    <CardContent sx={{ p: "18px" }}>
+                      <Box display="flex" alignItems="center" gap={1.2} mb={1.5}>
                         <Typography sx={{ fontSize: 28 }}>{medals[index]}</Typography>
                         <Box>
                           <Typography
                             sx={{
-                              fontFamily: "Syne, sans-serif",
                               fontWeight: 700,
-                              fontSize: 15,
-                              color: T.ink,
-                              lineHeight: 1.2,
+                              fontSize: 14,
+                              color: T.deepNavy,
                             }}
                           >
                             {emp.name}
                           </Typography>
-                          <Typography sx={{ fontFamily: "DM Sans, sans-serif", fontSize: 12, color: T.muted }}>
+                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
                             {emp.station}
                           </Typography>
                         </Box>
                       </Box>
-                      <Divider sx={{ my: 1.5, borderColor: T.border }} />
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Typography sx={{ fontFamily: "DM Sans, sans-serif", fontSize: 12, color: T.muted }}>
-                          Productivity Score
-                        </Typography>
-                        <Typography
-                          sx={{
-                            fontFamily: "Syne, sans-serif",
-                            fontWeight: 800,
-                            fontSize: 18,
-                            color: accents[index] === T.muted ? T.ink : accents[index],
-                          }}
-                        >
-                          {Number(emp.productivityScore).toFixed(1)}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.5}>
-                        <Typography sx={{ fontFamily: "DM Sans, sans-serif", fontSize: 12, color: T.muted }}>
-                          Burnout Risk
-                        </Typography>
-                        <BurnoutBadge level={emp.burnoutLevel} />
-                      </Box>
+                      <Divider sx={{ my: 1.2, borderColor: T.softGray }} />
+                      <Stack spacing={1}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
+                            Productivity
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontWeight: 800,
+                              fontSize: 16,
+                              color: T.deepNavy,
+                            }}
+                          >
+                            {parseFloat(emp.productivityScore).toFixed(1)}
+                          </Typography>
+                        </Box>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
+                            Burnout Risk
+                          </Typography>
+                          <StatusBadge level={emp.burnoutLevel} />
+                        </Box>
+                      </Stack>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -1018,120 +1012,147 @@ Late arrivals total ${stats.totalLateCount} occurrences, representing a discipli
           </Grid>
         </Box>
 
-        {/* ── EXECUTIVE SUMMARY ── */}
+        {/* ── EMPLOYEE RECORDS TABLE ── */}
         <Box mb={3}>
-          <Card
-            elevation={0}
-            sx={{
-              border: `1px solid ${T.border}`,
-              borderRadius: "18px",
-              overflow: "hidden",
-              background: T.white,
-            }}
-          >
-            <Box
-              sx={{
-                background: `linear-gradient(90deg, ${T.deepNavy} 0%, ${T.navy} 100%)`,
-                px: 3,
-                py: 2,
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-              }}
-            >
-              <Typography sx={{ fontSize: 20 }}>📋</Typography>
-              <Typography
-                sx={{
-                  fontFamily: "Syne, sans-serif",
-                  fontWeight: 700,
-                  fontSize: 15,
-                  color: T.white,
-                }}
-              >
-                Executive Summary
-              </Typography>
-              <Chip
-                label="Supervisor View"
-                size="small"
-                sx={{
-                  ml: "auto",
-                  background: `${T.aqua}22`,
-                  color: T.aqua,
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  border: `1px solid ${T.aqua}44`,
-                }}
-              />
-            </Box>
-            <CardContent sx={{ px: 3, py: 2.5 }}>
-              <Typography
-                sx={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 14,
-                  color: T.ink,
-                  lineHeight: 1.8,
-                  whiteSpace: "pre-line",
-                }}
-              >
-                {executiveSummary}
-              </Typography>
-
-              {/* quick stat pills */}
-              <Box display="flex" gap={1.5} mt={2.5} flexWrap="wrap">
-                {[
-                  { label: `Avg Score: ${avgScore}`,          color: T.aqua },
-                  { label: `Top: ${stats.topPerformers[0]?.name?.split(" ")[0]}`, color: T.gold },
-                  { label: `${highBurnout} High-Burnout`,     color: highBurnout > 0 ? T.coral : T.mint },
-                ].map((pill) => (
-                  <Box
-                    key={pill.label}
+          <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
+            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
+                  📋 Employee Performance Records
+                </Typography>
+                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
+                  <TextField
+                    size="small"
+                    placeholder="Search by name, email, or station..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     sx={{
-                      background: `${pill.color}14`,
-                      border: `1px solid ${pill.color}40`,
-                      borderRadius: "8px",
-                      px: 1.8,
-                      py: 0.6,
+                      width: { xs: "100%", sm: "200px" },
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    sx={{
+                      width: "120px",
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                      },
                     }}
                   >
-                    <Typography
-                      sx={{
-                        fontFamily: "DM Sans, sans-serif",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        color: pill.color,
-                      }}
-                    >
-                      {pill.label}
-                    </Typography>
-                  </Box>
-                ))}
+                    <MenuItem value="score">Sort by Score</MenuItem>
+                    <MenuItem value="hours">Sort by Hours</MenuItem>
+                    <MenuItem value="late">Sort by Late Count</MenuItem>
+                    <MenuItem value="outside">Sort by Outside</MenuItem>
+                    <MenuItem value="open">Sort by Open Sessions</MenuItem>
+                  </TextField>
+                </Box>
               </Box>
-            </CardContent>
+            </Box>
+            <TableContainer sx={{ maxHeight: "600px", overflowY: "auto" }}>
+              <Table stickyHeader>
+                <TableHead sx={{ background: T.softGray }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Station</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Hours</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>OT</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Attendance %</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Score</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Present</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Half</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Late</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Outside</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Open</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Risk</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedEmployees.map((emp, idx) => (
+                    <MuiTooltip key={emp.email} title={`Days Present: ${emp.daysPresent || "N/A"}`} placement="left">
+                      <TableRow
+                        sx={{
+                          background: idx % 2 === 0 ? T.white : T.cloudWhite,
+                          "&:hover": { background: T.softGray + "50" },
+                        }}
+                      >
+                        <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 600 }}>{emp.name}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal, opacity: 0.8 }}>{emp.station}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.charcoal }}>
+                          {emp.hours}h
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.coralSunset, fontWeight: 600 }}>
+                          {emp.overtime}h
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.oceanBlue, fontWeight: 600 }}>
+                          {emp.attendanceRate}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: parseFloat(emp.productivityScore) > avgScore ? T.seafoamGreen : T.charcoal,
+                          }}
+                        >
+                          {parseFloat(emp.productivityScore).toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.seafoamGreen, fontWeight: 600 }}>
+                          {emp.presentCount || 0}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.warmSand, fontWeight: 600 }}>
+                          {emp.halfDayCount || 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: T.charcoal, fontWeight: 600 }}>
+                          {emp.lateCount}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.outsideClockingCount || 0) > 0 ? T.oceanBlue : T.charcoal, fontWeight: 700 }}>
+                          {emp.outsideClockingCount || 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.openSessions || 0) > 0 ? T.seafoamGreen : T.charcoal, fontWeight: 700 }}>
+                          {emp.openSessions || 0}
+                        </TableCell>
+                        <TableCell align="center">
+                          <StatusBadge level={emp.burnoutLevel} />
+                        </TableCell>
+                      </TableRow>
+                    </MuiTooltip>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box sx={{ px: 3, py: 1.5, background: T.cloudWhite, textAlign: "center" }}>
+              <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
+                Showing {sortedEmployees.length} of {stats.employeeMetrics.length} employees
+              </Typography>
+            </Box>
           </Card>
         </Box>
 
         {/* ── BOTTOM EXPORT ── */}
-        <Box display="flex" justifyContent="flex-end">
+        <Box display="flex" justifyContent="center" gap={2}>
           <Button
             variant="contained"
             onClick={handleExportPDF}
             disabled={exporting}
-            startIcon={<span style={{ fontSize: 16 }}>📄</span>}
+            startIcon={<Download />}
             sx={{
-              background: `linear-gradient(135deg, ${T.deepNavy}, ${T.oceanBlue})`,
+              background: colorPalette.oceanGradient,
               color: T.white,
-              fontFamily: "Syne, sans-serif",
               fontWeight: 700,
               fontSize: 13,
               textTransform: "none",
               borderRadius: "10px",
               px: 3.5,
               py: 1.2,
-              boxShadow: `0 4px 20px rgba(10,37,64,0.3)`,
+              boxShadow: `0 4px 16px rgba(10,61,98,0.25)`,
               "&:hover": {
-                background: `linear-gradient(135deg, ${T.navy}, ${T.skyBlue})`,
-                boxShadow: `0 6px 28px rgba(10,37,64,0.45)`,
+                boxShadow: `0 6px 24px rgba(10,61,98,0.35)`,
               },
               "&:disabled": { opacity: 0.6 },
             }}

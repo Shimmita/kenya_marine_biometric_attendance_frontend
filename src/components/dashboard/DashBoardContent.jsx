@@ -23,6 +23,7 @@ import {
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
+import reverseGeocode from '../util/GeoLocationPlace';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
@@ -658,6 +659,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const [statsLoading, setStatsLoading] = useState(true);
     const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState('');
     const [enrolledDevices, setEnrolledDevices] = useState([]);
+    const [locationStatus, setLocationStatus] = useState('idle');
 
     useEffect(() => {
         let alive = true;
@@ -710,7 +712,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     }, [user, dispatch]);
 
     // 2. Logic to determine if user is allowed to proceed
-    const isDateAuthorized = () => {
+    const isDateAuthorized = useCallback(() => {
         if (!user?.canClockOutside || !user?.outsideClockingDetails) return false;
 
         const today = new Date();
@@ -719,7 +721,9 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
         // Ensure today is within the allowed window
         return today >= start && today <= end;
-    };
+    }, [user?.canClockOutside, user?.outsideClockingDetails]);
+
+    const outsideClockingAuthorized = isDateAuthorized();
 
 
 
@@ -775,35 +779,73 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         return () => clearInterval(reminderInterval);
     }, [isClockedIn, isToClockOut, notify]);
 
-    const requestLocation = () => {
-        if (!navigator.geolocation) { notify('Geolocation not supported.', 'error'); return; }
+    useEffect(() => {
+        if (!outsideClockingAuthorized) return;
+
+        const reason = user?.outsideClockingDetails?.reason || 'authorized duty';
+        notify(`Clocking outside granted for ${reason}`.toLowerCase(), 'info');
+    }, [outsideClockingAuthorized, user?.outsideClockingDetails?.reason, notify]);
+
+    const getCurrentLocation = useCallback(() => new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation not supported.'));
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
             ({ coords: { latitude, longitude } }) => {
-                setUserLocation({ latitude, longitude });
+                const nextLocation = { latitude, longitude };
+                setUserLocation(nextLocation);
                 const d = calculateDistanceMeters(latitude, longitude, selectedStation.lat, selectedStation.lng);
                 setIsWithinGeofence(d <= GEOFENCE_RADIUS_METERS);
+                resolve(nextLocation);
             },
-            () => notify('Location access denied.', 'error'),
+            (error) => reject(error),
             { enableHighAccuracy: true, timeout: 20000 }
         );
-    };
+    }), [selectedStation.lat, selectedStation.lng, setIsWithinGeofence, setUserLocation]);
+
+    const requestLocation = useCallback(async () => {
+        setLocationStatus('checking');
+
+        try {
+            await getCurrentLocation();
+            setLocationStatus('granted');
+        } catch (error) {
+            const nextStatus = error?.code === 1
+                ? 'denied'
+                : error?.message === 'Geolocation not supported.'
+                    ? 'unsupported'
+                    : 'error';
+
+            setLocationStatus(nextStatus);
+            notify(
+                nextStatus === 'denied'
+                    ? 'Location permission is required. Please allow location access to continue clocking.'
+                    : 'Location could not be verified. Please try again.',
+                'error'
+            );
+        }
+    }, [getCurrentLocation, notify]);
+
     useEffect(() => { requestLocation(); }, [selectedStation.name]);
     // eslint-disable-line
 
-    // 3. Combined Geofence + Outside Authorization check
-    // If they are in the fence OR they are authorized to be outside today
-    const canProceedWithLocation = isWithinGeofence || isDateAuthorized();
+    // 3. Location is mandatory for every clock action. Outside authorization
+    // bypasses only the station geofence distance check, not coordinate capture.
+    const hasVerifiedLocation = Boolean(userLocation?.latitude && userLocation?.longitude);
+    const canProceedWithLocation = hasVerifiedLocation && (isWithinGeofence || outsideClockingAuthorized);
 
-    const clockStepIndex = !userLocation || !canProceedWithLocation ? 0 : !biometricRegistered ? 1 : 2;
+    const clockStepIndex = !canProceedWithLocation ? 0 : !biometricRegistered ? 1 : 2;
 
 
 
     const handleUserLocationLable = () => {
-        if (isDateAuthorized()) {
-            return `Authorized to Clock Outside ✓`
-        } else if (!userLocation) {
-            return 'Location not verified yet'
-        } else if (userLocation && isWithinGeofence && !isDateAuthorized()) {
+        if (!hasVerifiedLocation) {
+            return outsideClockingAuthorized ? 'Location required for outside clocking' : 'Location not verified yet'
+        } else if (outsideClockingAuthorized) {
+            return `Granted to Clock Outside ✓`
+        } else if (userLocation && isWithinGeofence && !outsideClockingAuthorized) {
             return 'Within KMFRI Premise Station ✓'
         } else return 'Outside Premises cannot Clock In/Out'
     }
@@ -840,7 +882,32 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         try {
             setBiometricLoading(true);
             const fp = currentDeviceFingerprint || await getDeviceFingerprint();
-            await verifyFingerprint(selectedStation.name, userLocation, fp);
+            let locationForClock = userLocation;
+
+            if (!locationForClock?.latitude || !locationForClock?.longitude) {
+                notify('Please allow location access before clocking.', 'warning');
+                await requestLocation();
+                return;
+            }
+
+            // If user is authorized to clock outside, obtain a human-readable
+            // outsideLocation string from the reverse geocode helper and pass
+            // it to the backend. Backend will validate authorization again.
+            let outsideLocation = null;
+            try {
+                if (outsideClockingAuthorized && locationForClock?.latitude && locationForClock?.longitude) {
+                    const geo = await reverseGeocode({
+                        latitude: locationForClock.latitude,
+                        longitude: locationForClock.longitude,
+                    });
+                    outsideLocation = geo?.data || null;
+                }
+            } catch (e) {
+                console.warn('Reverse geocode failed:', e);
+            }
+
+            const verifyRes = await verifyFingerprint(selectedStation.name, locationForClock, fp, outsideLocation);
+            console.debug('biometric verify response:', verifyRes);
             const updated = await getUserProfile();
             dispatch(updateUserCurrentUserRedux(updated));
             setIsClockedIn(updated.hasClockedIn);
@@ -947,15 +1014,15 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                 icon={<LocationOn sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
                                                 // label={locationLabel} size="small"
                                                 label={handleUserLocationLable()} size="small"
-                                                sx={{ bgcolor: isWithinGeofence && !isDateAuthorized() ? 'rgba(34,197,94,0.22)' : isDateAuthorized() ? 'rgba(154, 211, 21, 0.22)' : 'rgba(138,138,138,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${isWithinGeofence && !isDateAuthorized() ? 'rgba(34,197,94,0.38)' : isDateAuthorized() ? 'rgba(154, 211, 21, 0.35)' : 'rgba(138,138,138,0.35)'}`, backdropFilter: 'blur(8px)' }}
+                                                sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.22)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.22)' : 'rgba(138,138,138,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.38)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.35)' : 'rgba(138,138,138,0.35)'}`, backdropFilter: 'blur(8px)' }}
                                             />
                                             {isClockedIn && isToClockOut && (
                                                 <Chip icon={<CheckCircle sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />} label="Session Active" size="small"
-                                                    sx={{ bgcolor: isWithinGeofence && !isDateAuthorized() ? 'rgba(34,197,94,0.24)' : isDateAuthorized() ? 'rgba(154, 211, 21, 0.24)' : 'rgba(138,138,138,0.24)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: isWithinGeofence && !isDateAuthorized() ? '1px solid rgba(34,197,94,0.40)' : isDateAuthorized() ? '1px solid rgba(154, 211, 21, 0.40)' : '1px solid rgba(138,138,138,0.40)' }} />
+                                                    sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.24)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.24)' : 'rgba(138,138,138,0.24)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: isWithinGeofence && !outsideClockingAuthorized ? '1px solid rgba(34,197,94,0.40)' : outsideClockingAuthorized ? '1px solid rgba(154, 211, 21, 0.40)' : '1px solid rgba(138,138,138,0.40)' }} />
                                             )}
 
                                             {/* If authorized outside, show a special badge */}
-                                            {isDateAuthorized() && (
+                                            {outsideClockingAuthorized && (
                                                 <Chip
                                                     label={user.outsideClockingDetails.reason}
                                                     size="small"
@@ -967,6 +1034,21 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
                                     {/* Controls */}
                                     <Stack spacing={2} sx={{ width: { xs: '100%', sm: '300px', md: '300px' } }}>
+                                        {outsideClockingAuthorized && (
+                                            <Alert
+                                                severity="info"
+                                                sx={{
+                                                    borderRadius: '14px',
+                                                    bgcolor: 'rgba(255,255,255,0.10)',
+                                                    color: '#fff',
+                                                    border: '1px solid rgba(154,211,21,0.35)',
+                                                    '& .MuiAlert-icon': { color: colorPalette.aquaVibrant },
+                                                }}
+                                            >
+                                                Granted to clock outside
+                                            </Alert>
+                                        )}
+
                                         <TextField select fullWidth label="Clocking Station"
                                             value={selectedStation.name}
                                             disabled={isClockedIn && isToClockOut}
@@ -982,15 +1064,49 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                 <motion.div style={{ willChange: 'transform, opacity' }} key="loc"
                                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                     transition={{ duration: 0.28 }}>
-                                                    <Button variant="outlined" fullWidth startIcon={<LocationOn />} onClick={requestLocation}
-                                                        sx={{
-                                                            color: '#fff', borderColor: 'rgba(255,255,255,0.35)',
-                                                            py: 1.5, borderRadius: '14px', fontWeight: 800, letterSpacing: 0.4,
-                                                            backdropFilter: 'blur(8px)', bgcolor: 'rgba(255,255,255,0.07)',
-                                                            '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' }
-                                                        }}>
-                                                        Verify Location
-                                                    </Button>
+                                                    <Box sx={{
+                                                        p: 1.5,
+                                                        borderRadius: '14px',
+                                                        bgcolor: 'rgba(255,255,255,0.08)',
+                                                        border: '1px solid rgba(255,255,255,0.18)',
+                                                        backdropFilter: 'blur(8px)'
+                                                    }}>
+                                                        <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="space-between">
+                                                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.78)', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                                                                {locationStatus === 'denied'
+                                                                    ? 'Allow location access to continue clocking.'
+                                                                    : locationStatus === 'checking'
+                                                                        ? 'Checking your location...'
+                                                                        : 'Location access is required before clocking.'}
+                                                            </Typography>
+                                                            <Button
+                                                                variant="outlined"
+                                                                size="small"
+                                                                startIcon={locationStatus === 'checking'
+                                                                    ? <CircularProgress size={12} sx={{ color: '#fff' }} />
+                                                                    : <LocationOn sx={{ fontSize: '0.9rem !important' }} />}
+                                                                onClick={requestLocation}
+                                                                disabled={locationStatus === 'checking'}
+                                                                sx={{
+                                                                    color: '#fff',
+                                                                    borderColor: 'rgba(255,255,255,0.35)',
+                                                                    minWidth: 92,
+                                                                    px: 1.2,
+                                                                    py: 0.7,
+                                                                    borderRadius: '10px',
+                                                                    fontSize: '0.68rem',
+                                                                    fontWeight: 900,
+                                                                    letterSpacing: 0.25,
+                                                                    bgcolor: 'rgba(255,255,255,0.07)',
+                                                                    '& .MuiButton-startIcon': { mr: 0.45 },
+                                                                    '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' },
+                                                                    '&.Mui-disabled': { color: 'rgba(255,255,255,0.45)', borderColor: 'rgba(255,255,255,0.18)' }
+                                                                }}
+                                                            >
+                                                                {locationStatus === 'checking' ? 'Checking' : 'Allow'}
+                                                            </Button>
+                                                        </Stack>
+                                                    </Box>
                                                 </motion.div>
                                             )}
 

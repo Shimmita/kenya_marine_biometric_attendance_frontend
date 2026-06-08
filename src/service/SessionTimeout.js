@@ -1,4 +1,4 @@
-export const SESSION_TTL_MS = 15 * 60 * 1000;
+export const SESSION_TTL_MS = 20 * 60 * 1000;
 export const SESSION_LOGIN_AT_KEY = "kmfri_session_login_at";
 
 export const markSessionStarted = () => {

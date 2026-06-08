@@ -354,7 +354,7 @@ export default function AttendanceHistoryContent() {
                 clockOut: rec.clock_out ? formatTime(rec.clock_out) : '—',
                 station: rec.station || '—',
                 timing: rec.isLate ? 'Late' : 'Early',
-                hours: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
+                hours: rec.missedClockOut ? '0.00' : rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
             })));
         } catch { notify('Failed to load data.', 'error'); }
         finally { setLoading(false); setHistoryLoading(false); }

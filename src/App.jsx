@@ -1,5 +1,5 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 const HomeLanding = lazy(() => import("./components/BodyLanding"));
 const DashboardHome = lazy(() => import("./components/Dashboard"));
 const AuthCheck = lazy(() => import("./components/auth/AuthCheck"));
@@ -7,6 +7,7 @@ const ResetPasswordPage = lazy(() => import("./components/ResetPasswordPage"));
 const VerifyDocument = lazy(() => import("./components/VerifyDocument"));
 
 function App() {
+
   return (
 
     <BrowserRouter>
@@ -41,7 +42,7 @@ function App() {
           path="/reset-password"
           element={<ResetPasswordPage />}
         />
-        </Routes>
+      </Routes>
     </BrowserRouter>
   );
 }
