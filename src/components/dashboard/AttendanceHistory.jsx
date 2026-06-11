@@ -35,7 +35,30 @@ const G = {
 };
 
 const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
-
+const toTitleCase = (value) => {
+    if (value == null || value === '') return '—';
+    return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
+};
+const formatLocationLabel = (rec, isEntry) => {
+    const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
+    const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
+    if (!locationName) return status;
+    const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
+    const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
+    if (filtered.length === 0) return status;
+    return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+};
+const normalizeExportValue = (value) => {
+    if (value == null || value === '') return '—';
+    return String(value);
+};
+const normalizeExportTextValue = (value) => {
+    if (value == null || value === '') return '—';
+    return toTitleCase(value);
+};
 
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
@@ -352,9 +375,11 @@ export default function AttendanceHistoryContent() {
                 rawDate: new Date(rec.clock_in),
                 clockIn: formatTime(rec.clock_in),
                 clockOut: rec.clock_out ? formatTime(rec.clock_out) : '—',
-                station: rec.station || '—',
+                inLocation: formatLocationLabel(rec, true),
+                outLocation: formatLocationLabel(rec, false),
+                whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : '—',
+                duration: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
                 timing: rec.isLate ? 'Late' : 'Early',
-                hours: rec.missedClockOut ? '0.00' : rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
             })));
         } catch { notify('Failed to load data.', 'error'); }
         finally { setLoading(false); setHistoryLoading(false); }
@@ -403,19 +428,14 @@ export default function AttendanceHistoryContent() {
             doc.setTextColor(255, 255, 255);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(18);
-            doc.text('KMFRI Attendance Report'.toUpperCase(), 15, 15);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text(`${user?.station} | ${user?.department}`.toUpperCase(), 15, 19);
-
-
-            // user details
-            doc.setFont('helvetica', 'bold');
+            doc.text('KMFRI ATTENDANCE REPORT', pw / 2, 12, { align: 'center' });
             doc.setFontSize(9);
-            doc.text(`${new Date().toLocaleString()}`, 15, 25);
-            doc.text(`${user?.name || 'Authorized Personnel'}`, 15, 30);
-            doc.text(`${user?.role?.toUpperCase() || 'Authorized Personnel'}`, 15, 35);
+            doc.text(`${user?.station || 'ALL STATIONS'} | ${user?.department || 'ALL DEPARTMENTS'}`.toUpperCase(), pw / 2, 18, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`${new Date().toLocaleString()}`.toUpperCase(), pw / 2, 24, { align: 'center' });
+            doc.text(`${user?.name?.toUpperCase() || 'AUTHORIZED PERSONNEL'}`, pw / 2, 29, { align: 'center' });
+            doc.text(`${user?.role?.toUpperCase() || 'AUTHORIZED PERSONNEL'}`, pw / 2, 34, { align: 'center' });
 
             // 3. Render QR Code (Positioned Right-Aligned)
             // Ensure format is 'PNG' or 'JPEG' match
@@ -432,18 +452,19 @@ export default function AttendanceHistoryContent() {
 
             // Table
             autoTable(doc, {
-                head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Station']],
+                head: [['DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
                 body: filteredRows.map(r => [
-                    r.date,
-                    r.clockIn,
-                    r.clockOut,
-                    r.hours !== '—' ? `${r.hours} hrs` : '—',
-                    r.station,
+                    normalizeExportValue(r.date),
+                    normalizeExportValue(r.clockIn),
+                    normalizeExportValue(r.clockOut),
+                    normalizeExportTextValue(r.inLocation),
+                    normalizeExportTextValue(r.outLocation),
+                    normalizeExportTextValue(r.whyOut),
                 ]),
-                startY: 45, // Start after the header block
+                startY: 45,
                 theme: 'striped',
-                headStyles: { fillColor: [10, 61, 98] },
-                styles: { fontSize: 9 }
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: 'center' },
+                styles: { fontSize: 9, halign: 'center' }
             });
 
             doc.save(`Attendance_Report_${new Date().getTime()}.pdf`);
@@ -465,7 +486,7 @@ export default function AttendanceHistoryContent() {
     };
 
     return (
-        <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', position: 'relative' }}>
+        <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', position: 'relative' }}>
             <AmbientOrbs />
             <Snackbar open={snack.open} autoHideDuration={5000} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert severity={snack.severity} variant="filled" elevation={6} onClose={() => setSnack(s => ({ ...s, open: false }))} sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)' }}>{snack.message}</Alert>
@@ -536,25 +557,24 @@ export default function AttendanceHistoryContent() {
                         <Table>
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Date', 'Clock In', 'Clock Out', 'Duration', 'Station'].map(h => (
-                                        <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)' }}>{h}</TableCell>
+                                    {['Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out'].map(h => (
+                                        <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {historyLoading
-                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 5 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
+                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 6 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
                                     : paginatedRows.length === 0
-                                        ? <TableRow><TableCell colSpan={5} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records found</Typography><Button size="small" onClick={() => { setFilterStatus('All'); setFilterTiming('All'); setFilterMonth(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
+                                        ? <TableRow><TableCell colSpan={6} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records found</Typography><Button size="small" onClick={() => { setFilterStatus('All'); setFilterTiming('All'); setFilterMonth(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
                                         : paginatedRows.map((row, idx) => (
                                             <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.025, duration: 0.25, ease: 'easeOut' }} style={{ display: 'table-row' }}>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)', 'tr:last-child &': { border: 0 }, '&:parent:hover': { background: 'rgba(10,61,98,0.03)' } }}>{row.date}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>
-                                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>
-                                                    {row.hours !== '—' ? <Stack direction="row" alignItems="baseline" spacing={0.4}><Typography variant="body2" fontWeight={800} color={colorPalette.deepNavy}>{row.hours}</Typography><Typography variant="caption" color="text.disabled">hrs</Typography></Stack> : '—'}
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 140 }}>{row.station}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 280 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 280 }}>{row.inLocation}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 280 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 280 }}>{row.outLocation}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 320 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320 }}>{row.whyOut}</Typography></TableCell>
                                             </motion.tr>
                                         ))}
                             </TableBody>

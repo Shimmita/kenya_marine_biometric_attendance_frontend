@@ -1447,6 +1447,24 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
     const [rowsPerPage, setRowsPerPage] = useState(15);
     const hasFetched = useRef(false);
 
+    const toTitleCase = (value) => {
+        if (value == null || value === '') return '—';
+        return String(value)
+            .trim()
+            .toLowerCase()
+            .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
+    };
+
+    const formatLocationLabel = (rec, isEntry) => {
+        const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
+        const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
+        if (!locationName) return status;
+        const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
+        const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
+        if (filtered.length === 0) return status;
+        return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+    };
+
     const loadRecords = useCallback(async () => {
         setLoading(true); setError('');
         try {
@@ -1465,15 +1483,18 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
     }, []); // eslint-disable-line
 
     const processedRecords = useMemo(() => records.map(rec => ({
-        name: rec.name || '—',
-        email: rec.email || '—',
-        date: fmtDate(rec.clock_in),
+        name: toTitleCase(rec.name || '—'),
+        email: toTitleCase(rec.email || '—'),
+        date: toTitleCase(fmtDate(rec.clock_in)),
         rawDate: new Date(rec.clock_in),
         clockIn: fmtTime(rec.clock_in),
         clockOut: rec.clock_out ? fmtTime(rec.clock_out) : '—',
         duration: fmtDuration(rec.clock_in, rec.clock_out),
-        station: rec.station || '—',
-        department: rec.department || '—',
+        inLocation: formatLocationLabel(rec, true),
+        outLocation: formatLocationLabel(rec, false),
+        whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : '—',
+        station: toTitleCase(rec.station || '—'),
+        department: toTitleCase(rec.department || '—'),
         timing: rec.isLate ? 'Late' : 'Early',
     })), [records]);
 
@@ -1495,6 +1516,8 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
     const exportRows = filteredRecords.map(r => ({
         'Name': r.name, 'Date': r.date,
         'Clock In': r.clockIn, 'Clock Out': r.clockOut,
+        'In Location': r.inLocation, 'Out Location': r.outLocation,
+        'Why Out': r.whyOut,
         'Station': r.station, 'Department': r.department,
     }));
 
@@ -1505,19 +1528,18 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         const pw = doc.internal.pageSize.getWidth();
         doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-        doc.text('KMFRI — Attendance Records', pw / 2, 12, { align: 'center' });
+        doc.text('KMFRI — ATTENDANCE RECORDS', pw / 2, 12, { align: 'center' });
         doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text(`${filterStation || 'All Stations'} · ${filterDept || 'All Departments'} · ${filterStartDate} → ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()} · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
         doc.setFontSize(7.5);
-        doc.text(`Generated: ${new Date().toLocaleString()} | By: ${user?.name || 'Admin'} | Role: ${RANK_LABELS[user?.rank] || 'Admin'} | ${filteredRecords.length} records`, pw / 2, 28, { align: 'center' });
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredRecords.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
-            head: [['Name', 'Date', 'Clock In', 'Clock Out', 'Station', 'Department']],
-            body: filteredRecords.map(r => [r.name, r.date, r.clockIn, r.clockOut, r.station, r.department]),
+            head: [['Name', 'Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out', 'Station', 'Department']],
+            body: filteredRecords.map(r => [r.name, r.date, r.clockIn, r.clockOut, r.inLocation, r.outLocation, r.whyOut, r.station, r.department]),
             startY: 40,
-            styles: { fontSize: 7.5, cellPadding: 2.2 },
-            headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 7.5, cellPadding: 2.2, halign: 'center' },
+            headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold', halign: 'center' },
             alternateRowStyles: { fillColor: [248, 250, 252] },
-            columnStyles: { 5: { fontStyle: 'bold' } },
         });
         const tp = doc.internal.getNumberOfPages();
         for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
@@ -1594,16 +1616,16 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Name', 'Date', 'Clock In', 'Clock Out', 'Station', 'Department'].map(h => (
+                                    {['Name', 'Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out', 'Station', 'Department'].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.7rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {loading
-                                    ? Array.from({ length: 8 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 6 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '6px' }} /></TableCell>)}</TableRow>)
+                                    ? Array.from({ length: 8 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 9 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '6px' }} /></TableCell>)}</TableRow>)
                                     : paginatedRecords.length === 0
-                                        ? <TableRow><TableCell colSpan={6} align="center" sx={{ py: 8, border: 0 }}>
+                                        ? <TableRow><TableCell colSpan={9} align="center" sx={{ py: 8, border: 0 }}>
                                             <Stack alignItems="center" spacing={1.5}>
                                                 <Box sx={{ width: 64, height: 64, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 34, color: 'rgba(10,61,98,0.25)' }} /></Box>
                                                 <Typography variant="body2" color="text.disabled" fontWeight={600}>{error ? 'Backend route not available' : 'No records match current filters'}</Typography>
@@ -1616,8 +1638,11 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.date}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}>{row.clockIn}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, color: 'text.secondary' }}>{row.clockOut}</TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 120 }}>{row.station}</Typography></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}><Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 130 }}>{row.department}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'normal', maxWidth: 240 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 240 }}>{row.inLocation}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'normal', maxWidth: 240 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 240 }}>{row.outLocation}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'normal', maxWidth: 260 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260 }}>{row.whyOut}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', maxWidth: 140 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 140 }}>{row.station}</Typography></TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', maxWidth: 150 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 150 }}>{row.department}</Typography></TableCell>
                                             </Motion.tr>
                                         ))}
                             </TableBody>
