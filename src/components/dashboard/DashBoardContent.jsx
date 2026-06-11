@@ -1331,12 +1331,12 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                         </Reveal>
 
                         {/* ── Weekly Hours bar card (full width) ── */}
-                        <Reveal delay={0.20}>
+                        {/* <Reveal delay={0.20}>
                             <WeeklyHoursCard
                                 value={w?.totalHours}
                                 loading={statsLoading}
                             />
-                        </Reveal>
+                        </Reveal> */}
 
 
                     </Stack>

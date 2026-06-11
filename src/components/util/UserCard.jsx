@@ -274,12 +274,12 @@ const UserCard = ({
     user, supervisors, updatingId,
     onRankChange, onRoleChange, onDepartmentSave,
     onSupervisorChange, onToggleActive, onDeleteUser,
-    isMobile, index, onStationSave, readOnly = false
+    isMobile, index, onStationSave, readOnly = false,
+    onResetBiometrics, isLoading = false, setIsLoading,
 }) => {
     const [hovered, setHovered] = useState(false);
     const rankColor = RANK_ACCENT[user.rank] || C.cyanFresh;
     const isUpdating = updatingId === user._id;
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const dispatch = useDispatch();
     const { user: currentUser } = useSelector(s => s.currentUser);
@@ -347,8 +347,9 @@ const UserCard = ({
     };
 
     const handleDeleteUser = async () => {
-        setIsDeleting(true);
         try {
+            setIsDeleting(true);
+            setIsLoading(true)
             await onDeleteUser(user._id);
             setDeleteConfirmOpen(false);
         } catch (err) {
@@ -356,6 +357,7 @@ const UserCard = ({
             setError("Failed to delete user");
         } finally {
             setIsDeleting(false);
+            setIsLoading(false);
         }
     };
 
@@ -546,7 +548,7 @@ const UserCard = ({
 
                         <ControlField label="Clock Outside" minWidth={132}>
                             <FormControl size="small" fullWidth disabled={isLoading || readOnly}>
-                                <Select disabled={currentUser?.rank === 'auditor' || readOnly} value={clockOutside} onChange={handleClockOutsideChange} sx={{
+                                <Select disabled={currentUser?.rank === 'auditor' || readOnly } value={clockOutside} onChange={handleClockOutsideChange} sx={{
                                     ...selectSx,
                                     "& .MuiOutlinedInput-notchedOutline": {
                                         borderColor: clockOutside === "yes" ? `${C.seafoamGreen}60` : C.glassBorder,
@@ -558,10 +560,26 @@ const UserCard = ({
                             </FormControl>
                         </ControlField>
 
+                        {/* hard reset user biometrics for admin only */}
+                        {currentUser?.rank === 'admin' && !readOnly && (
+                            <Button
+                                sx={{
+                                    borderRadius: 2
+                                }}
+                                size="small"
+                                color="warning"
+                                variant="contained"
+                                disabled={isUpdating || isDeleting}
+                                onClick={() => onResetBiometrics(user?._id)}
+                                disableElevation
+                            >
+                                Reset Biometrics
+                            </Button>
+                        )}
+
                         {/* Activate / Deactivate */}
                         {currentUser?.rank === 'hr' && !readOnly && (
                             <>
-                                {/* Account Activation Toggle Button */}
                                 {/* Account Activation Toggle Button */}
                                 <Box sx={{ flex: "0 0 auto" }}>
                                     <FieldLabel>Account</FieldLabel>

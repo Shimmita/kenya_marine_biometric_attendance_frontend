@@ -5,9 +5,8 @@ import {
     DevicesOther,
     EmojiPeopleRounded,
     History,
-    InstallDesktop,
     InsightsRounded,
-    Lock,
+    InstallDesktop,
     LockResetRounded,
     Logout,
     Menu as MenuIcon,
@@ -17,7 +16,7 @@ import {
     SensorOccupiedRounded,
     SupervisorAccount,
     SupportAgentRounded,
-    UploadFile,
+    UploadFile
 } from '@mui/icons-material';
 import {
     AppBar, Avatar, Box, Button, Chip, CircularProgress,
@@ -26,7 +25,7 @@ import {
     List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
     Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
-import { AnimatePresence,motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -37,13 +36,13 @@ import { updateUserProfile, userSignOut } from '../service/UserProfile';
 import coreDataDetails from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
-const AdminLeaveManager =lazy(()=>import ('./dashboard/AdminLeaveManager')) ;
-const UserProfileDialog =lazy(()=>import ('./UserProfileDialog')) ;
-const SupervisorDeptRequest =lazy(()=>import('./dashboard/supervisor/SupervisorDeptRequest')) ;
-const SupervisorDeptStats =lazy(()=> import('./dashboard/supervisor/SupervisorDeptStats')) ;
-const SupervisorManageLeaves =lazy(()=> import('./dashboard/supervisor/SupervisorManageLeaves')) ;
-const  SupervisorManageMembers =lazy(()=>import('./dashboard/supervisor/SupervisorManageMembers')) ;
-const UserManagementContent =lazy(() => import('./dashboard/UserManagementContent'));
+const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
+const UserProfileDialog = lazy(() => import('./UserProfileDialog'));
+const SupervisorDeptRequest = lazy(() => import('./dashboard/supervisor/SupervisorDeptRequest'));
+const SupervisorDeptStats = lazy(() => import('./dashboard/supervisor/SupervisorDeptStats'));
+const SupervisorManageLeaves = lazy(() => import('./dashboard/supervisor/SupervisorManageLeaves'));
+const SupervisorManageMembers = lazy(() => import('./dashboard/supervisor/SupervisorManageMembers'));
+const UserManagementContent = lazy(() => import('./dashboard/UserManagementContent'));
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
 const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
@@ -100,7 +99,7 @@ const HR_EXTRA_ITEMS = [
 ];
 
 const AUDITOR_ITEMS = [
-    { text: 'Audit Logs', icon: <History />, color:'#8b5cf6'},
+    { text: 'Audit Logs', icon: <History />, color: '#8b5cf6' },
 ];
 
 /* ─── Glass tokens ──────────────────────────────────────────────────────── */
@@ -555,7 +554,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {isAdmin && (
                     <>
                         <SectionLabel>Admin Tools</SectionLabel>
-                    
+
                         <List disablePadding>
                             {adminItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -883,7 +882,7 @@ const EnhancedDashboard = () => {
 
     const pageTitle = useMemo(() => (
         activeTab === 'Clocking Dashboard'
-            ? `Welcome back, ${user?.name?.split(' ')[0] || 'User'} 👋`
+            ? `Welcome Back, ${user?.name?.split(' ')[0] || 'User'} 👋`
             : (PAGE_TITLES[activeTab] || activeTab)
     ), [activeTab, user?.name]);
 
@@ -911,7 +910,7 @@ const EnhancedDashboard = () => {
 
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography variant="h6" noWrap sx={{ fontWeight: 800, letterSpacing: 0.3, fontSize: { xs: '0.88rem', md: '1rem' }, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-                            {isMobile  || isTablet? 'KMFRI ATTENDANCE SYSTEM' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
+                            {isMobile || isTablet ? 'KMFRI ATTENDANCE SYSTEM' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
                         </Typography>
                         <Typography variant="caption" sx={{ opacity: 0.6, display: { xs: 'none', sm: 'block' }, fontSize: '0.67rem', color: 'rgba(255,255,255,0.8)' }}>
                             Staff Attendance System

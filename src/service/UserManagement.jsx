@@ -139,3 +139,13 @@ export const deleteUser = async (userId) => {
         throw err.response?.data?.message || "Failed to delete user";
     }
 };
+
+export const resetUserBiometrics = async (userId) => { 
+    try {
+        const res = await api.put(`/admin/user/${userId}/reset-biometrics`);
+        return res.data;
+    } catch (err) {
+        console.error("Error resetting user biometrics:", err);
+        throw err.response?.data?.message || "Failed to reset user biometrics";
+    }
+}
