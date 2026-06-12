@@ -1,47 +1,49 @@
+import { AccessAlarm, Brightness5, CheckCircle, CheckCircleOutline, Download, LocationOn, ScheduleRounded, TrendingUp, WarningAmber } from "@mui/icons-material";
 import {
   Box,
+  Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Grid,
-  Typography,
-  Button,
-  Chip,
-  Divider,
-  Paper,
-  Stack,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TextField,
   MenuItem,
   Tooltip as MuiTooltip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Typography
 } from "@mui/material";
-import { useEffect, useState, useMemo } from "react";
-import { fetchDepartmentStats } from "../../../service/ClockingService";
-import coreDataDetails from "../../CoreDataDetails";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
+  Area,
+  AreaChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  AreaChart,
-  Area,
-  ComposedChart,
 } from "recharts";
-import { Download, TrendingUp, WarningAmber, CheckCircle } from "@mui/icons-material";
+import { fetchDepartmentStats, fetchOverallAttendanceRecords } from "../../../service/ClockingService";
+import { createVerification } from "../../../service/VerificationService";
+import QRCode from 'qrcode';
+import coreDataDetails from "../../CoreDataDetails";
+import StatChip from "../../util/StatChip";
 
 const { colorPalette } = coreDataDetails;
 
@@ -49,16 +51,16 @@ const { colorPalette } = coreDataDetails;
    DESIGN TOKENS (App Consistent)
 ────────────────────────────────────────────── */
 const T = {
-  deepNavy:    colorPalette.deepNavy,
-  oceanBlue:   colorPalette.oceanBlue,
-  aqua:        colorPalette.cyanFresh,
+  deepNavy: colorPalette.deepNavy,
+  oceanBlue: colorPalette.oceanBlue,
+  aqua: colorPalette.cyanFresh,
   coralSunset: colorPalette.coralSunset,
   seafoamGreen: colorPalette.seafoamGreen,
-  warmSand:    colorPalette.warmSand,
-  softGray:    colorPalette.softGray,
-  cloudWhite:  colorPalette.cloudWhite,
-  charcoal:    colorPalette.charcoal,
-  white:       "#FFFFFF",
+  warmSand: colorPalette.warmSand,
+  softGray: colorPalette.softGray,
+  cloudWhite: colorPalette.cloudWhite,
+  charcoal: colorPalette.charcoal,
+  white: "#FFFFFF",
 };
 
 const PIE_COLORS = [T.seafoamGreen, T.warmSand, T.coralSunset];
@@ -151,6 +153,8 @@ const KpiCard = ({ label, value, icon, accent, subtext }) => (
             </Typography>
           )}
         </Box>
+
+        
         <Box
           sx={{
             width: 42,
@@ -208,9 +212,9 @@ const ChartCard = ({ title, icon, children, sx = {} }) => (
 ────────────────────────────────────────────── */
 const StatusBadge = ({ level }) => {
   const burnoutMap = {
-    Low:      { bg: "#E8F7F1", color: "#1C7A56", label: "✓ Low" },
+    Low: { bg: "#E8F7F1", color: "#1C7A56", label: "✓ Low" },
     Moderate: { bg: "#FFF4E0", color: "#9A6B00", label: "⚠ Moderate" },
-    High:     { bg: "#FDECEA", color: "#B52A1C", label: "🔴 High" },
+    High: { bg: "#FDECEA", color: "#B52A1C", label: "🔴 High" },
   };
   const s = burnoutMap[level] || burnoutMap["Low"];
   return (
@@ -275,11 +279,23 @@ const InsightCard = ({ title, value, trend, icon: Icon, color }) => (
    MAIN COMPONENT
 ────────────────────────────────────────────── */
 const SupervisorDeptStats = () => {
-  const [stats, setStats]       = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("score");
+
+  // for table pagination 
+  // Inside your component:
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5); // or 5, 25, etc.
+  const [deptRecords, setDeptRecords] = useState([]);
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordsExporting, setRecordsExporting] = useState(false);
+  const [recPage, setRecPage] = useState(0);
+  const [recRowsPerPage, setRecRowsPerPage] = useState(10);
+  const [recSearch, setRecSearch] = useState('');
+
 
   useEffect(() => {
     const loadStats = async () => {
@@ -296,6 +312,27 @@ const SupervisorDeptStats = () => {
     loadStats();
   }, []);
 
+  // Helpers: title case and location formatting (ignore UNKNOWN parts)
+  const toTitleCase = (value) => {
+    if (value == null || value === '') return '—';
+    return String(value).trim().toLowerCase().replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
+  };
+
+  const formatLocationLabel = (rec, isEntry) => {
+    const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
+    const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
+    if (!locationName) return status;
+    const parts = String(locationName).split('|').map(p => p.trim()).filter(Boolean);
+    const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
+    if (filtered.length === 0) return status;
+    return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+  };
+
+  const normalizeExportTextValue = (value) => {
+    if (value == null || value === '') return '—';
+    return toTitleCase(value);
+  };
+
   /* ── Derived data ── */
   const employees = useMemo(() => stats?.employeeMetrics || [], [stats?.employeeMetrics]);
   const topPerformers = useMemo(() => stats?.topPerformers || [], [stats?.topPerformers]);
@@ -304,7 +341,7 @@ const SupervisorDeptStats = () => {
 
   const sortedEmployees = useMemo(() => {
     let sorted = [...employees];
-    
+
     if (searchTerm) {
       sorted = sorted.filter(e =>
         (e.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -312,7 +349,7 @@ const SupervisorDeptStats = () => {
         (e.station || "").toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
+
     if (sortBy === "score") {
       sorted.sort((a, b) => b.productivityScore - a.productivityScore);
     } else if (sortBy === "hours") {
@@ -324,9 +361,97 @@ const SupervisorDeptStats = () => {
     } else if (sortBy === "open") {
       sorted.sort((a, b) => (b.openSessions || 0) - (a.openSessions || 0));
     }
-    
+
     return sorted;
   }, [employees, searchTerm, sortBy]);
+
+  // Fetch department clocking records (uses overall records endpoint with filters)
+  useEffect(() => {
+    const loadRecords = async () => {
+      if (!stats) return;
+      try {
+        setRecordsLoading(true);
+        const params = {};
+        if (stats.station) params.station = stats.station;
+        if (stats.department) params.department = stats.department;
+        const recs = await fetchOverallAttendanceRecords(params);
+        // map into display-friendly shape
+        setDeptRecords((recs || []).map(r => ({
+          name: toTitleCase(r.name || r.email || '—'),
+          date: new Date(r.clock_in).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }),
+          rawDate: new Date(r.clock_in),
+          clockIn: new Date(r.clock_in).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
+          clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '—',
+          inLocation: formatLocationLabel(r, true),
+          outLocation: formatLocationLabel(r, false),
+          whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : '—',
+        })));
+      } catch (err) {
+        console.error('Failed to load department records', err);
+      } finally { setRecordsLoading(false); }
+    };
+    loadRecords();
+  }, [stats]);
+
+  const normalizeExportValue = (value) => (value == null || value === '' ? '—' : String(value));
+
+  const handleExportClockingPDF = async () => {
+    if (!deptRecords || !stats) return;
+    setRecordsExporting(true);
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+
+      // create verification token for the exported dataset (use current filtered view)
+      const exportList = recSearch ? deptRecords.filter(r => (
+        String(r.name || '').toLowerCase().includes(recSearch.toLowerCase()) ||
+        String(r.inLocation || '').toLowerCase().includes(recSearch.toLowerCase()) ||
+        String(r.outLocation || '').toLowerCase().includes(recSearch.toLowerCase()) ||
+        String(r.whyOut || '').toLowerCase().includes(recSearch.toLowerCase()) ||
+        String(r.date || '').toLowerCase().includes(recSearch.toLowerCase())
+      )) : deptRecords;
+      const { token, dataHash } = await createVerification(exportList);
+      const verifyUrl = `${window.location.origin}/verify/${token}?hash=${encodeURIComponent(dataHash)}`;
+      const qrImage = await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300, errorCorrectionLevel: 'H' });
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pw = doc.internal.pageSize.getWidth();
+      doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text(`KMFRI — ${stats.department || 'Department'} RECORDS`, pw / 2, 12, { align: 'center' });
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text(`${(stats.station || '').toUpperCase()} · ${(stats.department || '').toUpperCase()} · ${new Date().toLocaleDateString()}`, pw / 2, 20, { align: 'center' });
+      doc.setFontSize(8);
+      doc.text(`GENERATED: ${new Date().toLocaleString()} | BY: ${(stats.supervisorName || 'Supervisor')}`, pw / 2, 26, { align: 'center' });
+
+      // add qr
+      const qrSize = 28;
+      doc.addImage(qrImage, 'PNG', pw - qrSize - 12, 6, qrSize, qrSize, undefined, 'FAST');
+
+      autoTable(doc, {
+        head: [['NAME','DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
+        body: exportList.map(r => [
+          normalizeExportValue(r.name), normalizeExportValue(r.date), normalizeExportValue(r.clockIn), normalizeExportValue(r.clockOut),
+          normalizeExportValue(r.inLocation), normalizeExportValue(r.outLocation), normalizeExportValue(r.whyOut),
+        ]),
+        startY: 42,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [10,61,98], textColor: 255, fontStyle: 'bold' },
+      });
+
+      const tp = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= tp; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(160, 174, 192);
+        doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
+      }
+
+      doc.save(`KMFRI_${stats.department || 'Dept'}_Clocking_${Date.now()}.pdf`);
+    } catch (err) {
+      console.error('Department export error', err);
+    } finally { setRecordsExporting(false); }
+  };
 
   // Chart data
   const chartDataTop10 = employees.slice(0, 10).map((e) => ({
@@ -411,7 +536,7 @@ const SupervisorDeptStats = () => {
       >
         <CircularProgress sx={{ color: T.oceanBlue }} />
         <Typography sx={{ color: T.charcoal, fontSize: 14, opacity: 0.7 }}>
-          Loading department analytics…
+          Loading Analytics
         </Typography>
       </Box>
     );
@@ -429,12 +554,12 @@ const SupervisorDeptStats = () => {
   const handleExportPDF = async () => {
     setExporting(true);
     try {
-      const { default: jsPDF }     = await import("jspdf");
+      const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
       const doc = new jsPDF({ orientation: "landscape" });
-      const pw  = doc.internal.pageSize.getWidth();
-      const ph  = doc.internal.pageSize.getHeight();
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
 
       // ── Header band ──
       doc.setFillColor(10, 61, 98);
@@ -482,7 +607,7 @@ const SupervisorDeptStats = () => {
       // ── Employee Table ──
       autoTable(doc, {
         startY: 62,
-        head: [["#", "Name", "Station", "Hours", "OT", "Att%", "Score", "Late", "Outside", "Open", "Risk"]],
+        head: [["#", "Name", "Station", "Hours", "Overtime", "Attendance", "Score", "Late", "Outside", "Open", "Risk"]],
         body: sortedEmployees.slice(0, 50).map((e, i) => [
           i + 1,
           e.name,
@@ -502,14 +627,14 @@ const SupervisorDeptStats = () => {
           fontStyle: "bold",
           fontSize: 8,
         },
-        bodyStyles:  { fontSize: 8, textColor: [40, 60, 80] },
+        bodyStyles: { fontSize: 8, textColor: [40, 60, 80] },
         alternateRowStyles: { fillColor: [240, 245, 252] },
         didParseCell(data) {
           if (data.column.index === 10 && data.section === "body") {
             const v = data.cell.raw;
-            if (v === "High")     data.cell.styles.textColor = [181, 42, 28];
+            if (v === "High") data.cell.styles.textColor = [181, 42, 28];
             if (v === "Moderate") data.cell.styles.textColor = [154, 107, 0];
-            if (v === "Low")      data.cell.styles.textColor = [28, 122, 86];
+            if (v === "Low") data.cell.styles.textColor = [28, 122, 86];
           }
         },
       });
@@ -522,8 +647,8 @@ const SupervisorDeptStats = () => {
         doc.setTextColor(10, 61, 98);
         doc.text("🏆 Top 3 Performers", 15, finalY);
 
-        topPerformers.slice(0, 3).forEach((p, i) => {
-          const medal = ["🥇", "🥈", "🥉"][i];
+        topPerformers.slice(0, 4).forEach((p, i) => {
+          const medal = ["🥇", "🥈", "🥉", "🏅"][i];
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8);
           doc.setTextColor(40, 60, 80);
@@ -553,6 +678,41 @@ const SupervisorDeptStats = () => {
     }
   };
 
+
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0); // reset to first page when rows per page changes
+  };
+
+  const handleRecChangePage = (event, newPage) => setRecPage(newPage);
+  const handleRecChangeRowsPerPage = (event) => { setRecRowsPerPage(parseInt(event.target.value, 10)); setRecPage(0); };
+
+  const filteredDeptRecords = !recSearch
+    ? deptRecords
+    : deptRecords.filter(r => {
+        const s = recSearch.toLowerCase();
+        return (
+          String(r.name || '').toLowerCase().includes(s) ||
+          String(r.inLocation || '').toLowerCase().includes(s) ||
+          String(r.outLocation || '').toLowerCase().includes(s) ||
+          String(r.whyOut || '').toLowerCase().includes(s) ||
+          String(r.date || '').toLowerCase().includes(s)
+        );
+      });
+
+  const paginatedDeptRecords = filteredDeptRecords.slice(recPage * recRowsPerPage, recPage * recRowsPerPage + recRowsPerPage);
+
+  // Slice the data for the current page
+  const paginatedEmployees = sortedEmployees.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
   /* ──────────────────────────────────────────
      RENDER
   ────────────────────────────────────────── */
@@ -568,13 +728,15 @@ const SupervisorDeptStats = () => {
       <Box
         sx={{
           background: colorPalette.oceanGradient,
+          borderRadius:2,
           px: { xs: 2.5, md: 4 },
           pt: 4,
           pb: 3,
           color: T.white,
         }}
       >
-        <Grid container spacing={2} alignItems="flex-end">
+        {/* First row: Title + Download */}
+        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 3 }}>
           <Grid item xs={12} md={8}>
             <Typography
               sx={{
@@ -586,16 +748,18 @@ const SupervisorDeptStats = () => {
             >
               {stats.department}
             </Typography>
-            <Typography
-              sx={{
-                fontSize: 14,
-                color: "rgba(255,255,255,0.75)",
-              }}
-            >
-              Supervisor Performance Dashboard — {stats.totalStaff} Staff Members
+            <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
+              {stats.totalStaff} Staff Members
             </Typography>
           </Grid>
-          <Grid item xs={12} md={4} display="flex" gap={1.5} justifyContent={{ xs: "flex-start", md: "flex-end" }}>
+          <Grid
+            item
+            xs={12}
+            md={4}
+            display="flex"
+            gap={1.5}
+            justifyContent={{ xs: "flex-start", md: "flex-end" }}
+          >
             <Chip
               label={new Date().toLocaleDateString("en-KE", { month: "short", year: "numeric" })}
               size="small"
@@ -606,34 +770,395 @@ const SupervisorDeptStats = () => {
                 fontSize: 12,
               }}
             />
-            <Button
-              variant="contained"
-              onClick={handleExportPDF}
-              disabled={exporting}
-              startIcon={<Download />}
-              sx={{
-                background: T.warmSand,
-                color: T.deepNavy,
-                fontWeight: 700,
-                fontSize: 12,
-                textTransform: "none",
-                borderRadius: "8px",
-                px: 2,
-                py: 0.8,
-                "&:hover": {
-                  background: T.warmSand + "dd",
-                },
-                "&:disabled": { opacity: 0.6 },
-              }}
-            >
-              {exporting ? "Generating..." : "Download"}
-            </Button>
+
+          </Grid>
+        </Grid>
+
+        {/* Second row: Key Metrics */}
+        <Grid container spacing={2} alignItems="center">
+          {/* Total Hours & Overtime */}
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Total Hours"
+              value={`${stats.totalHours || 0}h`}
+              icon={<ScheduleRounded fontSize="small" />}
+              color="rgba(255,255,255,0.95)"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Overtime"
+              value={`${stats.totalOvertime || 0}h`}
+              icon={<TrendingUp fontSize="small" />}
+              color="#FFD966"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Late Arrivals"
+              value={stats.totalLateCount || 0}
+              icon={<AccessAlarm fontSize="small" />}
+              color="#FF8A7A"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Outside Clockings"
+              value={stats.outsideClockingCount || 0}
+              icon={<LocationOn fontSize="small" />}
+              color="#7BC5AE"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Present Days"
+              value={stats.presentDays || 0}
+              icon={<CheckCircleOutline fontSize="small" />}
+              color="#A5D6A5"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <StatChip
+              label="Half Days"
+              value={stats.halfDays || 0}
+              icon={<Brightness5 fontSize="small" />}
+              color="#FFB74D"
+            />
+          </Grid>
+        </Grid>
+
+        {/* Optional third row: Average timings + Today's snapshot */}
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid item xs={12} sm={6}>
+            <Box display="flex" gap={2} flexWrap="wrap">
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                ⏱️ Avg Clock‑In: {stats.avgClockIn || "—"}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                🕒 Avg Clock‑Out: {stats.avgClockOut || "—"}
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} textAlign={{ xs: "left", sm: "right" }}>
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", fontWeight:'bold' }}>
+              📅 Today: {stats.today?.clockIns || 0} clock‑ins, &nbsp;
+              {stats.today?.late || 0} late, &nbsp;
+              {stats.today?.present || 0} present
+            </Typography>
           </Grid>
         </Grid>
       </Box>
 
+
       {/* ════ PAGE CONTENT ════ */}
       <Box px={{ xs: 2.5, md: 4 }} mt={3.5}>
+
+        {/* ── TOP 3 PERFORMERS ── */}
+        <Box mb={3}>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: 16,
+              color: T.deepNavy,
+              mb: 2,
+            }}
+          >
+            🏆 Top {topPerformers?.length} Performers
+          </Typography>
+          <Grid container spacing={2.5}>
+            {topPerformers.map((emp, index) => {
+              const medals = ["🥇", "🥈", "🥉", "🏅"];
+              return (
+                <Grid item xs={12} md={4} key={emp.email}>
+                  <Card
+                    elevation={0}
+                    sx={{
+                      border: `1.5px solid ${index === 0 ? T.warmSand + "60" : T.softGray}`,
+                      borderRadius: "12px",
+                      background: index === 0 ? "#FFFBEF" : T.white,
+                      transition: "all .2s",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        boxShadow: `0 8px 24px rgba(0,91,150,0.12)`,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: "18px" }}>
+                      <Box display="flex" alignItems="center" gap={1.2} mb={1.5}>
+                        <Typography sx={{ fontSize: 28 }}>{medals[index]}</Typography>
+                        <Box>
+                          <Typography
+                            sx={{
+                              fontWeight: 700,
+                              fontSize: 14,
+                              color: T.deepNavy,
+                            }}
+                          >
+                            {emp.name}
+                          </Typography>
+                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
+                            {emp.station}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Box>
+
+        {/* ── EMPLOYEE RECORDS TABLE ── */}
+        <Box mb={4}>
+          <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
+            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
+                  📋 Employee Performance Records
+                </Typography>
+                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
+                  <TextField
+                    size="small"
+                    placeholder="Search by name, email, or station..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{
+                      width: { xs: "100%", sm: "200px" },
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    sx={{
+                      width: "120px",
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="score">Sort by Score</MenuItem>
+                    <MenuItem value="hours">Sort by Hours</MenuItem>
+                    <MenuItem value="late">Sort by Late Count</MenuItem>
+                    <MenuItem value="outside">Sort by Outside</MenuItem>
+                    <MenuItem value="open">Sort by Open Sessions</MenuItem>
+                  </TextField>
+
+                  {/* ── BUTTON EXPORT ── */}
+                  <Box display="flex" justifyContent="center" gap={2}>
+                    <Button
+                      variant="contained"
+                      onClick={handleExportPDF}
+                      disabled={exporting}
+                      startIcon={<Download />}
+                      sx={{
+                        background: colorPalette.oceanGradient,
+                        color: T.white,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        textTransform: "none",
+                        borderRadius: "10px",
+                        px: 3.5,
+                        py: 1.2,
+                        boxShadow: `0 4px 16px rgba(10,61,98,0.25)`,
+                        "&:hover": {
+                          boxShadow: `0 6px 24px rgba(10,61,98,0.35)`,
+                        },
+                        "&:disabled": { opacity: 0.6 },
+                      }}
+                    >
+                      {exporting ? "Generating…" : "Export Report"}
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+            <TableContainer sx={{ maxHeight: "600px", overflowY: "auto" }}>
+              <Table stickyHeader>
+                <TableHead sx={{ background: T.softGray }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Station</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Hours</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Overtime</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Attendance</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Score</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Present</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Half</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Late</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Outside</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Open</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Risk</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedEmployees.map((emp, idx) => (
+                    <MuiTooltip key={emp.email} title={`Days Present: ${emp.daysPresent || "N/A"}`} placement="left">
+                      <TableRow
+                        sx={{
+                          background: idx % 2 === 0 ? T.white : T.cloudWhite,
+                          "&:hover": { background: T.softGray + "50" },
+                        }}
+                      >
+                        <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 600 }}>{emp.name}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal, opacity: 0.8 }}>{emp.station}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.charcoal }}>
+                          {emp.hours}h
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.coralSunset, fontWeight: 600 }}>
+                          {emp.overtime}h
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.oceanBlue, fontWeight: 600 }}>
+                          {emp.attendanceRate}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: parseFloat(emp.productivityScore) > avgScore ? T.seafoamGreen : T.charcoal,
+                          }}
+                        >
+                          {parseFloat(emp.productivityScore).toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.seafoamGreen, fontWeight: 600 }}>
+                          {emp.presentCount || 0}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, color: T.warmSand, fontWeight: 600 }}>
+                          {emp.halfDayCount || 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: T.charcoal, fontWeight: 600 }}>
+                          {emp.lateCount}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.outsideClockingCount || 0) > 0 ? T.oceanBlue : T.charcoal, fontWeight: 700 }}>
+                          {emp.outsideClockingCount || 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.openSessions || 0) > 0 ? T.seafoamGreen : T.charcoal, fontWeight: 700 }}>
+                          {emp.openSessions || 0}
+                        </TableCell>
+                        <TableCell align="center">
+                          <StatusBadge level={emp.burnoutLevel} />
+                        </TableCell>
+                      </TableRow>
+                    </MuiTooltip>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 50, 100,]}
+              component="div"
+              count={sortedEmployees.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                borderBottom: 'none',
+                background: T.cloudWhite,
+                '.MuiTablePagination-toolbar': {
+                  minHeight: '48px',
+                },
+                '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                  fontSize: '0.75rem',
+                  color: T.charcoal,
+                },
+              }}
+            />
+          </Card>
+        </Box>
+
+        {/* ── DEPARTMENT CLOCKING RECORDS (Supervisor) ── */}
+        <Box mb={4}>
+          <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
+            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
+                  📋 Department Clocking Records
+                </Typography>
+                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
+                  <TextField size="small" placeholder="Search name or location..." value={recSearch} onChange={e => { setRecSearch(e.target.value); setRecPage(0); }} sx={{ minWidth: 220 }} />
+                  <Box display="flex" justifyContent="center" gap={2}>
+                    <Button
+                      variant="contained"
+                      onClick={handleExportClockingPDF}
+                      disabled={recordsExporting || recordsLoading}
+                      startIcon={<Download />}
+                      sx={{
+                        background: colorPalette.oceanGradient,
+                        color: T.white,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        textTransform: 'none',
+                        borderRadius: '10px',
+                        px: 3.5,
+                        py: 1.2,
+                      }}
+                    >
+                      {recordsExporting ? 'Generating…' : 'Export Records'}
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+
+            <TableContainer sx={{ maxHeight: '520px', overflowY: 'auto' }}>
+              <Table stickyHeader>
+                <TableHead sx={{ background: T.softGray }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Clock In</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Clock Out</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>In Location</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Out Location</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Why Out</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {recordsLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <TableRow key={i}>{Array.from({ length: 7 }).map((__, j) => <TableCell key={j}><CircularProgress size={18} /></TableCell>)}</TableRow>
+                    ))
+                  ) : paginatedDeptRecords.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>No records available</TableCell></TableRow>
+                  ) : (
+                    paginatedDeptRecords.map((r, idx) => (
+                      <TableRow key={idx} sx={{ background: idx % 2 === 0 ? T.white : T.cloudWhite }}>
+                        <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 700 }}>{r.name}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.deepNavy }}>{r.date}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal }}>{r.clockIn}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal }}>{r.clockOut}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal, whiteSpace: 'normal', maxWidth: 260 }}>{r.inLocation}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal, whiteSpace: 'normal', maxWidth: 260 }}>{r.outLocation}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal, whiteSpace: 'normal', maxWidth: 260 }}>{r.whyOut}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50]}
+              component="div"
+              count={filteredDeptRecords.length}
+              rowsPerPage={recRowsPerPage}
+              page={recPage}
+              onPageChange={handleRecChangePage}
+              onRowsPerPageChange={handleRecChangeRowsPerPage}
+              sx={{ borderBottom: 'none', background: T.cloudWhite }}
+            />
+          </Card>
+        </Box>
+
 
         {/* ── KPI CARDS ── */}
         <Grid container spacing={2.5} mb={4}>
@@ -932,236 +1457,7 @@ const SupervisorDeptStats = () => {
             </Grid>
           </Grid>
         )}
-
-        {/* ── TOP 3 PERFORMERS ── */}
-        <Box mb={3}>
-          <Typography
-            sx={{
-              fontWeight: 700,
-              fontSize: 16,
-              color: T.deepNavy,
-              mb: 2,
-            }}
-          >
-            🏆 Top 3 Performers
-          </Typography>
-          <Grid container spacing={2.5}>
-            {topPerformers.map((emp, index) => {
-              const medals = ["🥇", "🥈", "🥉"];
-              return (
-                <Grid item xs={12} md={4} key={emp.email}>
-                  <Card
-                    elevation={0}
-                    sx={{
-                      border: `1.5px solid ${index === 0 ? T.warmSand + "60" : T.softGray}`,
-                      borderRadius: "12px",
-                      background: index === 0 ? "#FFFBEF" : T.white,
-                      transition: "all .2s",
-                      "&:hover": {
-                        transform: "translateY(-2px)",
-                        boxShadow: `0 8px 24px rgba(0,91,150,0.12)`,
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ p: "18px" }}>
-                      <Box display="flex" alignItems="center" gap={1.2} mb={1.5}>
-                        <Typography sx={{ fontSize: 28 }}>{medals[index]}</Typography>
-                        <Box>
-                          <Typography
-                            sx={{
-                              fontWeight: 700,
-                              fontSize: 14,
-                              color: T.deepNavy,
-                            }}
-                          >
-                            {emp.name}
-                          </Typography>
-                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
-                            {emp.station}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Divider sx={{ my: 1.2, borderColor: T.softGray }} />
-                      <Stack spacing={1}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
-                            Productivity
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontWeight: 800,
-                              fontSize: 16,
-                              color: T.deepNavy,
-                            }}
-                          >
-                            {parseFloat(emp.productivityScore).toFixed(1)}
-                          </Typography>
-                        </Box>
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
-                            Burnout Risk
-                          </Typography>
-                          <StatusBadge level={emp.burnoutLevel} />
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        </Box>
-
-        {/* ── EMPLOYEE RECORDS TABLE ── */}
-        <Box mb={3}>
-          <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
-            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
-                  📋 Employee Performance Records
-                </Typography>
-                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
-                  <TextField
-                    size="small"
-                    placeholder="Search by name, email, or station..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{
-                      width: { xs: "100%", sm: "200px" },
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "8px",
-                      },
-                    }}
-                  />
-                  <TextField
-                    size="small"
-                    select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    sx={{
-                      width: "120px",
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "8px",
-                      },
-                    }}
-                  >
-                    <MenuItem value="score">Sort by Score</MenuItem>
-                    <MenuItem value="hours">Sort by Hours</MenuItem>
-                    <MenuItem value="late">Sort by Late Count</MenuItem>
-                    <MenuItem value="outside">Sort by Outside</MenuItem>
-                    <MenuItem value="open">Sort by Open Sessions</MenuItem>
-                  </TextField>
-                </Box>
-              </Box>
-            </Box>
-            <TableContainer sx={{ maxHeight: "600px", overflowY: "auto" }}>
-              <Table stickyHeader>
-                <TableHead sx={{ background: T.softGray }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Station</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Hours</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>OT</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Attendance %</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Score</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Present</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Half</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Late</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Outside</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Open</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Risk</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedEmployees.map((emp, idx) => (
-                    <MuiTooltip key={emp.email} title={`Days Present: ${emp.daysPresent || "N/A"}`} placement="left">
-                      <TableRow
-                        sx={{
-                          background: idx % 2 === 0 ? T.white : T.cloudWhite,
-                          "&:hover": { background: T.softGray + "50" },
-                        }}
-                      >
-                        <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 600 }}>{emp.name}</TableCell>
-                        <TableCell sx={{ fontSize: 13, color: T.charcoal, opacity: 0.8 }}>{emp.station}</TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.charcoal }}>
-                          {emp.hours}h
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.coralSunset, fontWeight: 600 }}>
-                          {emp.overtime}h
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.oceanBlue, fontWeight: 600 }}>
-                          {emp.attendanceRate}
-                        </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: parseFloat(emp.productivityScore) > avgScore ? T.seafoamGreen : T.charcoal,
-                          }}
-                        >
-                          {parseFloat(emp.productivityScore).toFixed(1)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.seafoamGreen, fontWeight: 600 }}>
-                          {emp.presentCount || 0}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.warmSand, fontWeight: 600 }}>
-                          {emp.halfDayCount || 0}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: 13, color: T.charcoal, fontWeight: 600 }}>
-                          {emp.lateCount}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.outsideClockingCount || 0) > 0 ? T.oceanBlue : T.charcoal, fontWeight: 700 }}>
-                          {emp.outsideClockingCount || 0}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: 13, color: (emp.openSessions || 0) > 0 ? T.seafoamGreen : T.charcoal, fontWeight: 700 }}>
-                          {emp.openSessions || 0}
-                        </TableCell>
-                        <TableCell align="center">
-                          <StatusBadge level={emp.burnoutLevel} />
-                        </TableCell>
-                      </TableRow>
-                    </MuiTooltip>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <Box sx={{ px: 3, py: 1.5, background: T.cloudWhite, textAlign: "center" }}>
-              <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
-                Showing {sortedEmployees.length} of {stats.employeeMetrics.length} employees
-              </Typography>
-            </Box>
-          </Card>
-        </Box>
-
-        {/* ── BOTTOM EXPORT ── */}
-        <Box display="flex" justifyContent="center" gap={2}>
-          <Button
-            variant="contained"
-            onClick={handleExportPDF}
-            disabled={exporting}
-            startIcon={<Download />}
-            sx={{
-              background: colorPalette.oceanGradient,
-              color: T.white,
-              fontWeight: 700,
-              fontSize: 13,
-              textTransform: "none",
-              borderRadius: "10px",
-              px: 3.5,
-              py: 1.2,
-              boxShadow: `0 4px 16px rgba(10,61,98,0.25)`,
-              "&:hover": {
-                boxShadow: `0 6px 24px rgba(10,61,98,0.35)`,
-              },
-              "&:disabled": { opacity: 0.6 },
-            }}
-          >
-            {exporting ? "Generating…" : "Export Full PDF Report"}
-          </Button>
-        </Box>
-
-      </Box>{/* end page content */}
+      </Box>
     </Box>
   );
 };

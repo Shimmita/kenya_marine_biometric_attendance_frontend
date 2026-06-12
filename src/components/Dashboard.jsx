@@ -95,7 +95,7 @@ const HR_EXTRA_ITEMS = [
     { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
     { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
-    { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+    // { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
 ];
 
 const AUDITOR_ITEMS = [
@@ -415,7 +415,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-        { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+        // { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
     ], []);
 
     const techItems = useMemo(() => [
@@ -436,7 +436,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
         { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+        // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
     ], []);
 
     const ceoItems = useMemo(() => [
@@ -1076,7 +1076,7 @@ const EnhancedDashboard = () => {
                         You are about to be logged out of the <strong>KMFRI Digital Attendance Platform</strong>.
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 1.5, fontSize: '0.78rem', color: 'rgba(20,40,60,0.50)' }}>
-                        Logged in as <strong>{user?.name || 'Unknown User'}</strong> · {user?.department || user?.email || ''}
+                        Logged in as <strong>{user?.name || 'Unknown User'}</strong> · {user?.department || user?.email || ''} · {user?.station || ''}
                     </Typography>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>

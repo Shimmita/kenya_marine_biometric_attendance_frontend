@@ -1505,9 +1505,9 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
     }, [filterStation, stationList, allDeptNames]);
 
     const filteredRecords = useMemo(() => processedRecords.filter(row => {
-        if (filterStation && row.station !== filterStation) return false;
-        if (filterDept && row.department !== filterDept) return false;
-        if (search) { const s = search.toLowerCase(); if (!row.name.toLowerCase().includes(s) && !row.station.toLowerCase().includes(s) && !row.department.toLowerCase().includes(s)) return false; }
+        if (filterStation && String(row.station || '').toLowerCase() !== String(filterStation || '').toLowerCase()) return false;
+        if (filterDept && String(row.department || '').toLowerCase() !== String(filterDept || '').toLowerCase()) return false;
+        if (search) { const s = search.toLowerCase(); if (!String(row.name || '').toLowerCase().includes(s) && !String(row.station || '').toLowerCase().includes(s) && !String(row.department || '').toLowerCase().includes(s)) return false; }
         return true;
     }), [processedRecords, filterStation, filterDept, search]);
 
