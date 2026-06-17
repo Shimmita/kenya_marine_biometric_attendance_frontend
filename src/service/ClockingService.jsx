@@ -69,3 +69,30 @@ export const fetchOverallAttendanceRecords = async (params = {}) => {
   const res = await api.get("/overall/attendance/records", { params });
   return res.data;
 };
+
+
+// ============================================================================
+// MONTHLY ATTENDANCE SUMMARY
+// ============================================================================
+
+export const fetchOverallAttendanceSummary = async (params = {}) => {
+  try {
+
+    const res = await api.get(
+      "/overall/attendance/summary",
+      {
+        params,
+      }
+    );
+
+    return res.data;
+
+  } catch (err) {
+
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch attendance summary"
+    );
+
+  }
+};

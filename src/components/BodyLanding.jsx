@@ -701,7 +701,7 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
                             {isMdUp ? 'Kenya Marine and Fisheries Research Institute'.toUpperCase() : 'KMFRI Attendance System'.toUpperCase()}
                         </Typography>
                         {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>
-                            Staff Attendance System</Typography>}
+                            Staff Biometric Attendance System</Typography>}
                     </Box>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         {currentView === 'landing' && (
@@ -729,12 +729,10 @@ const EnhancedLandingPage = () => {
     return (
         <Box sx={{ minHeight: '100vh', background: G.meshBg, position: 'relative' }}>
             <EnhancedNavbar onNavigate={setView} currentView={view} />
-            <AnimatePresence mode="wait">
 
                 {/* ══ LANDING ══ */}
                 {view === 'landing' && (
-                    <motion.div style={{ willChange: 'transform, opacity' }} key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.42 }}>
-
+                    <>
                         {/* Hero */}
                         <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 5, md: 12 }, position: 'relative', overflow: 'hidden' }}>
                             <AmbientOrbs />
@@ -768,10 +766,10 @@ const EnhancedLandingPage = () => {
                                                 </Typography>
                                                 <Stack spacing={1.2}>
                                                     {[
-                                                        { icon: <Security />, text: 'Geo-Location Verification', color: colorPalette.seafoamGreen },
                                                         { icon: <Fingerprint />, text: 'Biometric Authentication', color: colorPalette.cyanFresh },
+                                                        { icon: <Security />, text: 'Geo-Location Verification', color: colorPalette.seafoamGreen },
                                                         { icon: <Schedule />, text: 'Digital Attendance Tracking', color: '#00e5ff' },
-                                                        { icon: <Analytics />, text: 'System Automated Report Analysis', color: colorPalette.warmSand },
+                                                        { icon: <Analytics />, text: 'System Automated Reports', color: colorPalette.warmSand },
                                                     ].map((item, i) => (
                                                         <motion.div key={i} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.28 + i * 0.08 }}>
                                                             <Box sx={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', p: 1.6, borderRadius: '13px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.12)', transform: 'translateX(5px)', willChange: 'transform', } }}>
@@ -835,7 +833,7 @@ const EnhancedLandingPage = () => {
                                 </Typography>
                             </Container>
                         </Box>
-                    </motion.div>
+                    </>
                 )}
 
                 {/* ══ AUTH VIEWS ══ */}
@@ -852,9 +850,6 @@ const EnhancedLandingPage = () => {
                         </Box>
                     </motion.div>
                 )}
-
-
-            </AnimatePresence>
         </Box>
     );
 };

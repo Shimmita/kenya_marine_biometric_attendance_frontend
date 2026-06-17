@@ -23,7 +23,7 @@ import {
     Legend, Line, Pie, PieChart, RadialBar, RadialBarChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
-import { fetchOverallAttendanceRecords, fetchOverallOrgStats } from '../../service/ClockingService';
+import { fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import coreDataDetails from '../CoreDataDetails';
 
@@ -561,7 +561,12 @@ const SectionLabel = ({ children, accent, chip, chipColor, icon }) => (
 ══════════════════════════════════════════════════════════════════════════ */
 const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
     const ov = data?.overview;
-    const tabLabels = ['Overview', 'Records', 'Performance'];
+    const tabLabels = [
+        "Overview",
+        "Records",
+        "Summary",
+        "Performance"
+    ];
     return (
         <Box sx={{ borderRadius: '24px', background: G.heroBg, position: 'relative', overflow: 'hidden', mb: 3, p: { xs: 3, md: 4 } }}>
             <Box sx={{ position: 'absolute', top: -60, right: -60, width: 230, height: 230, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(45px)', pointerEvents: 'none' }} />
@@ -628,9 +633,24 @@ const TabNav = ({ activeTab, setActiveTab }) => (
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}
             sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' } }}>
             {[
-                { label: 'Overview', icon: <InsertChart sx={{ fontSize: '1rem' }} /> },
-                { label: 'Records', icon: <TableChart sx={{ fontSize: '1rem' }} /> },
-                { label: 'Performance', icon: <EmojiEvents sx={{ fontSize: '1rem' }} /> },
+
+                {
+                    label: "Overview",
+                    icon: <InsertChart sx={{ fontSize: "1rem" }} />
+                },
+                {
+                    label: "Records",
+                    icon: <TableChart sx={{ fontSize: "1rem" }} />
+                },
+                {
+                    label: "Summary",
+                    icon: <QueryStats sx={{ fontSize: "1rem" }} />
+                },
+                {
+                    label: "Performance",
+                    icon: <EmojiEvents sx={{ fontSize: "1rem" }} />
+                }
+
             ].map(({ label, icon }, i) => (
                 <Tab key={i} icon={icon} iconPosition="start" label={label}
                     sx={{
@@ -1440,6 +1460,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
     const [error, setError] = useState('');
     const [filterStation, setFilterStation] = useState('');
     const [filterDept, setFilterDept] = useState('');
+    const [filterRole, setFilterRole] = useState('');
     const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
     const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
     const [search, setSearch] = useState('');
@@ -1471,10 +1492,11 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
             const params = {};
             if (filterStartDate) params.startDate = filterStartDate;
             if (filterEndDate) params.endDate = filterEndDate;
+            if (filterRole) params.role = filterRole;
             const res = await fetchOverallAttendanceRecords(params);
             setRecords(res || []);
         } catch (err) {
-            setError(typeof err === 'string' ? err : 'Failed to load records. Ensure the /overall/attendance/records backend route is added.');
+            setError(typeof err === 'string' ? err : 'Failed to load records');
         } finally { setLoading(false); }
     }, [filterStartDate, filterEndDate]);
 
@@ -1530,7 +1552,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI — ATTENDANCE RECORDS', pw / 2, 12, { align: 'center' });
         doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()} · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()  }  · ${(filterRole || 'ALL USERS').toUpperCase()  } · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
         doc.setFontSize(7.5);
         doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredRecords.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
@@ -1555,7 +1577,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                         <Stack direction="row" alignItems="center" spacing={1.5}>
                             <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: `${colorPalette.deepNavy}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ color: colorPalette.deepNavy, fontSize: '1.2rem' }} /></Box>
                             <Box>
-                                <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Clocking Records</Typography>
+                                <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Attendance Records</Typography>
                                 <Typography variant="caption" color="text.disabled">All stations combined · filtered view</Typography>
                             </Box>
                             <Chip label={`${filteredRecords.length} records`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />
@@ -1585,6 +1607,43 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                         {deptOptions.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                     </TextField>
                                 </Grid>
+
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField
+                                        select
+                                        fullWidth
+                                        size="small"
+                                        value={filterRole}
+                                        onChange={(e) => {
+                                            setFilterRole(e.target.value);
+                                            setPage(0);
+                                        }}
+                                        sx={G.input}
+                                        SelectProps={{
+                                            displayEmpty: true,
+                                            renderValue: (selected) =>
+                                                selected || "All Users"
+                                        }}
+                                    >
+                                        <MenuItem value="">
+                                            <em>All Users</em>
+                                        </MenuItem>
+
+                                        <MenuItem value="employee">
+                                            Staff / Employee
+                                        </MenuItem>
+
+                                        <MenuItem value="intern">
+                                            Intern
+                                        </MenuItem>
+
+                                        <MenuItem value="attachee">
+                                            Attachee
+                                        </MenuItem>
+
+                                    </TextField>
+                                </Grid>
+
                                 <Grid item xs={12} sm={6} md={3}>
                                     <TextField fullWidth size="small" type="date" label="From Date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={G.input} />
                                 </Grid>
@@ -1595,11 +1654,11 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                     <Button fullWidth variant="contained" onClick={loadRecords} disabled={loading}
                                         startIcon={loading ? <CircularProgress size={13} sx={{ color: '#fff' }} /> : <Refresh />}
                                         sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, background: colorPalette.oceanGradient }}>
-                                        {loading ? 'Loading…' : 'Apply Date Range'}
+                                        {loading ? 'Loading…' : 'Apply Changes'}
                                     </Button>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); }}
+                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); setFilterRole(''); }} disabled={loading }
                                         sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: 'rgba(10,61,98,0.22)', color: colorPalette.deepNavy }}>
                                         Clear Filters
                                     </Button>
@@ -1655,6 +1714,613 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         </Box>
     );
 };
+
+
+
+
+// SUMMARY TAB
+
+const SummaryTab = ({ stationList, allDeptNames, user }) => {
+    const [summary, setSummary] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [filterStation, setFilterStation] = useState('');
+    const [filterDept, setFilterDept] = useState('');
+    const [filterRole, setFilterRole] = useState('');
+    const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
+    const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(15);
+    const hasFetched = useRef(false);
+
+    const toTitleCase = (value) => {
+        if (value == null || value === '') return '—';
+        return String(value)
+            .trim()
+            .toLowerCase()
+            .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
+    };
+
+    const formatLocationLabel = (rec, isEntry) => {
+        const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
+        const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
+        if (!locationName) return status;
+        const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
+        const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
+        if (filtered.length === 0) return status;
+        return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+    };
+
+    const loadSummary = useCallback(async () => {
+        setLoading(true); setError('');
+        try {
+            const params = {};
+            if (filterStartDate) params.startDate = filterStartDate;
+            if (filterEndDate) params.endDate = filterEndDate;
+            if (filterRole) params.role = filterRole;
+            const res = await fetchOverallAttendanceSummary(params);
+            setSummary(res || []);
+        } catch (err) {
+            setError(typeof err === 'string' ? err : 'Failed to load records. Ensure the /overall/attendance/records backend route is added.');
+        } finally { setLoading(false); }
+    }, [filterStartDate, filterEndDate, filterRole]);
+
+    useEffect(() => {
+        if (!hasFetched.current) { hasFetched.current = true; loadSummary(); }
+    }, []); // eslint-disable-line
+
+    const processedSummary = useMemo(() =>
+
+        summary.map(rec => ({
+
+            employeeId: rec.employeeId || "—",
+
+            name: toTitleCase(rec.name),
+
+            role: toTitleCase(rec.role),
+
+            station: toTitleCase(rec.station),
+
+            department: toTitleCase(rec.department),
+
+            totalDays: rec.totalDays,
+
+            daysPresent: rec.daysPresent,
+
+            daysAbsent: rec.daysAbsent
+
+        })),
+
+        [summary]);
+
+    const deptOptions = useMemo(() => {
+        if (!filterStation) return allDeptNames;
+        const s = stationList.find(st => st.name === filterStation);
+        return (s?.departments || []).map(d => d.name).sort();
+    }, [filterStation, stationList, allDeptNames]);
+
+    const filteredSummary = useMemo(() => processedSummary.filter(row => {
+
+        if (
+            filterStation &&
+            row.station.toLowerCase() !==
+            filterStation.toLowerCase()
+        )
+            return false;
+
+        if (
+            filterDept &&
+            row.department.toLowerCase() !==
+            filterDept.toLowerCase()
+        )
+            return false;
+
+        if (
+            filterRole &&
+            row.role.toLowerCase() !==
+            filterRole.toLowerCase()
+        )
+            return false;
+
+        if (search) {
+
+            const s = search.toLowerCase();
+
+            if (
+
+                !row.name.toLowerCase().includes(s)
+
+                &&
+
+                !row.employeeId.toLowerCase().includes(s)
+
+            )
+
+                return false;
+
+        }
+
+        return true;
+
+    }), [processedSummary, filterStation, filterDept, filterRole, search]);
+
+    const paginatedSummary = useMemo(() => {
+        return filteredSummary.slice(
+            page * rowsPerPage,
+            page * rowsPerPage + rowsPerPage
+        );
+    }, [filteredSummary, page, rowsPerPage]);
+
+    const exportRows = filteredSummary.map(r => ({
+        "Employee ID": r.employeeId,
+        "Name": r.name,
+        "Total Days": r.totalDays,
+        "Days Present": r.daysPresent,
+        "Days Absent": r.daysAbsent,
+        "Station": r.station,
+        "Department": r.department,
+        "Role": r.role,
+    }));
+
+    const handleExportPDF = async () => {
+        const { default: jsPDF } = await import('jspdf');
+        const { default: autoTable } = await import('jspdf-autotable');
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pw = doc.internal.pageSize.getWidth();
+        doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+        doc.text('KMFRI — MONTHLY ATTENDANCE SUMMARY', pw / 2, 12, { align: 'center' });
+        doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+        doc.text(
+            `${(filterStation || 'ALL STATIONS').toUpperCase()}
+ ·
+ ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}
+ ·
+ ${(filterRole || 'ALL USERS').toUpperCase()}
+ ·
+ ${filterStartDate}
+ -
+ ${filterEndDate}`,
+            pw / 2,
+            20,
+            { align: 'center' }
+        );
+        doc.setFontSize(7.5);
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredSummary.length} RECORDS`, pw / 2, 28, { align: 'center' });
+        autoTable(doc, {
+            head: [[
+                'Employee ID',
+                'Role',
+                'Name',
+                'Total Days',
+                'Present',
+                'Absent',
+                /*  'Station',
+                 'Department', */
+            ]],
+            body: filteredSummary.map(r => [
+
+                r.employeeId,
+                r.role,
+                r.name,
+                r.totalDays,
+
+                r.daysPresent,
+
+                r.daysAbsent,
+
+                /*  r.station,
+ 
+                 r.department, */
+
+
+            ]),
+            startY: 40,
+            styles: { fontSize: 7.5, cellPadding: 2.2, halign: 'center' },
+            headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold', halign: 'center' },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+        });
+        const tp = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
+        doc.save(`KMFRI_Attendance_Summary_${Date.now()}.pdf`);
+    };
+
+    return (
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+            {/* Records table */}
+            <Reveal>
+                <Box sx={{ ...G.card, borderRadius: '22px', overflow: 'hidden' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ px: 3, pt: 3, pb: 2, gap: 1.5 }} flexWrap="wrap">
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: `${colorPalette.deepNavy}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ color: colorPalette.deepNavy, fontSize: '1.2rem' }} /></Box>
+                            <Box>
+                                <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Attendance Summary</Typography>
+                                <Typography variant="caption" color="text.disabled">Monthly Attendance Summary</Typography>
+                            </Box>
+                            <Chip label={`${filteredSummary.length} records`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />
+                        </Stack>
+                        <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
+                            <ExportMenu onPDF={handleExportPDF} loading={loading} />
+                        </Stack>
+                    </Stack>
+
+                    <Box sx={{ px: 3, pb: 2.5 }}>
+                        <Box sx={{ p: 2.5, borderRadius: '16px', background: 'rgba(10,61,98,0.04)', border: '1px solid rgba(10,61,98,0.08)' }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField fullWidth size="small" label="Search /employeeid / name / station / department" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+                                        InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: '1rem', color: 'text.disabled' }} /></InputAdornment> }}
+                                        sx={G.input} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField select fullWidth size="small" value={filterStation} onChange={e => { setFilterStation(e.target.value); setFilterDept(''); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Stations' }}>
+                                        <MenuItem value=""><em>All Stations</em></MenuItem>
+                                        {stationList.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField select fullWidth size="small" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Departments' }}>
+                                        <MenuItem value=""><em>All Departments</em></MenuItem>
+                                        {deptOptions.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField
+                                        select
+                                        fullWidth
+                                        size="small"
+                                        value={filterRole}
+                                        onChange={(e) => {
+                                            setFilterRole(e.target.value);
+                                            setPage(0);
+                                        }}
+                                        sx={G.input}
+                                        SelectProps={{
+                                            displayEmpty: true,
+                                            renderValue: (selected) =>
+                                                selected || "All Users"
+                                        }}
+                                    >
+                                        <MenuItem value="">
+                                            <em>All Users</em>
+                                        </MenuItem>
+
+                                        <MenuItem value="employee">
+                                            Staff / Employee
+                                        </MenuItem>
+
+                                        <MenuItem value="intern">
+                                            Intern
+                                        </MenuItem>
+
+                                        <MenuItem value="attachee">
+                                            Attachee
+                                        </MenuItem>
+
+                                    </TextField>
+                                </Grid>
+
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField fullWidth size="small" type="date" label="From Date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={G.input} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField fullWidth size="small" type="date" label="To Date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={G.input} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <Button fullWidth variant="contained" onClick={loadSummary} disabled={loading}
+                                        startIcon={loading ? <CircularProgress size={13} sx={{ color: '#fff' }} /> : <Refresh />}
+                                        sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, background: colorPalette.oceanGradient }}>
+                                        {loading ? 'Loading…' : 'Apply Changes'}
+                                    </Button>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <Button fullWidth variant="outlined" onClick={() => {
+
+                                        setFilterStation("");
+
+                                        setFilterDept("");
+
+                                        setFilterRole("");
+
+                                        setSearch("");
+
+                                        setPage(0);
+
+                                    }}
+                                        sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: 'rgba(10,61,98,0.22)', color: colorPalette.deepNavy }}>
+                                        Clear Filters
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </Box>
+
+                    <Divider sx={{ borderColor: 'rgba(10,61,98,0.07)' }} />
+
+                    {error && <Alert severity="warning" sx={{ m: 2, borderRadius: '12px' }}>{error}</Alert>}
+
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ background: "rgba(10,61,98,0.04)" }}>
+                                    {[
+                                        "Employee ID",
+                                        "Role",
+                                        "Name",
+                                        "Total Days",
+                                        "Days Present",
+                                        "Days Absent",
+                                        /* "Station",
+                                        "Department", */
+                                    ].map((h) => (
+                                        <TableCell
+                                            key={h}
+                                            sx={{
+                                                fontWeight: 900,
+                                                fontSize: "0.7rem",
+                                                color: colorPalette.deepNavy,
+                                                letterSpacing: 0.6,
+                                                py: 1.6,
+                                                borderBottom: "1px solid rgba(10,61,98,0.08)",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {h}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+
+                            <TableBody>
+
+                                {loading ? (
+
+                                    Array.from({ length: 8 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            {Array.from({ length: 8 }).map((__, j) => (
+                                                <TableCell
+                                                    key={j}
+                                                    sx={{
+                                                        borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    }}
+                                                >
+                                                    <Skeleton sx={{ borderRadius: "6px" }} />
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))
+
+                                ) : paginatedSummary.length === 0 ? (
+
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={8}
+                                            align="center"
+                                            sx={{
+                                                py: 8,
+                                                border: 0,
+                                            }}
+                                        >
+                                            <Stack
+                                                alignItems="center"
+                                                spacing={1.5}
+                                            >
+                                                <Box
+                                                    sx={{
+                                                        width: 64,
+                                                        height: 64,
+                                                        borderRadius: "20px",
+                                                        bgcolor: "rgba(10,61,98,0.06)",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                    }}
+                                                >
+                                                    <QueryStats
+                                                        sx={{
+                                                            fontSize: 34,
+                                                            color: "rgba(10,61,98,0.25)",
+                                                        }}
+                                                    />
+                                                </Box>
+
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.disabled"
+                                                    fontWeight={600}
+                                                >
+                                                    {error
+                                                        ? "Backend summary route not available"
+                                                        : "No attendance summary available for the selected filters"}
+                                                </Typography>
+
+                                                <Button
+                                                    size="small"
+                                                    onClick={() => {
+                                                        setFilterStation("");
+                                                        setFilterDept("");
+                                                        setFilterRole("");
+                                                        setSearch("");
+                                                        setPage(0);
+                                                    }}
+                                                    sx={{
+                                                        textTransform: "none",
+                                                        color: colorPalette.oceanBlue,
+                                                        fontWeight: 700,
+                                                        borderRadius: "10px",
+                                                        bgcolor: `${colorPalette.oceanBlue}08`,
+                                                        px: 2,
+                                                    }}
+                                                >
+                                                    Clear Filters
+                                                </Button>
+
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+
+                                ) : (
+
+                                    paginatedSummary.map((row, idx) => (
+
+                                        <Motion.tr
+                                            key={idx}
+                                            initial={{ opacity: 0, x: -4 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: idx * 0.02 }}
+                                            style={{ display: "table-row" }}
+                                        >
+
+                                            <TableCell
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: colorPalette.deepNavy,
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {row.employeeId}
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Chip
+                                                    size="small"
+                                                    label={row.role}
+                                                    sx={{
+                                                        bgcolor: `${colorPalette.deepNavy}10`,
+                                                        color: colorPalette.deepNavy,
+                                                        fontWeight: 700,
+                                                        textTransform: "capitalize",
+                                                    }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: colorPalette.deepNavy,
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {row.name}
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {row.totalDays}
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Chip
+                                                    label={row.daysPresent}
+                                                    size="small"
+                                                    color="success"
+                                                    sx={{ fontWeight: 700 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Chip
+                                                    label={row.daysAbsent}
+                                                    size="small"
+                                                    color={
+                                                        row.daysAbsent > 0
+                                                            ? "warning"
+                                                            : "success"
+                                                    }
+                                                    sx={{ fontWeight: 700 }}
+                                                />
+                                            </TableCell>
+
+                                            {/* <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                >
+                                                    {row.station}
+                                                </Typography>
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                >
+                                                    {row.department}
+                                                </Typography>
+                                            </TableCell> */}
+
+
+
+                                        </Motion.tr>
+
+                                    ))
+
+                                )}
+
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+
+                    <TablePagination
+                        component="div"
+                        count={filteredSummary.length}
+                        page={page}
+                        onPageChange={(_, p) => setPage(p)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(e) => {
+                            setRowsPerPage(parseInt(e.target.value, 10));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 15, 25, 50, 100]}
+                        sx={{
+                            borderTop: "1px solid rgba(10,61,98,0.07)",
+                            background: "rgba(10,61,98,0.02)",
+                            "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+                            {
+                                fontSize: "0.8rem",
+                                color: "text.secondary",
+                            },
+                        }}
+                    />
+                </Box>
+            </Reveal>
+        </Box>
+    );
+};
+
+
 
 /* ══════════════════════════════════════════════════════════════════════════
    PERFORMER CARD
@@ -2020,9 +2686,41 @@ export default function OverallAttendanceStats() {
             {/* Tab panels */}
             <AnimatePresence mode="wait">
                 <Motion.div key={activeTab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
-                    {activeTab === 0 && <ExecutiveOverviewTab data={data} loading={loading} stationList={stationList} records={overviewRecords} leaves={overviewLeaves} user={user} />}
-                    {activeTab === 1 && <RecordsTab stationList={stationList} allDeptNames={allDeptNames} user={user} />}
-                    {activeTab === 2 && <PerformanceTab data={data} stationList={stationList} allDeptNames={allDeptNames} user={user} />}
+                    {activeTab === 0 && (
+                        <ExecutiveOverviewTab
+                            data={data}
+                            loading={loading}
+                            stationList={stationList}
+                            records={overviewRecords}
+                            leaves={overviewLeaves}
+                            user={user}
+                        />
+                    )}
+
+                    {activeTab === 1 && (
+                        <RecordsTab
+                            stationList={stationList}
+                            allDeptNames={allDeptNames}
+                            user={user}
+                        />
+                    )}
+
+                    {activeTab === 2 && (
+                        <SummaryTab
+                            stationList={stationList}
+                            allDeptNames={allDeptNames}
+                            user={user}
+                        />
+                    )}
+
+                    {activeTab === 3 && (
+                        <PerformanceTab
+                            data={data}
+                            stationList={stationList}
+                            allDeptNames={allDeptNames}
+                            user={user}
+                        />
+                    )}
                 </Motion.div>
             </AnimatePresence>
         </Box>
