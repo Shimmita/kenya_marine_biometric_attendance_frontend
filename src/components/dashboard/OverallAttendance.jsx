@@ -232,7 +232,8 @@ function buildAttendanceAnalytics(data, records = [], leaves = null) {
     const lateCount = todaysUnique.filter((entry) => entry.isLate).length;
     const clockedInCount = todaysUnique.filter((entry) => entry.openSession).length;
     const onLeaveCount = leaveAvailable ? activeLeavesToday.size : null;
-    const absentCount = Math.max(totalEmployees - presentCount - (onLeaveCount || 0), 0);
+    const inactiveAccountsCount=data?.overview?.inactiveAccounts || 0
+    const absentCount = Math.max(totalEmployees - presentCount - (onLeaveCount || 0) - inactiveAccountsCount, 0);
 
     const recordsByDay = records.reduce((acc, rec) => {
         if (!rec?.clock_in) return acc;
