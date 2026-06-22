@@ -26,6 +26,7 @@ import {
 import { fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import coreDataDetails from '../CoreDataDetails';
+import getWorkingDaysCount from '../util/GetWorkingDays';
 
 const { colorPalette } = coreDataDetails;
 
@@ -1504,7 +1505,9 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         if (!hasFetched.current) { hasFetched.current = true; loadRecords(); }
     }, []); // eslint-disable-line
 
-    const processedRecords = useMemo(() => records.map(rec => ({
+    const processedRecords = useMemo(() => records.map((rec,idx) => ({
+        id: idx + 1 + page * rowsPerPage,
+        userId: rec.employeeId || '—',
         name: toTitleCase(rec.name || '—'),
         email: toTitleCase(rec.email || '—'),
         date: toTitleCase(fmtDate(rec.clock_in)),
@@ -1552,12 +1555,12 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI — ATTENDANCE RECORDS', pw / 2, 12, { align: 'center' });
         doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()  }  · ${(filterRole || 'ALL USERS').toUpperCase()  } · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL USERS').toUpperCase()} · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
         doc.setFontSize(7.5);
         doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredRecords.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
-            head: [['Name', 'Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out', 'Station', 'Department']],
-            body: filteredRecords.map(r => [r.name, r.date, r.clockIn, r.clockOut, r.inLocation, r.outLocation, r.whyOut, r.station, r.department]),
+            head: [['No.', "User ID", 'Name', 'Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out', 'Station', 'Department']],
+            body: filteredRecords.map((r, idx) => [idx + 1 + page * rowsPerPage, r.userId, r.name, r.date, r.clockIn, r.clockOut, r.inLocation, r.outLocation, r.whyOut, r.station, r.department]),
             startY: 40,
             styles: { fontSize: 7.5, cellPadding: 2.2, halign: 'center' },
             headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold', halign: 'center' },
@@ -1658,7 +1661,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                     </Button>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); setFilterRole(''); }} disabled={loading }
+                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); setFilterRole(''); }} disabled={loading}
                                         sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: 'rgba(10,61,98,0.22)', color: colorPalette.deepNavy }}>
                                         Clear Filters
                                     </Button>
@@ -1675,7 +1678,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Name', 'Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out', 'Station', 'Department'].map(h => (
+                                    {["No.", "User ID", "Name", "Date", "Clock In", "Clock Out", "In Location", "Out Location", "Why Out", "Station", "Department"].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.7rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
@@ -1693,6 +1696,8 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                         </TableCell></TableRow>
                                         : paginatedRecords.map((row, idx) => (
                                             <Motion.tr key={idx} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }} style={{ display: 'table-row' }}>
+                                                <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{idx+1}</TableCell>
+                                                <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{row.userId}</TableCell>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{row.name}</TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.date}</TableCell>
                                                 <TableCell sx={{ fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4 }}>{row.clockIn}</TableCell>
@@ -1719,7 +1724,6 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
 
 
 // SUMMARY TAB
-
 const SummaryTab = ({ stationList, allDeptNames, user }) => {
     const [summary, setSummary] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1770,6 +1774,23 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         if (!hasFetched.current) { hasFetched.current = true; loadSummary(); }
     }, []); // eslint-disable-line
 
+    const workingDays = useMemo(() => {
+        return getWorkingDaysCount(filterStartDate, filterEndDate);
+    }, [filterStartDate, filterEndDate]);
+
+    const totalDays = useMemo(() => {
+        if (!filterStartDate || !filterEndDate) return 0;
+
+        const start = new Date(filterStartDate);
+        const end = new Date(filterEndDate);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+
+        const diffTime = end.getTime() - start.getTime();
+
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }, [filterStartDate, filterEndDate]);
+
     const processedSummary = useMemo(() =>
 
         summary.map(rec => ({
@@ -1783,22 +1804,24 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
             station: toTitleCase(rec.station),
 
             department: toTitleCase(rec.department),
-
-            totalDays: rec.totalDays,
-
+            totalDays,
+            workingDays: workingDays,
             daysPresent: rec.daysPresent,
 
-            daysAbsent: rec.daysAbsent
+            daysAbsent: rec.daysAbsent,
 
         })),
 
-        [summary]);
+        [summary, workingDays]);
+
+
 
     const deptOptions = useMemo(() => {
         if (!filterStation) return allDeptNames;
         const s = stationList.find(st => st.name === filterStation);
         return (s?.departments || []).map(d => d.name).sort();
     }, [filterStation, stationList, allDeptNames]);
+
 
     const filteredSummary = useMemo(() => processedSummary.filter(row => {
 
@@ -1856,6 +1879,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         "Employee ID": r.employeeId,
         "Name": r.name,
         "Total Days": r.totalDays,
+        "Working Days": r.workingDays,
         "Days Present": r.daysPresent,
         "Days Absent": r.daysAbsent,
         "Station": r.station,
@@ -1870,42 +1894,31 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         const pw = doc.internal.pageSize.getWidth();
         doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-        doc.text('KMFRI — MONTHLY ATTENDANCE SUMMARY', pw / 2, 12, { align: 'center' });
-        doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text(
-            `${(filterStation || 'ALL STATIONS').toUpperCase()}
- ·
- ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}
- ·
- ${(filterRole || 'ALL USERS').toUpperCase()}
- ·
- ${filterStartDate}
- -
- ${filterEndDate}`,
-            pw / 2,
-            20,
-            { align: 'center' }
-        );
-        doc.setFontSize(7.5);
-        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredSummary.length} RECORDS`, pw / 2, 28, { align: 'center' });
+        doc.text('KMFRI ATTENDANCE SUMMARY REPORT', pw / 2, 12, { align: 'center' });
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL USERS').toUpperCase()} · ${filterStartDate} to ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredSummary.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
             head: [[
-                'Employee ID',
-                'Role',
+                "No.",
+                'User ID',
                 'Name',
+                'Role',
                 'Total Days',
+                'Working Days',
                 'Present',
                 'Absent',
                 /*  'Station',
                  'Department', */
             ]],
-            body: filteredSummary.map(r => [
+            body: filteredSummary.map((r, index) => [
 
+                index + 1,
                 r.employeeId,
-                r.role,
                 r.name,
+                r.role,
                 r.totalDays,
-
+                r.workingDays,
                 r.daysPresent,
 
                 r.daysAbsent,
@@ -1914,16 +1927,15 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
  
                  r.department, */
 
-
             ]),
             startY: 40,
-            styles: { fontSize: 7.5, cellPadding: 2.2, halign: 'center' },
+            styles: { fontSize: 9, cellPadding: 2.2, halign: 'center' },
             headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold', halign: 'center' },
             alternateRowStyles: { fillColor: [248, 250, 252] },
         });
         const tp = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
-        doc.save(`KMFRI_Attendance_Summary_${Date.now()}.pdf`);
+        for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
+        doc.save(`KMFRI_Attendance_Summary_Report_${Date.now()}.pdf`);
     };
 
     return (
@@ -2045,15 +2057,17 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                             <TableHead>
                                 <TableRow sx={{ background: "rgba(10,61,98,0.04)" }}>
                                     {[
-                                        "Employee ID",
-                                        "Role",
+                                        "No",
+                                        "User ID",
                                         "Name",
+                                        "Role",
                                         "Total Days",
+                                        "Working Days",
                                         "Days Present",
                                         "Days Absent",
                                         /* "Station",
                                         "Department", */
-                                    ].map((h) => (
+                                    ].map((h, index) => (
                                         <TableCell
                                             key={h}
                                             sx={{
@@ -2171,6 +2185,20 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                             transition={{ delay: idx * 0.02 }}
                                             style={{ display: "table-row" }}
                                         >
+                                            {/* index */}
+
+
+                                            <TableCell
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: colorPalette.deepNavy,
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {idx + 1 + page * rowsPerPage}
+                                            </TableCell>
+
 
                                             <TableCell
                                                 sx={{
@@ -2181,6 +2209,17 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                                 }}
                                             >
                                                 {row.employeeId}
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: colorPalette.deepNavy,
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {row.name}
                                             </TableCell>
 
                                             <TableCell
@@ -2203,14 +2242,16 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
 
                                             <TableCell
                                                 sx={{
-                                                    fontWeight: 700,
-                                                    color: colorPalette.deepNavy,
                                                     borderBottom: "1px solid rgba(10,61,98,0.05)",
                                                     py: 1.4,
                                                 }}
                                             >
-                                                {row.name}
+                                                {row.totalDays}
                                             </TableCell>
+
+                                            {/* working days */}
+
+
 
                                             <TableCell
                                                 sx={{
@@ -2218,7 +2259,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                                     py: 1.4,
                                                 }}
                                             >
-                                                {row.totalDays}
+                                                {row.workingDays}
                                             </TableCell>
 
                                             <TableCell

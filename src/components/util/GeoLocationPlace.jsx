@@ -182,7 +182,7 @@ const extractFromNominatim = (
     return buildLocationString(
       county,
       locality,
-      ward
+      // freezed ward
     );
   } catch (error) {
     console.error(
