@@ -232,7 +232,7 @@ function buildAttendanceAnalytics(data, records = [], leaves = null) {
     const lateCount = todaysUnique.filter((entry) => entry.isLate).length;
     const clockedInCount = todaysUnique.filter((entry) => entry.openSession).length;
     const onLeaveCount = leaveAvailable ? activeLeavesToday.size : null;
-    const inactiveAccountsCount=data?.overview?.inactiveAccounts || 0
+    const inactiveAccountsCount = data?.overview?.inactiveAccounts || 0
     const absentCount = Math.max(totalEmployees - presentCount - (onLeaveCount || 0) - inactiveAccountsCount, 0);
 
     const recordsByDay = records.reduce((acc, rec) => {
@@ -604,11 +604,11 @@ const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
                 <Grid item xs={12} md={7}>
                     <Grid container spacing={1.8}>
                         {[
-                            { label: 'Total Staff', val: ov?.totalStaff },
-                            { label: 'Active Staff', val: ov?.activeStaffThisMonth },
-                            { label: 'Org Hours', val: ov?.totalOrgHours ? `${ov.totalOrgHours}h` : '—' },
-                            { label: 'Overtime', val: ov?.totalOrgOvertime ? `${ov.totalOrgOvertime}h` : '—' },
-                            { label: 'Inactive Accounts', val: ov?.inactiveAccounts ?? '—' },
+                            { label: 'Total staff', val: ov?.totalStaff },
+                            { label: 'Active', val: ov?.activeStaffThisMonth },
+                            { label: 'Inactive', val: ov?.inactiveAccounts ?? '—' },
+                            /*  { label: 'Org Hours', val: ov?.totalOrgHours ? `${ov.totalOrgHours}h` : '—' },
+                             { label: 'Overtime', val: ov?.totalOrgOvertime ? `${ov.totalOrgOvertime}h` : '—' }, */
                             { label: 'Stations', val: data?.stationList?.length ?? '—' },
                         ].map(({ label, val }, i) => (
                             <Grid item xs={6} sm={4} key={label}>
@@ -1053,11 +1053,9 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         { Metric: 'Total employees today', Value: headline.totalEmployees },
         { Metric: 'Present today', Value: headline.presentCount },
         { Metric: 'Absent today', Value: headline.absentCount },
-        { Metric: 'Late arrivals', Value: headline.lateCount },
         { Metric: 'Currently clocked in', Value: headline.clockedInCount },
         { Metric: 'Employees on leave today', Value: headline.leaveDataAvailable ? headline.onLeaveCount : 'Unavailable' },
         { Metric: 'Overall attendance rate', Value: `${headline.attendanceRate}%` },
-        { Metric: 'Late arrival rate', Value: `${headline.lateRate}%` },
         { Metric: 'Absenteeism rate', Value: `${headline.absentRate}%` },
     ]), [headline]);
 
@@ -1065,7 +1063,6 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         Period: item.fullLabel || item.label,
         Present: item.present,
         'Attendance Rate (%)': item.attendanceRate,
-        'Late Rate (%)': item.lateRate,
         'Absent Rate (%)': item.absentRate,
         'Avg Clock In': item.avgClockInLabel || '—',
         'Avg Clock Out': item.avgClockOutLabel || '—',
@@ -1076,11 +1073,9 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         Headcount: dept.headcount,
         Present: dept.present,
         Absent: dept.absent,
-        Late: dept.late,
         'Clocked In': dept.clockedIn,
         'On Leave': dept.onLeave ?? '—',
         'Attendance Rate (%)': dept.attendanceRate,
-        'Late Rate (%)': dept.lateRate,
         'Absenteeism Rate (%)': dept.absentRate,
         'Monthly Hours': dept.totalHours,
         'Avg Hours/Staff': dept.averageHoursPerStaff,
@@ -1091,11 +1086,9 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         Headcount: station.headcount,
         Present: station.present,
         Absent: station.absent,
-        Late: station.late,
         'Clocked In': station.clockedIn,
         'On Leave': station.onLeave ?? '—',
         'Attendance Rate (%)': station.attendanceRate,
-        'Late Rate (%)': station.lateRate,
         'Absenteeism Rate (%)': station.absentRate,
         'Monthly Hours': station.totalHours,
     }));
@@ -1125,22 +1118,22 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Period', 'Present', 'Attendance %', 'Late %', 'Absent %', 'Avg In', 'Avg Out']],
-            body: exportTrendRows.map((row) => [row.Period, row.Present, row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absent Rate (%)'], row['Avg Clock In'], row['Avg Clock Out']]),
+            head: [['Period', 'Present', 'Attendance %',  'Absent %', 'Avg In', 'Avg Out']],
+            body: exportTrendRows.map((row) => [row.Period, row.Present, row['Attendance Rate (%)'], row['Absent Rate (%)'], row['Avg Clock In'], row['Avg Clock Out']]),
             headStyles: { fillColor: [0, 121, 140], textColor: 255 },
             styles: { fontSize: 7.5, cellPadding: 1.8 },
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Department', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %', 'Late %', 'Absent %']],
-            body: exportDeptRows.map((row) => [row.Department, row.Headcount, row.Present, row.Absent, row.Late, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absenteeism Rate (%)']]),
+            head: [['Department', 'Headcount', 'Present', 'Absent','Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
+            body: exportDeptRows.map((row) => [row.Department, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
             headStyles: { fillColor: [7, 58, 82], textColor: 255 },
             styles: { fontSize: 7.1, cellPadding: 1.6 },
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Station', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %', 'Late %', 'Absent %']],
-            body: exportStationRows.map((row) => [row.Station, row.Headcount, row.Present, row.Absent, row.Late, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Late Rate (%)'], row['Absenteeism Rate (%)']]),
+            head: [['Station', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %','Absent %']],
+            body: exportStationRows.map((row) => [row.Station, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
             headStyles: { fillColor: [24, 110, 99], textColor: 255 },
             styles: { fontSize: 7.1, cellPadding: 1.6 },
         });
@@ -1183,7 +1176,46 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                     {isCEO ? 'Executive Attendance KPIs' : 'Overall Attendance Snapshot'}
                 </SectionLabel>
             </Reveal>
-            <Grid container spacing={2.5} mb={4}>
+
+            <Reveal >
+                <Box mb={4} sx={{ ...G.card, borderRadius: '22px', overflow: 'hidden' }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 3, pt: 3, pb: 2 }}>
+                        <Box>
+                            <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Department Attendance Breakdown</Typography>
+                            <Typography variant="caption" color="text.disabled">Break attendance by departments with click-through details.</Typography>
+                        </Box>
+                        <Chip label={`${visibleDepartments.length} departments`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700 }} />
+                    </Stack>
+                    <Divider sx={{ borderColor: 'rgba(10,61,98,0.07)' }} />
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
+                                    {['Department', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %'].map((header) => (
+                                        <TableCell key={header} sx={{ fontWeight: 900, fontSize: '0.7rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, whiteSpace: 'nowrap' }}>{header}</TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {loading ? Array.from({ length: 6 }).map((_, rowIndex) => <TableRow key={rowIndex}>{Array.from({ length: 8 }).map((__, cellIndex) => <TableCell key={cellIndex}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>) : visibleDepartments.map((dept) => (
+                                    <TableRow key={dept.name} hover onClick={() => setDetailDept(dept)} sx={{ cursor: 'pointer' }}>
+                                        <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy }}>{dept.name}</TableCell>
+                                        <TableCell>{dept.headcount}</TableCell>
+                                        <TableCell>{dept.present}</TableCell>
+                                        <TableCell>{dept.absent}</TableCell>
+                                        <TableCell>{dept.clockedIn}</TableCell>
+                                        <TableCell>{dept.onLeave ?? '—'}</TableCell>
+                                        <TableCell><Chip label={`${dept.attendanceRate}%`} size="small" sx={{ bgcolor: `${colorPalette.seafoamGreen}12`, color: colorPalette.seafoamGreen, fontWeight: 700 }} /></TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Box>
+            </Reveal>
+
+            {/*
+                 <Grid container spacing={2.5} mb={4}>
                 {[
                     { label: isCEO ? 'Overall Attendance Rate' : 'Total Employees Today', value: isCEO ? `${headline.attendanceRate}%` : headline.totalEmployees, subtitle: isCEO ? 'Present workforce vs total staff' : 'All staff in the organisation', icon: <Person sx={{ color: colorPalette.oceanBlue, fontSize: '1.3rem' }} />, accent: colorPalette.oceanBlue, progress: isCEO ? headline.attendanceRate : null },
                     { label: isCEO ? 'Late Arrival Rate' : 'Present / Absent / Late', value: isCEO ? `${headline.lateRate}%` : `${headline.presentCount} / ${headline.absentCount} / ${headline.lateCount}`, subtitle: isCEO ? 'Late employees among those present today' : 'Today workforce split', icon: <Warning sx={{ color: '#f59e0b', fontSize: '1.3rem' }} />, accent: '#f59e0b', progress: isCEO ? headline.lateRate : null },
@@ -1376,44 +1408,8 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                     </Reveal>
                 </Grid>
             </Grid>
+ */}
 
-            <Reveal>
-                <Box sx={{ ...G.card, borderRadius: '22px', overflow: 'hidden' }}>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 3, pt: 3, pb: 2 }}>
-                        <Box>
-                            <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>Department Attendance Breakdown</Typography>
-                            <Typography variant="caption" color="text.disabled">Break attendance by departments with click-through details.</Typography>
-                        </Box>
-                        <Chip label={`${visibleDepartments.length} departments`} size="small" sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 700 }} />
-                    </Stack>
-                    <Divider sx={{ borderColor: 'rgba(10,61,98,0.07)' }} />
-                    <TableContainer>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Department', 'Headcount', 'Present', 'Absent', 'Late', 'Clocked In', 'On Leave', 'Attendance %'].map((header) => (
-                                        <TableCell key={header} sx={{ fontWeight: 900, fontSize: '0.7rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, whiteSpace: 'nowrap' }}>{header}</TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {loading ? Array.from({ length: 6 }).map((_, rowIndex) => <TableRow key={rowIndex}>{Array.from({ length: 8 }).map((__, cellIndex) => <TableCell key={cellIndex}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>) : visibleDepartments.map((dept) => (
-                                    <TableRow key={dept.name} hover onClick={() => setDetailDept(dept)} sx={{ cursor: 'pointer' }}>
-                                        <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy }}>{dept.name}</TableCell>
-                                        <TableCell>{dept.headcount}</TableCell>
-                                        <TableCell>{dept.present}</TableCell>
-                                        <TableCell>{dept.absent}</TableCell>
-                                        <TableCell>{dept.late}</TableCell>
-                                        <TableCell>{dept.clockedIn}</TableCell>
-                                        <TableCell>{dept.onLeave ?? '—'}</TableCell>
-                                        <TableCell><Chip label={`${dept.attendanceRate}%`} size="small" sx={{ bgcolor: `${colorPalette.seafoamGreen}12`, color: colorPalette.seafoamGreen, fontWeight: 700 }} /></TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </Box>
-            </Reveal>
 
             <Dialog open={Boolean(detailDept)} onClose={() => setDetailDept(null)} maxWidth="sm" fullWidth>
                 <DialogTitle>{detailDept?.name || 'Department'} details</DialogTitle>
@@ -1423,11 +1419,9 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                             { label: 'Headcount', value: detailDept.headcount },
                             { label: 'Present today', value: detailDept.present },
                             { label: 'Absent today', value: detailDept.absent },
-                            { label: 'Late today', value: detailDept.late },
                             { label: 'Currently clocked in', value: detailDept.clockedIn },
                             { label: 'On leave today', value: detailDept.onLeave ?? '—' },
                             { label: 'Attendance rate', value: `${detailDept.attendanceRate}%` },
-                            { label: 'Late arrival rate', value: `${detailDept.lateRate}%` },
                             { label: 'Monthly hours', value: `${detailDept.totalHours}h` },
                             { label: 'Avg hours / staff', value: `${detailDept.averageHoursPerStaff}h` },
                         ].map((item) => <Grid item xs={6} key={item.label}><Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'rgba(10,61,98,0.04)' }}><Typography variant="caption" color="text.disabled">{item.label}</Typography><Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{item.value}</Typography></Box></Grid>)}
@@ -1443,7 +1437,6 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                         {[
                             { label: 'Present', value: detailTrend.present },
                             { label: 'Attendance rate', value: `${detailTrend.attendanceRate}%` },
-                            { label: 'Late arrival rate', value: `${detailTrend.lateRate}%` },
                             { label: 'Absenteeism rate', value: `${detailTrend.absentRate}%` },
                             { label: 'Avg clock in', value: detailTrend.avgClockInLabel || '—' },
                             { label: 'Avg clock out', value: detailTrend.avgClockOutLabel || '—' },
@@ -1506,7 +1499,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         if (!hasFetched.current) { hasFetched.current = true; loadRecords(); }
     }, []); // eslint-disable-line
 
-    const processedRecords = useMemo(() => records.map((rec,idx) => ({
+    const processedRecords = useMemo(() => records.map((rec, idx) => ({
         id: idx + 1 + page * rowsPerPage,
         userId: rec.employeeId || '—',
         name: toTitleCase(rec.name || '—'),
@@ -1697,7 +1690,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                         </TableCell></TableRow>
                                         : paginatedRecords.map((row, idx) => (
                                             <Motion.tr key={idx} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }} style={{ display: 'table-row' }}>
-                                                <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{idx+1}</TableCell>
+                                                <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{idx + 1}</TableCell>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{row.userId}</TableCell>
                                                 <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap' }}>{row.name}</TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', py: 1.4, whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.date}</TableCell>

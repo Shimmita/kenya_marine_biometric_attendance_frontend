@@ -1,4 +1,5 @@
 import {
+    Badge,
     BadgeRounded,
     Business,
     CalendarToday,
@@ -10,7 +11,6 @@ import {
     Security,
     Visibility, VisibilityOff,
     WorkRounded,
-    Badge,
 } from '@mui/icons-material';
 import {
     Box,
@@ -30,16 +30,16 @@ const { colorPalette, genders, AvailableStations, availableDepartments: departme
 
 /** All roles — used in public-facing / admin registration */
 export const ALL_ROLES = [
-    { value: 'employee',          label: 'Employee (P&P)',       icon: '👔', desc: 'Permanent' },
-    { value: 'employee-contract', label: 'Employee (Contract)',  icon: '👔', desc: 'Contract' },
-    { value: 'intern',            label: 'Intern',               icon: '🎓', desc: 'University / college intern' },
-    { value: 'attachee',          label: 'Attaché',              icon: '📋', desc: 'Industrial attachment' },
+    { value: 'employee', label: 'Employee (P&P)', icon: '👔', desc: 'Permanent' },
+    { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
+    { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
+    { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
 ];
 
 /** Restricted roles — used in Dashboard → Intern & Attaché Registration */
 export const INTERN_ATTACHEE_ROLES = [
-    { value: 'intern',   label: 'Intern',   icon: '🎓', desc: 'University / college intern' },
-    { value: 'attachee', label: 'Attaché',  icon: '📋', desc: 'Industrial attachment' },
+    { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
+    { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
 ];
 
 /* ══ MENU STYLE ════════════════════════════════════════════════════════════ */
@@ -122,10 +122,10 @@ const ReviewRow = ({ label, value, accent }) => (
 /* ══ DYNAMIC EMPLOYEE-ID FIELD ═════════════════════════════════════════════ */
 const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
     const cfg = {
-        employee:          { label: 'Staff ID',               placeholder: 'Enter your staff ID' },
-        'employee-contract': { label: 'Staff ID',             placeholder: 'Enter your staff ID' },
-        intern:            { label: 'National ID',            placeholder: 'Enter your national ID' },
-        attachee:          { label: 'Student Reg. Number',    placeholder: 'Enter your student registration number' },
+        employee: { label: 'Staff ID', placeholder: 'Enter your staff ID' },
+        'employee-contract': { label: 'Staff ID', placeholder: 'Enter your staff ID' },
+        intern: { label: 'National ID', placeholder: 'Enter your national ID' },
+        attachee: { label: 'Student Reg. Number', placeholder: 'Enter your student registration number' },
     }[role] || { label: 'ID Number', placeholder: 'Enter your ID number' };
 
     return (
@@ -153,8 +153,8 @@ const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
 const RoleDetailsStep = React.memo(({
     formData, errors, setFormData, setErrors,
     availableRoles = ALL_ROLES,
-    title        = "What's your role at KMFRI?",
-    subtitle     = 'Select the category that best describes your employment type.',
+    title = "What's your role at KMFRI?",
+    subtitle = 'Select the category that best describes your employment type.',
 }) => (
     <Stack spacing={3}>
         <Box sx={{ textAlign: 'center' }}>
@@ -197,11 +197,30 @@ const PersonalDetailsStep = React.memo(({ formData, errors, handle, tf }) => (
             error={!!errors.name} helperText={errors.name}
             InputProps={{ startAdornment: <InputAdornment position="start"><Badge sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
             sx={tf} />
-        <TextField fullWidth required type="number" label="Phone Number" placeholder="0723569054"
-            value={formData.phone} onChange={handle('phone')}
-            error={!!errors.phone} helperText={errors.phone}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Phone sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
-            sx={tf} />
+        <TextField
+            fullWidth
+            required
+            type="number"
+            label="Phone Number"
+            placeholder="0723569054"
+            value={formData.phone}
+            onChange={(e) => {
+                // Limit to 10 digits
+                if (e.target.value.length <= 10) {
+                    handle('phone')(e);
+                }
+            }}
+            error={!!errors.phone}
+            helperText={errors.phone}
+            InputProps={{
+                startAdornment: (
+                    <InputAdornment position="start">
+                        <Phone sx={{ color: colorPalette.oceanBlue }} />
+                    </InputAdornment>
+                ),
+            }}
+            sx={tf}
+        />
         <TextField fullWidth required label="Email Address" type="email" placeholder="john.doe@kmfri.go.ke"
             value={formData.email} onChange={handle('email')}
             error={!!errors.email} helperText={errors.email}
@@ -374,20 +393,20 @@ const ReviewDetailStep = React.memo(({ formData, isEmployee, role, roles = ALL_R
             </Box>
 
             <Stack spacing={0}>
-                <ReviewRow label="Full Name"    value={formData.name} />
-                <ReviewRow label="Phone"        value={formData.phone} />
-                <ReviewRow label="Email"        value={formData.email} />
-                <ReviewRow label="Gender"       value={formData.gender} />
-                <ReviewRow label="Station"      value={formData.station} />
-                <ReviewRow label="Department"   value={formData.department} />
+                <ReviewRow label="Full Name" value={formData.name} />
+                <ReviewRow label="Phone" value={formData.phone} />
+                <ReviewRow label="Email" value={formData.email} />
+                <ReviewRow label="Gender" value={formData.gender} />
+                <ReviewRow label="Station" value={formData.station} />
+                <ReviewRow label="Department" value={formData.department} />
                 <ReviewRow label={
-                    role === 'intern'   ? 'National ID' :
-                    role === 'attachee' ? 'Student Reg. No.' : 'Staff ID'
+                    role === 'intern' ? 'National ID' :
+                        role === 'attachee' ? 'Student Reg. No.' : 'Staff ID'
                 } value={formData.employeeId} />
                 {role !== 'employee' && role !== 'employee-contract' && (
                     <>
                         <ReviewRow label="Start Date" value={formData.startDate} />
-                        <ReviewRow label="End Date"   value={formData.endDate} />
+                        <ReviewRow label="End Date" value={formData.endDate} />
                     </>
                 )}
                 <ReviewRow label="Password" value="••••••••" accent={colorPalette.seafoamGreen} />
@@ -412,5 +431,5 @@ export {
     ReviewDetailStep,
     RoleDetailsStep,
     SecurityDetailStep,
-    WorkDetailsStep,
+    WorkDetailsStep
 };

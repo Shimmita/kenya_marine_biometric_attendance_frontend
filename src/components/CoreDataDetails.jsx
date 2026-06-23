@@ -80,7 +80,6 @@ const coreDataDetails = {
     genders: [
         'Male',
         'Female',
-        'Other'
     ],
 
     REASONS: ["Sickness", "Fieldwork", "Research", "Workshop", "Official Assignment", "Remote Work"],
