@@ -1,4 +1,4 @@
-import { AccessAlarm, Brightness5, CheckCircle, CheckCircleOutline, Download, LocationOn, ScheduleRounded, TrendingUp, WarningAmber } from "@mui/icons-material";
+import { CheckCircle, CheckCircleOutline, Download, LocationOn } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -20,28 +20,20 @@ import {
   TextField,
   Typography
 } from "@mui/material";
+import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from "react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  ComposedChart,
   Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
+  YAxis
 } from "recharts";
 import { fetchDepartmentStats, fetchOverallAttendanceRecords } from "../../../service/ClockingService";
 import { createVerification } from "../../../service/VerificationService";
-import QRCode from 'qrcode';
 import coreDataDetails from "../../CoreDataDetails";
 import StatChip from "../../util/StatChip";
 
@@ -154,7 +146,7 @@ const KpiCard = ({ label, value, icon, accent, subtext }) => (
           )}
         </Box>
 
-        
+
         <Box
           sx={{
             width: 42,
@@ -381,10 +373,10 @@ const SupervisorDeptStats = () => {
           date: new Date(r.clock_in).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }),
           rawDate: new Date(r.clock_in),
           clockIn: new Date(r.clock_in).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
-          clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '—',
+          clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : 'System',
           inLocation: formatLocationLabel(r, true),
           outLocation: formatLocationLabel(r, false),
-          whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : '—',
+          whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : "",
         })));
       } catch (err) {
         console.error('Failed to load department records', err);
@@ -429,14 +421,14 @@ const SupervisorDeptStats = () => {
       doc.addImage(qrImage, 'PNG', pw - qrSize - 12, 6, qrSize, qrSize, undefined, 'FAST');
 
       autoTable(doc, {
-        head: [['NAME','DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
+        head: [['NAME', 'DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
         body: exportList.map(r => [
           normalizeExportValue(r.name), normalizeExportValue(r.date), normalizeExportValue(r.clockIn), normalizeExportValue(r.clockOut),
           normalizeExportValue(r.inLocation), normalizeExportValue(r.outLocation), normalizeExportValue(r.whyOut),
         ]),
         startY: 42,
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [10,61,98], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold' },
       });
 
       const tp = doc.internal.getNumberOfPages();
@@ -582,12 +574,9 @@ const SupervisorDeptStats = () => {
       // ── KPI Row ──
       const kpis = [
         ["Staff", stats.totalStaff],
-        ["Hours", stats.totalHours],
         ["OT Hrs", stats.totalOvertime],
-        ["Late", stats.totalLateCount],
-        ["Avg Score", avgScore],
-        ["Burnout High", highBurnout],
-      ];
+        ["Avg Attendance", avgAttendance + "%"],
+      ]
 
       const boxW = (pw - 30) / kpis.length;
       kpis.forEach(([lbl, val], i) => {
@@ -607,7 +596,7 @@ const SupervisorDeptStats = () => {
       // ── Employee Table ──
       autoTable(doc, {
         startY: 62,
-        head: [["#", "Name", "Station", "Hours", "Overtime", "Attendance", "Score", "Late", "Outside", "Open", "Risk"]],
+        head: [["#", "Name", "Station", "Hours", "Overtime", "Attendance", "Outside", "Open",]],
         body: sortedEmployees.slice(0, 50).map((e, i) => [
           i + 1,
           e.name,
@@ -615,11 +604,8 @@ const SupervisorDeptStats = () => {
           e.hours,
           e.overtime,
           e.attendanceRate,
-          parseFloat(e.productivityScore).toFixed(1),
-          e.lateCount,
           e.outsideClockingCount || 0,
           e.openSessions || 0,
-          e.burnoutLevel,
         ]),
         headStyles: {
           fillColor: [10, 61, 98],
@@ -639,26 +625,6 @@ const SupervisorDeptStats = () => {
         },
       });
 
-      // ── Top Performers section ──
-      const finalY = (doc.lastAutoTable?.finalY || ph - 50) + 8;
-      if (finalY < ph - 30) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(10, 61, 98);
-        doc.text("🏆 Top 3 Performers", 15, finalY);
-
-        topPerformers.slice(0, 4).forEach((p, i) => {
-          const medal = ["🥇", "🥈", "🥉", "🏅"][i];
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8);
-          doc.setTextColor(40, 60, 80);
-          doc.text(
-            `${medal} ${p.name}  |  Score: ${parseFloat(p.productivityScore).toFixed(1)}  |  ${p.station}`,
-            20,
-            finalY + 6 + i * 6
-          );
-        });
-      }
 
       // ── Footer ──
       doc.setFillColor(10, 61, 98);
@@ -695,15 +661,15 @@ const SupervisorDeptStats = () => {
   const filteredDeptRecords = !recSearch
     ? deptRecords
     : deptRecords.filter(r => {
-        const s = recSearch.toLowerCase();
-        return (
-          String(r.name || '').toLowerCase().includes(s) ||
-          String(r.inLocation || '').toLowerCase().includes(s) ||
-          String(r.outLocation || '').toLowerCase().includes(s) ||
-          String(r.whyOut || '').toLowerCase().includes(s) ||
-          String(r.date || '').toLowerCase().includes(s)
-        );
-      });
+      const s = recSearch.toLowerCase();
+      return (
+        String(r.name || '').toLowerCase().includes(s) ||
+        String(r.inLocation || '').toLowerCase().includes(s) ||
+        String(r.outLocation || '').toLowerCase().includes(s) ||
+        String(r.whyOut || '').toLowerCase().includes(s) ||
+        String(r.date || '').toLowerCase().includes(s)
+      );
+    });
 
   const paginatedDeptRecords = filteredDeptRecords.slice(recPage * recRowsPerPage, recPage * recRowsPerPage + recRowsPerPage);
 
@@ -728,7 +694,7 @@ const SupervisorDeptStats = () => {
       <Box
         sx={{
           background: colorPalette.oceanGradient,
-          borderRadius:2,
+          borderRadius: 2,
           px: { xs: 2.5, md: 4 },
           pt: 4,
           pb: 3,
@@ -749,7 +715,7 @@ const SupervisorDeptStats = () => {
               {stats.department}
             </Typography>
             <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
-              {stats.totalStaff} Staff Members
+              {stats.totalStaff} Members
             </Typography>
           </Grid>
           <Grid
@@ -774,33 +740,8 @@ const SupervisorDeptStats = () => {
           </Grid>
         </Grid>
 
-        {/* Second row: Key Metrics */}
         <Grid container spacing={2} alignItems="center">
-          {/* Total Hours & Overtime */}
-          <Grid item xs={6} sm={3} md={2}>
-            <StatChip
-              label="Total Hours"
-              value={`${stats.totalHours || 0}h`}
-              icon={<ScheduleRounded fontSize="small" />}
-              color="rgba(255,255,255,0.95)"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3} md={2}>
-            <StatChip
-              label="Overtime"
-              value={`${stats.totalOvertime || 0}h`}
-              icon={<TrendingUp fontSize="small" />}
-              color="#FFD966"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3} md={2}>
-            <StatChip
-              label="Late Arrivals"
-              value={stats.totalLateCount || 0}
-              icon={<AccessAlarm fontSize="small" />}
-              color="#FF8A7A"
-            />
-          </Grid>
+
           <Grid item xs={6} sm={3} md={2}>
             <StatChip
               label="Outside Clockings"
@@ -815,14 +756,6 @@ const SupervisorDeptStats = () => {
               value={stats.presentDays || 0}
               icon={<CheckCircleOutline fontSize="small" />}
               color="#A5D6A5"
-            />
-          </Grid>
-          <Grid item xs={6} sm={3} md={2}>
-            <StatChip
-              label="Half Days"
-              value={stats.halfDays || 0}
-              icon={<Brightness5 fontSize="small" />}
-              color="#FFB74D"
             />
           </Grid>
         </Grid>
@@ -840,9 +773,8 @@ const SupervisorDeptStats = () => {
             </Box>
           </Grid>
           <Grid item xs={12} sm={6} textAlign={{ xs: "left", sm: "right" }}>
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", fontWeight:'bold' }}>
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", fontWeight: 'bold' }}>
               📅 Today: {stats.today?.clockIns || 0} clock‑ins, &nbsp;
-              {stats.today?.late || 0} late, &nbsp;
               {stats.today?.present || 0} present
             </Typography>
           </Grid>
@@ -943,9 +875,7 @@ const SupervisorDeptStats = () => {
                       },
                     }}
                   >
-                    <MenuItem value="score">Sort by Score</MenuItem>
                     <MenuItem value="hours">Sort by Hours</MenuItem>
-                    <MenuItem value="late">Sort by Late Count</MenuItem>
                     <MenuItem value="outside">Sort by Outside</MenuItem>
                     <MenuItem value="open">Sort by Open Sessions</MenuItem>
                   </TextField>
@@ -988,13 +918,10 @@ const SupervisorDeptStats = () => {
                     <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Hours</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Overtime</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Attendance</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Score</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Present</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Half</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Late</TableCell>
+
                     <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Outside</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Open</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Risk</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1017,34 +944,18 @@ const SupervisorDeptStats = () => {
                         <TableCell align="right" sx={{ fontSize: 13, color: T.oceanBlue, fontWeight: 600 }}>
                           {emp.attendanceRate}
                         </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: parseFloat(emp.productivityScore) > avgScore ? T.seafoamGreen : T.charcoal,
-                          }}
-                        >
-                          {parseFloat(emp.productivityScore).toFixed(1)}
-                        </TableCell>
+
                         <TableCell align="right" sx={{ fontSize: 13, color: T.seafoamGreen, fontWeight: 600 }}>
                           {emp.presentCount || 0}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontSize: 13, color: T.warmSand, fontWeight: 600 }}>
-                          {emp.halfDayCount || 0}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: 13, color: T.charcoal, fontWeight: 600 }}>
-                          {emp.lateCount}
-                        </TableCell>
+
                         <TableCell align="center" sx={{ fontSize: 13, color: (emp.outsideClockingCount || 0) > 0 ? T.oceanBlue : T.charcoal, fontWeight: 700 }}>
                           {emp.outsideClockingCount || 0}
                         </TableCell>
                         <TableCell align="center" sx={{ fontSize: 13, color: (emp.openSessions || 0) > 0 ? T.seafoamGreen : T.charcoal, fontWeight: 700 }}>
                           {emp.openSessions || 0}
                         </TableCell>
-                        <TableCell align="center">
-                          <StatusBadge level={emp.burnoutLevel} />
-                        </TableCell>
+
                       </TableRow>
                     </MuiTooltip>
                   ))}
@@ -1165,8 +1076,6 @@ const SupervisorDeptStats = () => {
           {[
             { label: "Total Staff", value: stats.totalStaff, icon: "👥", accent: T.oceanBlue, subtext: "Active this month" },
             { label: "Hours Worked", value: stats.totalHours, icon: "⏱", accent: T.seafoamGreen, subtext: "Dept total" },
-            { label: "Overtime Hours", value: stats.totalOvertime, icon: "🔥", accent: T.warmSand, subtext: "Accumulated" },
-            { label: "Late Arrivals", value: stats.totalLateCount, icon: "⚠️", accent: T.coralSunset, subtext: "This period" },
             { label: "Active Coverage", value: `${activeCoverage}%`, icon: "📌", accent: T.aqua, subtext: `${stats.activeStaffThisMonth || 0} staff with records` },
             { label: "Clocked In Now", value: stats.clockedInNow || 0, icon: "🟢", accent: T.seafoamGreen, subtext: "Open sessions" },
             { label: "Outside Clocking", value: stats.outsideClockingCount || 0, icon: "📍", accent: T.oceanBlue, subtext: `${outsideUsageRate}% staff usage` },
@@ -1178,42 +1087,6 @@ const SupervisorDeptStats = () => {
           ))}
         </Grid>
 
-        {/* ── INSIGHT ROW ── */}
-        <Grid container spacing={2.5} mb={4}>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="Avg Productivity"
-              value={avgScore}
-              icon={TrendingUp}
-              color={T.oceanBlue}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="Avg Attendance"
-              value={`${avgAttendance}%`}
-              icon={CheckCircle}
-              color={T.seafoamGreen}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="Moderate Risk"
-              value={moderateBurnout}
-              icon={WarningAmber}
-              color={T.warmSand}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="High Risk Staff"
-              value={highBurnout}
-              icon={WarningAmber}
-              color={highBurnout > 0 ? T.coralSunset : T.seafoamGreen}
-              trend={highBurnout > 0 ? { label: "Action needed", color: T.coralSunset } : { label: "No concerns", color: T.seafoamGreen }}
-            />
-          </Grid>
-        </Grid>
 
         {/* ── OPERATIONAL SUMMARY ── */}
         <Grid container spacing={2.5} mb={4}>
@@ -1233,210 +1106,10 @@ const SupervisorDeptStats = () => {
               color={T.seafoamGreen}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="Today's Clock-ins"
-              value={stats.today?.clockIns || 0}
-              icon={TrendingUp}
-              color={T.aqua}
-              trend={{ label: `${stats.today?.late || 0} late today`, color: (stats.today?.late || 0) > 0 ? T.coralSunset : T.seafoamGreen }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <InsightCard
-              title="Outside Authorized"
-              value={stats.outsideAuthorizedCount || 0}
-              icon={WarningAmber}
-              color={T.warmSand}
-              trend={{ label: `${stats.outsideClockingStaffCount || 0} used this month`, color: T.oceanBlue }}
-            />
-          </Grid>
+
         </Grid>
 
-        {/* ── ROW 1: Productivity Bar + Burnout Pie ── */}
-        <Grid container spacing={3} mb={3}>
-          {/* Productivity Score Bar */}
-          <Grid item xs={12} md={8}>
-            <ChartCard title="Productivity Scores (Top 10)" icon="📊">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartDataTop10}>
-                  <defs>
-                    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.oceanBlue} stopOpacity={0.9} />
-                      <stop offset="100%" stopColor={T.aqua} stopOpacity={0.6} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="Score" fill="url(#scoreGrad)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
 
-          {/* Burnout Pie */}
-          <Grid item xs={12} md={4}>
-            <ChartCard title="Burnout Distribution" icon="🔥" sx={{ height: "100%" }}>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieBurnoutData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={85}
-                    innerRadius={45}
-                    paddingAngle={3}
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                    labelLine={false}
-                  >
-                    {pieBurnoutData.map((entry, i) => (
-                      <Cell key={`cell-${i}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
-
-        {/* ── ROW 2: Attendance + Late Arrivals ── */}
-        <Grid container spacing={3} mb={3}>
-          {/* Attendance Area */}
-          <Grid item xs={12} md={6}>
-            <ChartCard title="Attendance Rate" icon="📅">
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={attendanceData}>
-                  <defs>
-                    <linearGradient id="attendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.seafoamGreen} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={T.seafoamGreen} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="Attendance" stroke={T.seafoamGreen} strokeWidth={2.5} fill="url(#attendGrad)" dot={{ r: 3, fill: T.seafoamGreen }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-
-          {/* Late Arrivals Bar */}
-          <Grid item xs={12} md={6}>
-            <ChartCard title="Late Arrivals by Employee" icon="🕐">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={lateData} barCategoryGap="35%">
-                  <defs>
-                    <linearGradient id="lateGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.warmSand} stopOpacity={0.9} />
-                      <stop offset="100%" stopColor={T.coralSunset} stopOpacity={0.7} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="Late" fill="url(#lateGrad)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
-
-        {/* ── ROW 3: Hours vs Overtime + Score Trend ── */}
-        <Grid container spacing={3} mb={3}>
-          {/* Hours vs Overtime */}
-          <Grid item xs={12} md={7}>
-            <ChartCard title="Hours vs Overtime Comparison" icon="⚡">
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={chartDataTop10}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  <Bar dataKey="Hours" fill={T.oceanBlue} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Overtime" fill={T.coralSunset} radius={[4, 4, 0, 0]} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-
-          {/* Score Line Trend */}
-          <Grid item xs={12} md={5}>
-            <ChartCard title="Productivity Trend" icon="📈">
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartDataTop10}>
-                  <defs>
-                    <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor={T.aqua} />
-                      <stop offset="100%" stopColor={T.oceanBlue} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="Score"
-                    stroke="url(#lineGrad)"
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: T.aqua }}
-                    activeDot={{ r: 6, fill: T.white, stroke: T.aqua, strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
-
-        {/* ── ROW 4: Daily Trend + Station Summary ── */}
-        <Grid container spacing={3} mb={3}>
-          <Grid item xs={12} md={7}>
-            <ChartCard title="Department Clocking Trend" icon="📈">
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={dailyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  <Bar yAxisId="left" dataKey="clockIns" name="Clock Ins" fill={T.oceanBlue} radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="left" dataKey="outsideClocking" name="Outside" fill={T.warmSand} radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="hours" name="Hours" stroke={T.seafoamGreen} strokeWidth={2.5} dot={{ r: 3, fill: T.seafoamGreen }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-
-          <Grid item xs={12} md={5}>
-            <ChartCard title="Station Workload Summary" icon="🏢">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={stationChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: T.charcoal, opacity: 0.7 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10, fill: T.charcoal, opacity: 0.75 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  <Bar dataKey="Hours" fill={T.oceanBlue} radius={[0, 5, 5, 0]} />
-                  <Bar dataKey="Late" fill={T.coralSunset} radius={[0, 5, 5, 0]} />
-                  <Bar dataKey="Outside" fill={T.warmSand} radius={[0, 5, 5, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
 
         {/* ── ROW 5: Outside Clocking Focus ── */}
         {outsideClockingData.length > 0 && (

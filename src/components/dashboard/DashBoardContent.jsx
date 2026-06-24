@@ -735,7 +735,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             setRecentAttendance(records.map(rec => ({
                 date: formatDate(rec.clock_in),
                 clockIn: formatTime(rec.clock_in),
-                clockOut: rec.clock_out ? formatTime(rec.clock_out) : '—',
+                clockOut: rec.clock_out ? formatTime(rec.clock_out) : 'System',
                 status: rec.clock_out ? (rec.isPresent ? 'Present' : 'Halfday') : '',
                 timing: rec.isLate ? 'Late' : 'Early',
                 hours: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',

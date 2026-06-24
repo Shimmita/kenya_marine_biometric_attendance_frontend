@@ -93,7 +93,7 @@ const hourLabel = (value) => {
     return `${pad2(h)}:${pad2(m === 60 ? 0 : m)}`;
 };
 const fmtDuration = (clockIn, clockOut) => {
-    if (!clockOut) return '—';
+    if (!clockOut) return 'System';
     const h = (new Date(clockOut) - new Date(clockIn)) / 3600000;
     return h.toFixed(2);
 };
@@ -1507,11 +1507,11 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         date: toTitleCase(fmtDate(rec.clock_in)),
         rawDate: new Date(rec.clock_in),
         clockIn: fmtTime(rec.clock_in),
-        clockOut: rec.clock_out ? fmtTime(rec.clock_out) : '—',
+        clockOut: rec.clock_out ? fmtTime(rec.clock_out) : 'System',
         duration: fmtDuration(rec.clock_in, rec.clock_out),
         inLocation: formatLocationLabel(rec, true),
         outLocation: formatLocationLabel(rec, false),
-        whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : '—',
+        whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) :"",
         station: toTitleCase(rec.station || '—'),
         department: toTitleCase(rec.department || '—'),
         timing: rec.isLate ? 'Late' : 'Early',

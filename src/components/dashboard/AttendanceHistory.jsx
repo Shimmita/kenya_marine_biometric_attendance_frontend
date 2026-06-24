@@ -374,10 +374,10 @@ export default function AttendanceHistoryContent() {
                 date: formatDate(rec.clock_in),
                 rawDate: new Date(rec.clock_in),
                 clockIn: formatTime(rec.clock_in),
-                clockOut: rec.clock_out ? formatTime(rec.clock_out) : '—',
+                clockOut: rec.clock_out ? formatTime(rec.clock_out) : 'System',
                 inLocation: formatLocationLabel(rec, true),
                 outLocation: formatLocationLabel(rec, false),
-                whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : '—',
+                whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",
                 duration: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
                 timing: rec.isLate ? 'Late' : 'Early',
             })));
