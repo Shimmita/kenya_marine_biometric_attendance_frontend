@@ -138,6 +138,41 @@ const ControlField = ({ label, minWidth = 140, children, disabled }) => (
 const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormData, onSubmit }) => {
     const today = new Date().toISOString().split("T")[0];
 
+    // Calculate the maximum allowed end date (1 month after start date)
+    const getMaxEndDate = () => {
+        if (!formData.startDate) return undefined;
+        
+        const startDateObj = new Date(formData.startDate);
+        // Add 1 month to the selected start date
+        startDateObj.setMonth(startDateObj.getMonth() + 1); 
+        
+        return startDateObj.toISOString().split("T")[0];
+    };
+
+    // Handle start date change and validate/reset end date if necessary
+    const handleStartDateChange = (e) => {
+        const newStartDate = e.target.value;
+        
+        setFormData(p => {
+            const updatedData = { ...p, startDate: newStartDate };
+            
+            if (p.endDate) {
+                const start = new Date(newStartDate);
+                const end = new Date(p.endDate);
+                
+                // Calculate max allowed date for validation
+                const maxEnd = new Date(start);
+                maxEnd.setMonth(maxEnd.getMonth() + 1);
+
+                // If existing end date falls outside the new valid 1-month range, clear it
+                if (end < start || end > maxEnd) {
+                    updatedData.endDate = "";
+                }
+            }
+            return updatedData;
+        });
+    };
+
     return (
         <Modal open={open} onClose={!isLoading ? onClose : undefined} closeAfterTransition>
             <Box sx={{
@@ -199,15 +234,19 @@ const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormD
                         <TextField type="date" fullWidth size="small" sx={textFieldSx}
                             inputProps={{ min: today }}
                             value={formData.startDate}
-                            onChange={(e) => setFormData(p => ({ ...p, startDate: e.target.value }))}
+                            onChange={handleStartDateChange}
                         />
                     </Box>
                     <Box>
                         <FieldLabel>End Date</FieldLabel>
                         <TextField type="date" fullWidth size="small" sx={textFieldSx}
-                            inputProps={{ min: formData.startDate || today }}
+                            inputProps={{ 
+                                min: formData.startDate || today,
+                                max: getMaxEndDate() // Limits selection to max 1 month out
+                            }}
                             value={formData.endDate}
                             onChange={(e) => setFormData(p => ({ ...p, endDate: e.target.value }))}
+                            disabled={!formData.startDate} // Optional: keeps end date locked until start date is chosen
                         />
                     </Box>
                     <Box>

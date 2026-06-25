@@ -82,7 +82,7 @@ const coreDataDetails = {
         'Female',
     ],
 
-    REASONS: ["Sickness", "Fieldwork", "Research", "Workshop", "Official Assignment", "Remote Work"],
+    REASONS: ["Sickness", "Fieldwork", "Workshop", "Official Assignment", "Emergency", "Other"],
     LEAVE_TYPES: ["Adoption Leave", "Annual Leave", "Compassionate Leave", "Paternity Leave", "Sick Leave", "Study Leave", "Terminal Leave"],
 
 }
