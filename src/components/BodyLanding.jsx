@@ -149,7 +149,6 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
     const [hasPendingReset, setHasPendingReset] = useState(false);
     const [isPasswordChangeEnabled, setIsPasswordChangeEnabled] = useState(false);
     const dispatch = useDispatch();
-    const recentStation = localStorage.getItem('recent_station');
 
     const [formData, setFormData] = useState({ email: '', userId: '', password: '' });
     const [errors, setErrors] = useState({});
@@ -465,14 +464,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                                 </IconButton>
                                             </InputAdornment>,
                                         }} sx={G.lightInput} />
-                                    {recentStation && (
-                                        <Stack direction="row" alignItems="center" spacing={0.6}>
-                                            <LocationOn sx={{ color: colorPalette.seafoamGreen, fontSize: 17 }} />
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                                Recent Station: {recentStation}
-                                            </Typography>
-                                        </Stack>
-                                    )}
+
                                     <Button variant="contained" fullWidth disabled={processing} onClick={handleLoginStaff}
                                         startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
                                         sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
@@ -496,14 +488,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                                 </IconButton>
                                             </InputAdornment>,
                                         }} sx={G.lightInput} />
-                                    {recentStation && (
-                                        <Stack direction="row" alignItems="center" spacing={0.6}>
-                                            <LocationOn sx={{ color: colorPalette.seafoamGreen, fontSize: 17 }} />
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                                Recent Station: {recentStation}
-                                            </Typography>
-                                        </Stack>
-                                    )}
+
                                     <Button variant="contained" fullWidth disabled={processing} onClick={handleLoginIntern}
                                         startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
                                         sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
@@ -735,7 +720,7 @@ const EnhancedLandingPage = () => {
 
                 background: G.meshBg,
 
-                
+
 
             }}
         >
