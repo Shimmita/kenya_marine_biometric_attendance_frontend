@@ -1,11 +1,9 @@
 import {
-    Analytics,
     ArrowBack,
     CheckCircle, Close,
-    Email, Fingerprint,
+    Email,
     LocationOn, Lock,
     Phone,
-    Schedule, Security,
     Visibility, VisibilityOff
 } from '@mui/icons-material';
 import {
@@ -15,7 +13,7 @@ import {
     Snackbar, Stack, TextField, Toolbar,
     Typography, useMediaQuery, useTheme
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +23,7 @@ import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
 import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
 import { markSessionStarted } from '../service/SessionTimeout';
+import ClockingImage from "./../images/clocking_image.png";
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails from './CoreDataDetails';
 import GmailIcon from './custom/Gmail';
@@ -727,129 +726,161 @@ const EnhancedLandingPage = () => {
     const [view, setView] = useState('landing');
 
     return (
-        <Box sx={{ minHeight: '100vh', background: G.meshBg, position: 'relative' }}>
+        <Box
+            sx={{
+                minHeight: "100vh",
+                position: "relative",
+                overflow: "hidden",
+                isolation: "isolate",
+
+                background: G.meshBg,
+
+                
+
+            }}
+        >
             <EnhancedNavbar onNavigate={setView} currentView={view} />
 
-                {/* ══ LANDING ══ */}
-                {view === 'landing' && (
-                    <>
-                        {/* Hero */}
-                        <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 5, md: 12 }, position: 'relative', overflow: 'hidden' }}>
-                            <AmbientOrbs />
-                            <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-                                <Grid container spacing={5} alignItems="center">
-                                    <Grid item xs={12} md={6}>
-                                        <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
-                                            <Chip label="Attendance System" size="small"
-                                                sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
-                                            <Typography variant={'h5'} fontWeight={900}
-                                                sx={{ color: '#fff', mb: 2, lineHeight: 1.16, textShadow: '0 4px 18px rgba(0,0,0,0.24)' }}>
-                                                <Box component="span" sx={{ color: '#00e5ff', display: 'block' }}>
-                                                    KMFRI STAFF ATTENDANCE SYSTEM
-                                                </Box>
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.80)', mb: 4.5, fontWeight: 400, lineHeight: 1.7, maxWidth: 520 }}>
-                                                A unified digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
-                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                                                <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
-                                                    sx={{ bgcolor: '#00e5ff', color: colorPalette.deepNavy, fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 8px 28px rgba(0,220,255,0.40)', transition: 'all 0.26s ease', '&:hover': { bgcolor: '#fff', transform: 'translateY(-2px)', boxShadow: '0 14px 36px rgba(255,255,255,0.26)' } }}>
-                                                    Sign In
-                                                </Button>
-                                            </Stack>
-                                        </motion.div>
-                                    </Grid>
-                                    <Grid item xs={12} md={6}>
-                                        <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, scale: 0.84 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.75, delay: 0.16 }}>
-                                            <Box sx={{ ...G.surfaceStrong, borderRadius: '24px', p: { xs: 3, md: 3.5 } }}>
-                                                <Typography variant="subtitle2" fontWeight={900} sx={{ color: 'rgba(255,255,255,0.42)', mb: 2, letterSpacing: 1.3, textTransform: 'uppercase', fontSize: '0.62rem' }}>
-                                                    Platform Capabilities
-                                                </Typography>
-                                                <Stack spacing={1.2}>
-                                                    {[
-                                                        { icon: <Fingerprint />, text: 'Biometric Authentication', color: colorPalette.cyanFresh },
-                                                        { icon: <Security />, text: 'Geo-Location Verification', color: colorPalette.seafoamGreen },
-                                                        { icon: <Schedule />, text: 'Digital Attendance Tracking', color: '#00e5ff' },
-                                                        { icon: <Analytics />, text: 'System Automated Reports', color: colorPalette.warmSand },
-                                                    ].map((item, i) => (
-                                                        <motion.div key={i} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.28 + i * 0.08 }}>
-                                                            <Box sx={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', p: 1.6, borderRadius: '13px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.12)', transform: 'translateX(5px)', willChange: 'transform', } }}>
-                                                                <Box sx={{ p: 0.85, borderRadius: '10px', mr: 1.8, background: `${item.color}1e`, border: `1px solid ${item.color}2e`, color: item.color, display: 'flex', flexShrink: 0 }}>{item.icon}</Box>
-                                                                <Typography fontWeight={700} sx={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.875rem' }}>{item.text}</Typography>
-                                                            </Box>
-                                                        </motion.div>
-                                                    ))}
-                                                </Stack>
+            {/* ══ LANDING ══ */}
+            {view === 'landing' && (
+                <>
+                    {/* Hero */}
+                    <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 5, md: 12 }, position: 'relative', overflow: 'hidden' }}>
+                        <AmbientOrbs />
+                        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+                            <Grid container spacing={5} alignItems="center">
+                                <Grid item xs={12} md={6}>
+                                    <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
+                                        <Chip label="Attendance System" size="small"
+                                            sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
+                                        <Typography variant={'h5'} fontWeight={900}
+                                            sx={{ color: '#fff', mb: 2, lineHeight: 1.16, textShadow: '0 4px 18px rgba(0,0,0,0.24)' }}>
+                                            <Box component="span" sx={{ color: '#00e5ff', display: 'block' }}>
+                                                KMFRI STAFF ATTENDANCE SYSTEM
                                             </Box>
-                                        </motion.div>
-                                    </Grid>
-                                </Grid>
-                            </Container>
-                        </Box>
-
-
-                        {/* Footer */}
-                        <Box sx={{ ...G.surface, borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderTop: '1px solid rgba(255,255,255,0.09)', py: 7, position: 'relative', zIndex: 1 }}>
-                            <Container maxWidth="lg">
-                                <Grid container spacing={5}>
-                                    <Grid item xs={12} md={4}>
-                                        <Stack direction="row" gap={2} alignItems="center" mb={2}>
-                                            <Box component="img" src={KMFRILogo} alt="KMFRI" sx={{ height: 50, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }} />
-                                            <Box>
-                                                <Typography variant="h6" fontWeight={800} sx={{ color: '#fff' }}>KMFRI</Typography>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.46)', fontSize: '0.67rem' }}>Kenya Marine & Fisheries Research Institute</Typography>
-                                            </Box>
-                                        </Stack>
-                                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.56)', lineHeight: 1.76 }}>
-                                            Leading marine research and sustainable fisheries development in East Africa since 1979.
                                         </Typography>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6} md={4}>
-                                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.44)', letterSpacing: 1.1, textTransform: 'uppercase', fontSize: '0.67rem' }}>Quick Links</Typography>
-                                        <Stack spacing={0.3}>
-                                            {['About KMFRI', 'Research Areas', 'Contact Us', 'Help & Support', 'Privacy Policy'].map(link => (
-                                                <Button key={link} sx={{ color: 'rgba(255,255,255,0.60)', justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500, fontSize: '0.855rem', py: 0.6, '&:hover': { color: '#00e5ff', bgcolor: 'rgba(255,255,255,0.04)' } }}>{link}</Button>
-                                            ))}
+                                        <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.80)', mb: 4.5, fontWeight: 400, lineHeight: 1.7, maxWidth: 520 }}>
+                                            A unified digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
+                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                            <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
+                                                sx={{ bgcolor: '#00e5ff', color: colorPalette.deepNavy, fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 8px 28px rgba(0,220,255,0.40)', transition: 'all 0.26s ease', '&:hover': { bgcolor: '#fff', transform: 'translateY(-2px)', boxShadow: '0 14px 36px rgba(255,255,255,0.26)' } }}>
+                                                Sign In
+                                            </Button>
                                         </Stack>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6} md={4}>
-                                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.44)', letterSpacing: 1.1, textTransform: 'uppercase', fontSize: '0.67rem' }}>Contact</Typography>
-                                        <Stack spacing={2}>
-                                            {[
-                                                { icon: <LocationOn sx={{ fontSize: 17 }} />, text: 'P.O. Box 81651-80100, Mombasa, Kenya' },
-                                                { icon: <Email sx={{ fontSize: 17 }} />, text: 'info@kmfri.go.ke' },
-                                                { icon: <Phone sx={{ fontSize: 17 }} />, text: '+254 20 2024571' },
-                                            ].map(({ icon, text }) => (
-                                                <Stack key={text} direction="row" spacing={1.2} alignItems="flex-start">
-                                                    <Box sx={{ mt: 0.1, flexShrink: 0, color: '#00e5ff' }}>{icon}</Box>
-                                                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.56)', lineHeight: 1.56 }}>{text}</Typography>
-                                                </Stack>
-                                            ))}
-                                        </Stack>
-                                    </Grid>
+                                    </motion.div>
                                 </Grid>
-                                <Divider sx={{ my: 4, borderColor: 'rgba(255,255,255,0.08)' }} />
-                                <Typography variant="body2" sx={{ textAlign: 'center', color: 'rgba(255,255,255,0.38)', fontSize: '0.78rem' }}>
-                                    © {new Date().getFullYear()} Kenya Marine and Fisheries Research Institute. All rights reserved.
-                                </Typography>
-                            </Container>
-                        </Box>
-                    </>
-                )}
 
-                {/* ══ AUTH VIEWS ══ */}
-                {view !== 'landing' && (
-                    <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
-                        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', pt: { xs: 10, md: 13 }, pb: { xs: 6, md: 8 }, position: 'relative', overflow: 'hidden' }}>
-                            <AmbientOrbs />
-                            <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
-                                {view === 'signin'
-                                    ? <SignInCard key="signin" onBack={() => setView('landing')} onSwitchToSignup={() => setView('signup')} />
-                                    : <RegisterStepper key="signup" onBack={() => setView('landing')} onSwitchToSignin={() => setView('signin')} />
-                                }
-                            </Container>
-                        </Box>
-                    </motion.div>
-                )}
+                                <Grid item xs={12} md={6}>
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ duration: 0.8, delay: 0.2 }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "center",
+                                                height: "100%",
+                                            }}
+                                        >
+                                            <Box
+                                                component="img"
+                                                src={ClockingImage}
+                                                alt="KMFRI Attendance"
+                                                sx={{
+                                                    width: "100%",
+                                                    maxWidth: 500,
+                                                    borderRadius: "28px",
+
+                                                    ...G.surfaceStrong,
+
+                                                    p: 2,
+
+                                                    objectFit: "contain",
+
+
+                                                    transition: ".4s",
+
+                                                    "&:hover": {
+                                                        transform: "translateY(-8px) scale(1.02)",
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                    </motion.div>
+                                </Grid>
+
+                            </Grid>
+                        </Container>
+                    </Box>
+
+
+
+
+                    {/* Footer */}
+                    <Box sx={{ ...G.surface, borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderTop: '1px solid rgba(255,255,255,0.09)', py: 7, position: 'relative', zIndex: 1 }}>
+                        <Container maxWidth="lg">
+                            <Grid container spacing={5}>
+                                <Grid item xs={12} md={4}>
+                                    <Stack direction="row" gap={2} alignItems="center" mb={2}>
+                                        <Box component="img" src={KMFRILogo} alt="KMFRI" sx={{ height: 50, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }} />
+                                        <Box>
+                                            <Typography variant="h6" fontWeight={800} sx={{ color: '#fff' }}>KMFRI</Typography>
+                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.46)', fontSize: '0.67rem' }}>Kenya Marine & Fisheries Research Institute</Typography>
+                                        </Box>
+                                    </Stack>
+                                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.56)', lineHeight: 1.76 }}>
+                                        Leading marine research and sustainable fisheries development in East Africa since 1979.
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.44)', letterSpacing: 1.1, textTransform: 'uppercase', fontSize: '0.67rem' }}>Quick Links</Typography>
+                                    <Stack spacing={0.3}>
+                                        {['About KMFRI', 'Research Areas', 'Contact Us', 'Help & Support', 'Privacy Policy'].map(link => (
+                                            <Button key={link} sx={{ color: 'rgba(255,255,255,0.60)', justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500, fontSize: '0.855rem', py: 0.6, '&:hover': { color: '#00e5ff', bgcolor: 'rgba(255,255,255,0.04)' } }}>{link}</Button>
+                                        ))}
+                                    </Stack>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.44)', letterSpacing: 1.1, textTransform: 'uppercase', fontSize: '0.67rem' }}>Contact</Typography>
+                                    <Stack spacing={2}>
+                                        {[
+                                            { icon: <LocationOn sx={{ fontSize: 17 }} />, text: 'P.O. Box 81651-80100, Mombasa, Kenya' },
+                                            { icon: <Email sx={{ fontSize: 17 }} />, text: 'info@kmfri.go.ke' },
+                                            { icon: <Phone sx={{ fontSize: 17 }} />, text: '+254 20 2024571' },
+                                        ].map(({ icon, text }) => (
+                                            <Stack key={text} direction="row" spacing={1.2} alignItems="flex-start">
+                                                <Box sx={{ mt: 0.1, flexShrink: 0, color: '#00e5ff' }}>{icon}</Box>
+                                                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.56)', lineHeight: 1.56 }}>{text}</Typography>
+                                            </Stack>
+                                        ))}
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+                            <Divider sx={{ my: 4, borderColor: 'rgba(255,255,255,0.08)' }} />
+                            <Typography variant="body2" sx={{ textAlign: 'center', color: 'rgba(255,255,255,0.38)', fontSize: '0.78rem' }}>
+                                © {new Date().getFullYear()} Kenya Marine and Fisheries Research Institute. All rights reserved.
+                            </Typography>
+                        </Container>
+                    </Box>
+                </>
+            )}
+
+            {/* ══ AUTH VIEWS ══ */}
+            {view !== 'landing' && (
+                <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
+                    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', pt: { xs: 10, md: 13 }, pb: { xs: 6, md: 8 }, position: 'relative', overflow: 'hidden' }}>
+                        <AmbientOrbs />
+                        <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+                            {view === 'signin'
+                                ? <SignInCard key="signin" onBack={() => setView('landing')} onSwitchToSignup={() => setView('signup')} />
+                                : <RegisterStepper key="signup" onBack={() => setView('landing')} onSwitchToSignin={() => setView('signin')} />
+                            }
+                        </Container>
+                    </Box>
+                </motion.div>
+            )}
         </Box>
     );
 };

@@ -138,6 +138,8 @@ const ControlField = ({ label, children, minWidth = 140 }) => (
     </Box>
 );
 
+
+
 /* ─────────────────────────────────────────────
    CLOCK OUTSIDE MODAL (shared)
 ───────────────────────────────────────────── */
@@ -548,7 +550,7 @@ const UserCard = ({
 
                         <ControlField label="Clock Outside" minWidth={132}>
                             <FormControl size="small" fullWidth disabled={isLoading || readOnly}>
-                                <Select disabled={currentUser?.rank === 'auditor' || readOnly } value={clockOutside} onChange={handleClockOutsideChange} sx={{
+                                <Select disabled={currentUser?.rank === 'auditor' || readOnly} value={clockOutside} onChange={handleClockOutsideChange} sx={{
                                     ...selectSx,
                                     "& .MuiOutlinedInput-notchedOutline": {
                                         borderColor: clockOutside === "yes" ? `${C.seafoamGreen}60` : C.glassBorder,

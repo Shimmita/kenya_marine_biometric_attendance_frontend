@@ -59,6 +59,31 @@ const coreDataDetails = {
 
     },
 
+    C : {
+        deepNavy: "#0A3D62",
+        oceanBlue: "#005B96",
+        marineBlue: "#1a237e",
+        aquaVibrant: "#00e5ff",
+        cyanFresh: "#3FC1FF",     // brighter
+        skyBlue: "#87CEEB",
+        coralSunset: "#FF5C4A",     // sharper
+        warmSand: "#FFB400",
+        seafoamGreen: "#48C9B0",
+        cloudWhite: "#f8fafd",
+        softGray: "#E8EEF7",
+        charcoal: "#424242",
+
+        // Surface / glass tokens
+        glassBg: "rgba(10,61,98,0.68)",   // less transparent for readability
+        glassBgElevated: "rgba(0,91,150,0.48)",
+        glassBorder: "rgba(0,229,255,0.28)",
+        glassBorderHover: "rgba(0,229,255,0.58)",
+
+        textPrimary: "#E6F4FA",
+        textSecondary: "rgba(190,228,245,0.85)", // sharper
+        textMuted: "rgba(190,228,245,0.55)", // slightly more visible
+    },
+
     AvailableStations: [
         // { name: 'MOMBASA CENTRE', lat: -4.03951, lng: 39.6260 },
         { name: 'MOMBASA CENTRE', lat: -4.0546356, lng: 39.6826 },

@@ -95,13 +95,11 @@ export const getAllSupervisors = async () => {
 
 export const updateUserSupervisor = async (userId, supervisor) => {
     try {
-        console.log('here try',supervisor)
         const res = await api.put(`/admin/user/${userId}/update-supervisor`, {
             supervisor
         });
         return res.data;
     } catch (err) {
-        console.log('here',err)
         console.log(err);
         throw err.response?.data?.message;
     }

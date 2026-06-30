@@ -12,7 +12,7 @@ import {
     useMediaQuery,
     useTheme
 } from "@mui/material";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
@@ -26,16 +26,17 @@ import {
     updateUserRank,
     updateUserRole,
     updateUserStation,
-    updateUserSupervisor,
+    updateUserSupervisor
 } from "../../service/UserManagement";
 import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
-import UserCard from "../util/UserCard";
+import UserDetailsDialog from "../util/UserDetailsDialog";
+import UserTable from "../util/UserTable";
 
 /* ─────────────────────────────────────────────
    UPDATED COLOR PALETTE
 ───────────────────────────────────────────── */
-const C = {
+export const C = {
     deepNavy: "#0A3D62",
     oceanBlue: "#005B96",
     marineBlue: "#1a237e",
@@ -193,7 +194,7 @@ const FilterBar = ({
                     <TextField
                         size="small"
                         fullWidth
-                        placeholder="Name, email, department, station…"
+                        placeholder="ID, Name, email, department, station…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         sx={{
@@ -242,6 +243,7 @@ const FilterBar = ({
                             <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
                             <MenuItem value="active" sx={{ color: C.seafoamGreen }}>● Active</MenuItem>
                             <MenuItem value="inactive" sx={{ color: C.coralSunset }}>● Inactive</MenuItem>
+                            <MenuItem value="clockoutside" sx={{ color: C.coralSunset }}>● ClockOutside</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>
@@ -320,6 +322,31 @@ const UserManagementContent = ({ readOnly = false }) => {
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [stationFilter, setStationFilter] = useState("");
     const [supervisors, setSupervisors] = useState()
+
+    //pagination states
+    const [page, setPage] = useState(0);
+
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+
+    const [selectedUser, setSelectedUser] = useState(null);
+
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    const handlePageChange = (event, newPage) => {
+
+        setPage(newPage);
+
+    };
+
+    const handleRowsPerPageChange = (event) => {
+
+        setRowsPerPage(parseInt(event.target.value, 10));
+
+        setPage(0);
+
+    };
+
+    // dispatch and redux activities
     const dispatch = useDispatch();
 
     const fetchUsers = async () => {
@@ -363,14 +390,14 @@ const UserManagementContent = ({ readOnly = false }) => {
     const filteredUsers = useMemo(() => {
         const search = searchTerm.toLowerCase();
         return users.filter((user) => {
-            const matchesSearch = !search ||
-                user.name.toLowerCase().includes(search) ||
-                user.email.toLowerCase().includes(search) ||
-                user.email.toLowerCase().includes(search) ||
-                user.rank.toLowerCase().includes(search) ||
-                user.role.toLowerCase().includes(search) ||
-                (user.department || "").toLowerCase().includes(search) ||
-                (user.supervisor || "none").toLowerCase().includes(search);
+            const matchesSearch =
+                user.name?.toLowerCase().includes(search) ||
+                user.email?.toLowerCase().includes(search) ||
+                user.employeeId?.toLowerCase().includes(search) ||
+                user.staffNo?.toLowerCase().includes(search) ||
+                user.department?.toLowerCase().includes(search) ||
+                user.station?.toLowerCase().includes(search) ||
+                user.supervisor?.toLowerCase().includes(search);
 
             return (
                 matchesSearch &&
@@ -381,7 +408,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                     ? true
                     : statusFilter === "active"
                         ? user.isAccountActive
-                        : !user.isAccountActive)
+                        : statusFilter==="clockoutside" ? user.canClockOutside :!user.isAccountActive)
             );
         });
     }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
@@ -405,6 +432,8 @@ const UserManagementContent = ({ readOnly = false }) => {
         finally { setUpdatingId(null); setLoading(false); }
     };
 
+
+
     if (launchLoading) {
         return (
             <Stack alignItems="center" justifyContent="center" height="60vh" spacing={2}>
@@ -426,7 +455,9 @@ const UserManagementContent = ({ readOnly = false }) => {
         <>
             <Stack spacing={2}>
                 {/* Filter Bar */}
-                <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
+                <motion.div style={{ willChange: 'transform, opacity' }} 
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28 }}>
                     <FilterBar
                         searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                         rankFilter={rankFilter} setRankFilter={setRankFilter}
@@ -453,7 +484,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                 )}
 
                 {/* User Cards */}
-                <AnimatePresence mode="popLayout">
+                {/* <AnimatePresence mode="popLayout">
                     {filteredUsers.map((user, index) => (
                         <UserCard
                             key={user._id}
@@ -475,7 +506,64 @@ const UserManagementContent = ({ readOnly = false }) => {
                             setIsLoading={setLoading}
                         />
                     ))}
-                </AnimatePresence>
+                </AnimatePresence> */}
+
+                <UserTable
+
+                    users={filteredUsers}
+
+                    page={page}
+
+                    rowsPerPage={rowsPerPage}
+
+                    onPageChange={handlePageChange}
+
+                    onRowsPerPageChange={handleRowsPerPageChange}
+
+                    onViewUser={(user) => {
+
+                        setSelectedUser(user);
+
+                        setDialogOpen(true);
+
+                    }}
+
+                />
+
+                <UserDetailsDialog
+                    open={dialogOpen}
+                    onClose={() => setDialogOpen(false)}
+
+                    user={selectedUser}
+
+                    supervisors={supervisors}
+
+                    updatingId={updatingId}
+
+                    loading={loading}
+
+                    readOnly={readOnly}
+
+                    onRankChange={handleRankChange}
+
+                    onRoleChange={handleRoleChange}
+
+                    onDepartmentSave={handleDepartmentSave}
+
+                    onSupervisorChange={handleSupervisorChange}
+
+                    onStationSave={handleStationSave}
+
+                    onToggleActive={handleToggleActive}
+
+                    onDeleteUser={handleDeleteUser}
+
+                    onResetBiometrics={handleResetBiometrics}
+                />
+
+
+
+
             </Stack>
         </>
     );
