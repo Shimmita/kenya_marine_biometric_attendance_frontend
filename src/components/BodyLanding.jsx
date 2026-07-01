@@ -104,8 +104,36 @@ const G = {
         '& .MuiOutlinedInput-root': {
             borderRadius: '14px',
             background: 'rgba(10,61,98,0.04)',
-            '&:hover fieldset': { borderColor: colorPalette.oceanBlue },
-            '&.Mui-focused fieldset': { borderColor: colorPalette.oceanBlue, borderWidth: 2 },
+            '&:hover fieldset': { borderColor: 'var(--kmfri-secondary)' },
+            '&.Mui-focused fieldset': { borderColor: 'var(--kmfri-secondary)', borderWidth: 2 },
+        },
+    },
+    themedPrimaryBtn: {
+        background: 'var(--kmfri-gradient)',
+        py: 1.75,
+        borderRadius: '14px',
+        fontWeight: 800,
+        fontSize: '0.92rem',
+        textTransform: 'none',
+        letterSpacing: 0.35,
+        boxShadow: '0 10px 28px var(--kmfri-secondary-soft)',
+        transition: 'all 0.24s ease',
+        '&:hover': {
+            boxShadow: '0 16px 38px var(--kmfri-accent-soft)',
+            transform: 'translateY(-2px)',
+        },
+    },
+    themedRoleCard: {
+        p: 2.5,
+        borderRadius: '16px',
+        background: 'linear-gradient(135deg, var(--kmfri-primary-soft), var(--kmfri-secondary-soft))',
+        border: '2px solid var(--kmfri-secondary-soft)',
+        cursor: 'pointer',
+        transition: 'all 0.24s ease',
+        '&:hover': {
+            background: 'linear-gradient(135deg, var(--kmfri-secondary-soft), var(--kmfri-accent-soft))',
+            borderColor: 'var(--kmfri-secondary)',
+            boxShadow: '0 10px 28px var(--kmfri-secondary-soft)',
         },
     },
 };
@@ -330,12 +358,12 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
                 {currentView === 'role-select' ? (
                     <>
-                        <Box sx={{ textAlign: 'center', mb: 3.5 }}>
-                            <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: `0 10px 32px ${colorPalette.oceanBlue}42` }}>
+                            <Box sx={{ textAlign: 'center', mb: 3.5 }}>
+                            <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--kmfri-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: '0 10px 32px var(--kmfri-secondary-soft)' }}>
                                 <Lock sx={{ fontSize: 38, color: '#fff' }} />
                             </Box>
                             <Typography variant="h4" fontWeight={900}
-                                sx={{ background: colorPalette.oceanGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
+                                sx={{ background: 'var(--kmfri-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
                                 Sign In
                             </Typography>
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
@@ -349,28 +377,18 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                 <Box
                                     onClick={() => selectRole('staff')}
                                     sx={{
-                                        p: 2.5,
-                                        borderRadius: '16px',
-                                        background: 'rgba(59, 130, 246, 0.08)',
-                                        border: '2px solid rgba(59, 130, 246, 0.3)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.24s ease',
-                                        '&:hover': {
-                                            background: 'rgba(59, 130, 246, 0.15)',
-                                            borderColor: 'rgba(59, 130, 246, 0.6)',
-                                            boxShadow: '0 8px 24px rgba(59, 130, 246, 0.20)',
-                                        }
+                                        ...G.themedRoleCard,
                                     }}>
                                     <Stack direction="row" spacing={2} alignItems="center">
                                         <Box sx={{
                                             width: 50,
                                             height: 50,
                                             borderRadius: '12px',
-                                            background: 'rgba(59, 130, 246, 0.15)',
+                                            background: 'var(--kmfri-secondary-soft)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: '#3b82f6',
+                                            color: 'var(--kmfri-secondary)',
                                         }}>
                                             <Lock sx={{ fontSize: 24 }} />
                                         </Box>
@@ -392,28 +410,18 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                 <Box
                                     onClick={() => selectRole('intern')}
                                     sx={{
-                                        p: 2.5,
-                                        borderRadius: '16px',
-                                        background: 'rgba(34, 197, 94, 0.08)',
-                                        border: '2px solid rgba(34, 197, 94, 0.3)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.24s ease',
-                                        '&:hover': {
-                                            background: 'rgba(34, 197, 94, 0.15)',
-                                            borderColor: 'rgba(34, 197, 94, 0.6)',
-                                            boxShadow: '0 8px 24px rgba(34, 197, 94, 0.20)',
-                                        }
+                                        ...G.themedRoleCard,
                                     }}>
                                     <Stack direction="row" spacing={2} alignItems="center">
                                         <Box sx={{
                                             width: 50,
                                             height: 50,
                                             borderRadius: '12px',
-                                            background: 'rgba(34, 197, 94, 0.15)',
+                                            background: 'var(--kmfri-accent-soft)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: '#22c55e',
+                                            color: 'var(--kmfri-accent)',
                                         }}>
                                             <GmailIcon size={24} />
                                         </Box>
@@ -433,11 +441,11 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                 ) : currentView === 'signin' ? (
                     <>
                         <Box sx={{ textAlign: 'center', mb: 3.5 }}>
-                            <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: colorPalette.oceanGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: `0 10px 32px ${colorPalette.oceanBlue}42` }}>
+                            <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--kmfri-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: '0 10px 32px var(--kmfri-secondary-soft)' }}>
                                 <Lock sx={{ fontSize: 38, color: '#fff' }} />
                             </Box>
                             <Typography variant="h4" fontWeight={900}
-                                sx={{ background: colorPalette.oceanGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
+                                sx={{ background: 'var(--kmfri-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.75 }}>
                                 Welcome Back
                             </Typography>
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
@@ -451,13 +459,13 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                 <>
                                     <TextField fullWidth label="User ID" placeholder="Enter User ID"
                                         value={formData.userId} onChange={handle('userId')} error={!!errors.userId} helperText={errors.userId}
-                                        InputProps={{ startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
+                                        InputProps={{ startAdornment: <InputAdornment position="start"><Lock sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment> }}
                                         sx={G.lightInput} />
                                     <TextField fullWidth label="Password" placeholder="Enter your password"
                                         type={showPassword ? 'text' : 'password'}
                                         value={formData.password} onChange={handle('password')} error={!!errors.password} helperText={errors.password}
                                         InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment>,
                                             endAdornment: <InputAdornment position="end">
                                                 <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
                                                     {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -467,7 +475,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
                                     <Button variant="contained" fullWidth disabled={processing} onClick={handleLoginStaff}
                                         startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
-                                        sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
+                                        sx={G.themedPrimaryBtn}>
                                         {processing ? 'Authenticating…' : 'Sign In to Portal'}
                                     </Button>
                                 </>
@@ -475,13 +483,13 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                 <>
                                     <TextField fullWidth label="Email Address" placeholder="example@kmfri.go.ke"
                                         value={formData.email} onChange={handle('email')} error={!!errors.email} helperText={errors.email}
-                                        InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
+                                        InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment> }}
                                         sx={G.lightInput} />
                                     <TextField fullWidth label="Password" placeholder="Enter your password"
                                         type={showPassword ? 'text' : 'password'}
                                         value={formData.password} onChange={handle('password')} error={!!errors.password} helperText={errors.password}
                                         InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                                            startAdornment: <InputAdornment position="start"><Lock sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment>,
                                             endAdornment: <InputAdornment position="end">
                                                 <IconButton onClick={() => setShowPassword(p => !p)} edge="end">
                                                     {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -491,7 +499,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
                                     <Button variant="contained" fullWidth disabled={processing} onClick={handleLoginIntern}
                                         startIcon={processing ? <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} /> : <Lock />}
-                                        sx={{ background: colorPalette.oceanGradient, py: 1.75, borderRadius: '14px', fontWeight: 800, fontSize: '0.92rem', textTransform: 'none', letterSpacing: 0.35, boxShadow: `0 8px 28px ${colorPalette.oceanBlue}42`, transition: 'all 0.24s ease', '&:hover': { boxShadow: `0 14px 36px ${colorPalette.oceanBlue}5a`, transform: 'translateY(-2px)' } }}>
+                                        sx={G.themedPrimaryBtn}>
                                         {processing ? 'Please wait…' : 'Sign In to Portal'}
                                     </Button>
                                 </>
@@ -502,7 +510,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
                                     Forgot password?
                                 </Typography>
                                 <Button variant="text" onClick={switchToResetPassword}
-                                    sx={{ color: colorPalette.oceanBlue, fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', fontSize: '0.875rem', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
+                                    sx={{ color: 'var(--kmfri-secondary)', fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', fontSize: '0.875rem', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
                                     Reset here
                                 </Button>
                             </Box>}
@@ -691,8 +699,16 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
                         {currentView === 'landing' && (
                             <Button variant="outlined" startIcon={<Lock sx={{ fontSize: 15 }} />} onClick={() => onNavigate('signin')}
                                 sx={{
-                                    display: { xs: 'none', sm: 'flex' }, ...G.ghostBtn, fontWeight: 700, px: 2.5, borderRadius: '12px', textTransform: 'none', fontSize: '0.875rem', transition: 'all 0.22s ease',
-                                    '&:hover': { background: 'rgba(0,220,255,0.18)', borderColor: '#00e5ff', color: '#00e5ff', transform: 'translateY(-1px)' }
+                                    display: { xs: 'none', sm: 'flex' },
+                                    ...G.ghostBtn,
+                                    fontWeight: 700,
+                                    px: 2.5,
+                                    borderRadius: '12px',
+                                    textTransform: 'none',
+                                    fontSize: '0.875rem',
+                                    transition: 'all 0.22s ease',
+                                    borderColor: 'var(--kmfri-accent)',
+                                    '&:hover': { background: 'var(--kmfri-accent-soft)', borderColor: 'var(--kmfri-accent)', color: '#fff', transform: 'translateY(-1px)' }
                                 }}>
                                 Sign In
                             </Button>
@@ -748,7 +764,7 @@ const EnhancedLandingPage = () => {
                                             A unified digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
                                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                             <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
-                                                sx={{ bgcolor: '#00e5ff', color: colorPalette.deepNavy, fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 8px 28px rgba(0,220,255,0.40)', transition: 'all 0.26s ease', '&:hover': { bgcolor: '#fff', transform: 'translateY(-2px)', boxShadow: '0 14px 36px rgba(255,255,255,0.26)' } }}>
+                                                sx={{ background: 'var(--kmfri-gradient)', color: '#fff', fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 10px 30px var(--kmfri-accent-soft)', transition: 'all 0.26s ease', '&:hover': { filter: 'brightness(1.08)', transform: 'translateY(-2px)', boxShadow: '0 14px 36px var(--kmfri-secondary-soft)' } }}>
                                                 Sign In
                                             </Button>
                                         </Stack>

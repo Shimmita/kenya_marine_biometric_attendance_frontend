@@ -4,6 +4,19 @@
     box-sizing: border-box;
 }
 
+:root {
+  --kmfri-primary: #0A3D62;
+  --kmfri-secondary: #005B96;
+  --kmfri-accent: #48C9B0;
+  --kmfri-surface: #f8fafd;
+  --kmfri-text: #0f172a;
+  --kmfri-primary-soft: #0A3D6218;
+  --kmfri-secondary-soft: #005B9616;
+  --kmfri-accent-soft: #48C9B022;
+  --kmfri-gradient: linear-gradient(135deg, #0A3D62 0%, #005B96 58%, #48C9B0 100%);
+  --kmfri-shell-gradient: linear-gradient(160deg, #f8fafd 0%, #005B9614 52%, #48C9B012 100%);
+}
+
 html, body, #root {
   height: 100%;
   overflow-x: hidden; /* prevent horizontal scrolling */
@@ -14,6 +27,69 @@ html, body, #root {
   /* hide native scrollbars globally while preserving scroll behavior */
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+body {
+  color: var(--kmfri-text);
+  background: var(--kmfri-shell-gradient);
+}
+
+.MuiAppBar-root,
+.MuiDrawer-paper {
+  background: var(--kmfri-gradient) !important;
+}
+
+.MuiButton-contained {
+  background: var(--kmfri-gradient) !important;
+  box-shadow: 0 10px 26px var(--kmfri-secondary-soft) !important;
+}
+
+.MuiButton-outlined {
+  border-color: var(--kmfri-secondary) !important;
+  color: var(--kmfri-secondary) !important;
+}
+
+.MuiTabs-indicator {
+  background: var(--kmfri-accent) !important;
+}
+
+.MuiTab-root.Mui-selected,
+.MuiSvgIcon-colorPrimary,
+.MuiCheckbox-root.Mui-checked,
+.MuiRadio-root.Mui-checked,
+.MuiSwitch-switchBase.Mui-checked {
+  color: var(--kmfri-secondary) !important;
+}
+
+.MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
+  background-color: var(--kmfri-accent) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--kmfri-secondary) !important;
+}
+
+.MuiInputLabel-root.Mui-focused {
+  color: var(--kmfri-secondary) !important;
+}
+
+.MuiPaper-root,
+.MuiCard-root,
+.MuiDialog-paper {
+  border-color: var(--kmfri-secondary-soft);
+}
+
+.MuiChip-colorPrimary,
+.MuiAvatar-colorDefault {
+  background: var(--kmfri-gradient) !important;
+  color: #fff !important;
+}
+
+.MuiMenuItem-root.Mui-selected,
+.MuiDataGrid-row.Mui-selected,
+.MuiListItemButton-root.Mui-selected {
+  background-color: var(--kmfri-accent-soft) !important;
 }
 
 html::-webkit-scrollbar,

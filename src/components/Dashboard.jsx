@@ -18,6 +18,7 @@ import {
     SupportAgentRounded,
     UploadFile
 } from '@mui/icons-material';
+import Settings from '@mui/icons-material/Settings';
 import {
     AppBar, Avatar, Box, Button, Chip, CircularProgress,
     Dialog, DialogActions, DialogContent, DialogTitle,
@@ -30,13 +31,16 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
+import SuperadminAPI from '../service/SuperadminService';
 import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import { updateUserProfile, userSignOut } from '../service/UserProfile';
-import coreDataDetails from './CoreDataDetails';
+import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
+const PlatformConfigPanel = lazy(() => import('./dashboard/ConfigPanel'));
+const SuperadminPanel = lazy(() => import('./dashboard/SuperadminPanel'));
 const UserProfileDialog = lazy(() => import('./UserProfileDialog'));
 const SupervisorDeptRequest = lazy(() => import('./dashboard/supervisor/SupervisorDeptRequest'));
 const SupervisorDeptStats = lazy(() => import('./dashboard/supervisor/SupervisorDeptStats'));
@@ -69,14 +73,15 @@ const DRAWER_COLLAPSED_WIDTH = 72;
 const APPBAR_HEIGHT = 64;
 
 /* ─── Rank helpers ──────────────────────────────────────────────────────── */
-const ELEVATED_RANKS = ['admin', 'hr', 'supervisor', 'ceo'];
-const PRIVILEGED_RANKS = ['admin', 'hr', 'supervisor'];
+const ELEVATED_RANKS = ['admin', 'hr', 'supervisor', 'ceo', 'superadmin'];
+const PRIVILEGED_RANKS = ['admin', 'hr', 'supervisor', 'superadmin'];
 const RANK_META = {
     admin: { label: 'Admin' },
     hr: { label: 'HR' },
     auditor: { label: 'Auditor' },
     supervisor: { label: 'Supervisor' },
     ceo: { label: 'CEO' },
+    superadmin: { label: 'Super Admin' },
     user: { label: 'Employee' },
 };
 
@@ -89,6 +94,33 @@ const ADMIN_SHARED_ITEMS = [
 const ADMIN_ONLY_ITEMS = [
     { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
     { text: 'Password Requests', icon: <LockResetRounded />, color: '#f97316' },
+];
+
+const SUPERADMIN_GENERAL_ITEMS = [
+    { text: 'Platform Configuration', icon: <Settings />, color: '#93c5fd' },
+    { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
+    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
+    { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
+    { text: 'Password Requests', icon: <LockResetRounded />, color: '#f97316' },
+];
+
+const SUPERADMIN_HR_ITEMS = [
+    { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
+    { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
+];
+
+const SUPERADMIN_AUDITOR_ITEMS = [
+    { text: 'Audit Logs', icon: <History />, color: '#8b5cf6' },
+];
+
+const SUPERADMIN_SUPERVISOR_ITEMS = [
+    { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
+    { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
+    { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+];
+
+const SUPERADMIN_CEO_ITEMS = [
+    { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
 ];
 
 const HR_EXTRA_ITEMS = [
@@ -411,11 +443,11 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const isSupervisor = user?.rank === 'supervisor';
     const isCEO = user?.rank === 'ceo';
     const isAuditor = user?.rank === 'auditor';
+    const isSuperadmin = user?.rank === 'superadmin';
 
     const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
         { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-        // { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
     ], []);
 
     const techItems = useMemo(() => [
@@ -436,12 +468,23 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
         { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-        // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
     ], []);
 
     const ceoItems = useMemo(() => [
         { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
     ], []);
+
+    const superadminItems = useMemo(() => {
+        const items = [
+            ...SUPERADMIN_GENERAL_ITEMS,
+            ...SUPERADMIN_HR_ITEMS,
+            ...SUPERADMIN_AUDITOR_ITEMS,
+            ...SUPERADMIN_SUPERVISOR_ITEMS,
+            ...SUPERADMIN_CEO_ITEMS,
+        ];
+        return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
+    }, [isAuditor]);
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', ...G.sidebarBg }}>
@@ -557,6 +600,46 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
                         <List disablePadding>
                             {adminItems.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+                    </>
+                )}
+
+                {/* Superadmin Panel */}
+                {isSuperadmin && (
+                    <>
+                        <SectionLabel>Superadmin Console</SectionLabel>
+                        <List disablePadding>
+                            {SUPERADMIN_GENERAL_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+
+                        <SectionLabel>HR Tools</SectionLabel>
+                        <List disablePadding>
+                            {SUPERADMIN_HR_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+
+                        <SectionLabel>Auditor Tools</SectionLabel>
+                        <List disablePadding>
+                            {SUPERADMIN_AUDITOR_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+
+                        <SectionLabel>Supervisor Tools</SectionLabel>
+                        <List disablePadding>
+                            {SUPERADMIN_SUPERVISOR_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
+
+                        <SectionLabel>CEO Tools</SectionLabel>
+                        <List disablePadding>
+                            {SUPERADMIN_CEO_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
@@ -698,6 +781,9 @@ const EnhancedDashboard = () => {
     const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
     const [canInstall, setCanInstall] = useState(false);
     const [installStatus, setInstallStatus] = useState('');
+    const [platformLogoUrl, setPlatformLogoUrl] = useState('');
+    const [platformBranding, setPlatformBranding] = useState(coreDataDetails.branding);
+    const [platformConfigVersion, setPlatformConfigVersion] = useState(0);
 
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
@@ -743,6 +829,18 @@ const EnhancedDashboard = () => {
     const expandSidebar = useCallback(() => setSidebarCollapsed(false), []);
     const collapseSidebar = useCallback(() => setSidebarCollapsed(true), []);
 
+    const refreshPlatformConfig = useCallback(async () => {
+        try {
+            const response = await SuperadminAPI.getPlatformConfig();
+            applyPlatformConfigToCoreData(response);
+            setPlatformLogoUrl(response?.logoUrl || '');
+            setPlatformBranding(response?.branding || coreDataDetails.branding);
+            setPlatformConfigVersion((version) => version + 1);
+        } catch (err) {
+            console.error('Failed to load platform config', err);
+        }
+    }, []);
+
     useEffect(() => {
         const handleBeforeInstall = (event) => {
             event.preventDefault();
@@ -764,6 +862,10 @@ const EnhancedDashboard = () => {
             window.removeEventListener('appinstalled', handleAppInstalled);
         };
     }, []);
+
+    useEffect(() => {
+        refreshPlatformConfig();
+    }, [refreshPlatformConfig]);
 
     const handleInstall = async () => {
         if (!deferredInstallPrompt) return;
@@ -788,6 +890,7 @@ const EnhancedDashboard = () => {
 
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
     const isAuditor = useMemo(() => user?.rank === 'auditor', [user?.rank]);
+    const isSuperadmin = useMemo(() => user?.rank === 'superadmin', [user?.rank]);
     const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
     const rankMeta = useMemo(() => {
@@ -828,6 +931,13 @@ const EnhancedDashboard = () => {
             auditor: [
                 ...AUDITOR_ITEMS,
             ],
+            superadmin: [
+                ...SUPERADMIN_GENERAL_ITEMS,
+                ...SUPERADMIN_HR_ITEMS,
+                ...SUPERADMIN_AUDITOR_ITEMS,
+                ...SUPERADMIN_SUPERVISOR_ITEMS,
+                ...SUPERADMIN_CEO_ITEMS,
+            ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
     }, [user?.rank]);
@@ -852,33 +962,34 @@ const EnhancedDashboard = () => {
     /* Content switcher */
     const renderContent = useCallback(() => {
         switch (activeTab) {
-            case 'Clocking Dashboard': return <DashboardContent {...sharedProps} />;
+            case 'Clocking Dashboard': return <DashboardContent key={`clocking-${platformConfigVersion}`} {...sharedProps} />;
             case 'Tasks & Activities': return <TasksActivitiesContent {...sharedProps} />;
             case 'Attendance History': return <AttendanceHistoryContent {...sharedProps} />;
             case 'Analytics & Reports': return <AnalyticsReportsContent {...sharedProps} />;
             case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
-            case 'Request for Leave': return <LeaveManagementContent {...sharedProps} />;
-            case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Request for Leave': return <LeaveManagementContent key={`leave-${platformConfigVersion}`} {...sharedProps} />;
+            case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager key={`admin-leave-${platformConfigVersion}`} {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} currentUser={user} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
             case 'Organisations Stats': return canViewAdminFeatures ? <OverallAttendanceStats readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
-            case 'User Management': return canViewAdminFeatures ? <UserManagementContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'User Management': return canViewAdminFeatures ? <UserManagementContent key={`users-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
-            case 'Manage Your Members': return <SupervisorManageMembers />;
-            case 'Member Leave Requests': return <SupervisorManageLeaves />;
+            case 'Manage Your Members': return <SupervisorManageMembers key={`supervisor-members-${platformConfigVersion}`} />;
+            case 'Member Leave Requests': return <SupervisorManageLeaves key={`supervisor-leaves-${platformConfigVersion}`} />;
             case 'Departmental Requests': return <SupervisorDeptRequest />;
             case 'Audit Logs': return <AuditLogsContent />;
             case 'Feedback Statistics': return <FeedbackStatistics />;
+            case 'Platform Configuration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
         }
-    }, [activeTab, isElevated, sharedProps, user?.department]);
+    }, [activeTab, isElevated, platformConfigVersion, refreshPlatformConfig, sharedProps, user?.department, user?.rank]);
 
     const pageTitle = useMemo(() => (
         activeTab === 'Clocking Dashboard'
@@ -890,7 +1001,7 @@ const EnhancedDashboard = () => {
     return (
         <Box sx={{
             display: 'flex', minHeight: '100vh',
-            background: 'linear-gradient(160deg,#eef3f9 0%,#e8f0f7 50%,#f0f5fb 100%)',
+            background: 'var(--kmfri-shell-gradient)',
         }}>
 
             {/* AppBar */}
@@ -905,12 +1016,14 @@ const EnhancedDashboard = () => {
                         <MenuIcon />
                     </IconButton>
 
-                    <Box component="img" src={KMFRILogo} alt="KMFRI"
+                    <Box component="img" src={platformLogoUrl || KMFRILogo} alt="KMFRI"
                         sx={{ height: { xs: 38, md: 44 }, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.22)', boxShadow: '0 3px 12px rgba(0,0,0,0.24)', flexShrink: 0 }} />
 
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography variant="h6" noWrap sx={{ fontWeight: 800, letterSpacing: 0.3, fontSize: { xs: '0.88rem', md: '1rem' }, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-                            {isMobile || isTablet ? 'KMFRI ATTENDANCE SYSTEM' : 'Kenya Marine and Fisheries Research Institute'.toUpperCase()}
+                            {isMobile || isTablet
+                                ? `${platformBranding?.shortName || 'KMFRI'} ATTENDANCE SYSTEM`
+                                : (platformBranding?.organizationName || 'Kenya Marine and Fisheries Research Institute').toUpperCase()}
                         </Typography>
                         <Typography variant="caption" sx={{ opacity: 0.6, display: { xs: 'none', sm: 'block' }, fontSize: '0.67rem', color: 'rgba(255,255,255,0.8)' }}>
                             Staff Attendance System

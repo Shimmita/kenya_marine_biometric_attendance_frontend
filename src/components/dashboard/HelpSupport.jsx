@@ -271,7 +271,7 @@ const HelpSupport = () => {
       <Dialog
         open={openFeedback}
         onClose={() => setOpenFeedback(false)}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
         PaperProps={{
           sx: {
@@ -296,6 +296,7 @@ const HelpSupport = () => {
                 border: `1px solid ${colorPalette.softGray}`,
                 background: "#ffffff",
                 p: 2,
+                
               }}
             >
               <Typography fontWeight={800}>

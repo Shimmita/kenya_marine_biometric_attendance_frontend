@@ -84,6 +84,7 @@ const CATEGORY_TABS = [
     { value: "device", label: "Lost Device" },
     { value: "password_reset", label: "Password Reset" },
     { value: "admin_action", label: "Admin / HR Actions" },
+    { value: "superadmin", label: "Superadmin Actions" },
 ];
 
 const RANK_OPTIONS = [
@@ -91,6 +92,7 @@ const RANK_OPTIONS = [
     { value: "admin", label: "Admin" },
     { value: "hr", label: "HR" },
     { value: "auditor", label: "Auditor" },
+    { value: "superadmin", label: "Super Admin" },
     { value: "supervisor", label: "Supervisor" },
     { value: "ceo", label: "CEO" },
     { value: "user", label: "User" },

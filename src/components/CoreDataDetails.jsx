@@ -1,5 +1,60 @@
+const readCachedPlatformConfig = () => {
+    try {
+        if (typeof localStorage === 'undefined') return null;
+        return JSON.parse(localStorage.getItem('kmfri_platform_config') || 'null');
+    } catch (err) {
+        return null;
+    }
+};
+
+const normalizeStation = (station, fallbackRadius = 100) => {
+    if (typeof station === 'string') {
+        return { name: station, lat: 0, lng: 0, radiusMeters: fallbackRadius, active: true };
+    }
+    return {
+        name: station?.name || '',
+        lat: Number(station?.lat || 0),
+        lng: Number(station?.lng || 0),
+        radiusMeters: Number(station?.radiusMeters || fallbackRadius),
+        active: station?.active !== false,
+    };
+};
+
+const cachedPlatformConfig = readCachedPlatformConfig();
+
+const getActiveTheme = (config = {}) => {
+    const themes = Array.isArray(config.themes) ? config.themes : [];
+    return themes.find((theme) => theme.name === config.activeThemeName) || themes[0] || null;
+};
+
+const setCssVariables = (theme = {}, branding = {}) => {
+    if (typeof document === 'undefined') return;
+    const primary = theme.primaryColor || branding.primaryColor || '#0A3D62';
+    const secondary = theme.secondaryColor || branding.secondaryColor || '#005B96';
+    const accent = theme.accentColor || branding.accentColor || '#48C9B0';
+    const surface = theme.surfaceColor || '#f8fafd';
+    const text = theme.textColor || '#0f172a';
+    const root = document.documentElement;
+
+    root.style.setProperty('--kmfri-primary', primary);
+    root.style.setProperty('--kmfri-secondary', secondary);
+    root.style.setProperty('--kmfri-accent', accent);
+    root.style.setProperty('--kmfri-surface', surface);
+    root.style.setProperty('--kmfri-text', text);
+    root.style.setProperty('--kmfri-primary-soft', `${primary}18`);
+    root.style.setProperty('--kmfri-secondary-soft', `${secondary}16`);
+    root.style.setProperty('--kmfri-accent-soft', `${accent}22`);
+    root.style.setProperty('--kmfri-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 58%, ${accent} 100%)`);
+    root.style.setProperty('--kmfri-shell-gradient', `linear-gradient(160deg, ${surface} 0%, ${secondary}14 52%, ${accent}12 100%)`);
+};
+
+const replaceArray = (target, values) => {
+    if (!Array.isArray(target) || !Array.isArray(values)) return;
+    target.splice(0, target.length, ...values);
+};
+
 const coreDataDetails = {
-    availableDepartments: [
+    availableDepartments: cachedPlatformConfig?.departments?.length ? cachedPlatformConfig.departments : [
         "Oceans and Coastal Systems & Blue Economy Research",
         "Marine and Coastal Fisheries Research",
         "Oceanography and Hydrography Research",
@@ -84,7 +139,11 @@ const coreDataDetails = {
         textMuted: "rgba(190,228,245,0.55)", // slightly more visible
     },
 
-    AvailableStations: [
+    AvailableStations: cachedPlatformConfig?.stations?.length
+        ? cachedPlatformConfig.stations
+            .map((station) => normalizeStation(station, cachedPlatformConfig?.geofence?.radiusMeters || 100))
+            .filter((station) => station.name && station.active !== false)
+        : [
         // { name: 'MOMBASA CENTRE', lat: -4.03951, lng: 39.6260 },
         { name: 'MOMBASA CENTRE', lat: -4.0546356, lng: 39.6826 },
         { name: 'SHIMONI CENTRE', lat: -4.0546356, lng: 39.6826 },
@@ -109,7 +168,79 @@ const coreDataDetails = {
 
     REASONS: ["Sickness", "Fieldwork", "Workshop", "Official Assignment", "Emergency", "Other"],
     LEAVE_TYPES: ["Adoption Leave", "Annual Leave", "Compassionate Leave", "Paternity Leave", "Sick Leave", "Study Leave", "Terminal Leave"],
+    branding: cachedPlatformConfig?.branding || {
+        organizationName: "Kenya Marine and Fisheries Research Institute",
+        shortName: "KMFRI",
+    },
 
+};
+
+export const applyPlatformConfigToCoreData = (config = {}) => {
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('kmfri_platform_config', JSON.stringify(config));
+        }
+    } catch (err) {
+        console.warn('Failed to cache platform config', err);
+    }
+
+    if (Array.isArray(config.departments) && config.departments.length > 0) {
+        replaceArray(coreDataDetails.availableDepartments, config.departments);
+    }
+
+    if (Array.isArray(config.stations) && config.stations.length > 0) {
+        const stations = config.stations
+            .map((station) => normalizeStation(station, config?.geofence?.radiusMeters || 100))
+            .filter((station) => station.name && station.active !== false);
+        replaceArray(coreDataDetails.AvailableStations, stations);
+    }
+
+    const dropdowns = config.dropdowns || {};
+    if (Array.isArray(dropdowns.genders)) replaceArray(coreDataDetails.genders, dropdowns.genders);
+    if (Array.isArray(dropdowns.leaveTypes)) replaceArray(coreDataDetails.LEAVE_TYPES, dropdowns.leaveTypes);
+    if (Array.isArray(dropdowns.absenceReasons)) replaceArray(coreDataDetails.REASONS, dropdowns.absenceReasons);
+
+    const activeTheme = getActiveTheme(config);
+    const { branding } = config;
+    if (branding) {
+        Object.assign(coreDataDetails.branding, branding);
+    }
+
+    if (branding || activeTheme) {
+        const primary = activeTheme?.primaryColor || branding?.primaryColor || coreDataDetails.colorPalette.deepNavy;
+        const secondary = activeTheme?.secondaryColor || branding?.secondaryColor || coreDataDetails.colorPalette.oceanBlue;
+        const accent = activeTheme?.accentColor || branding?.accentColor || coreDataDetails.colorPalette.seafoamGreen;
+        const surface = activeTheme?.surfaceColor || coreDataDetails.colorPalette.cloudWhite;
+        const text = activeTheme?.textColor || '#0f172a';
+
+        setCssVariables(activeTheme, branding);
+
+        Object.assign(coreDataDetails.colorPalette, {
+            deepNavy: primary,
+            oceanBlue: secondary,
+            seafoamGreen: accent,
+            cloudWhite: surface,
+            charcoal: text,
+            oceanGradient: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
+            freshGradient: `linear-gradient(135deg, ${secondary} 0%, ${accent} 100%)`,
+        });
+
+        Object.assign(coreDataDetails.C, {
+            deepNavy: primary,
+            oceanBlue: secondary,
+            seafoamGreen: accent,
+            glassBg: `${primary}B8`,
+            glassBgElevated: `${secondary}7A`,
+            glassBorder: `${accent}47`,
+            glassBorderHover: `${accent}94`,
+        });
+    }
+};
+
+if (cachedPlatformConfig) {
+    applyPlatformConfigToCoreData(cachedPlatformConfig);
+} else {
+    setCssVariables({}, coreDataDetails.branding);
 }
 
-export default coreDataDetails
+export default coreDataDetails;
