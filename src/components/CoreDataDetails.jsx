@@ -7,7 +7,7 @@ const readCachedPlatformConfig = () => {
     }
 };
 
-const normalizeStation = (station, fallbackRadius = 100) => {
+const normalizeStation = (station, fallbackRadius = 500) => {
     if (typeof station === 'string') {
         return { name: station, lat: 0, lng: 0, radiusMeters: fallbackRadius, active: true };
     }
@@ -141,7 +141,7 @@ const coreDataDetails = {
 
     AvailableStations: cachedPlatformConfig?.stations?.length
         ? cachedPlatformConfig.stations
-            .map((station) => normalizeStation(station, cachedPlatformConfig?.geofence?.radiusMeters || 100))
+            .map((station) => normalizeStation(station, cachedPlatformConfig?.geofence?.radiusMeters || 500))
             .filter((station) => station.name && station.active !== false)
         : [
         // { name: 'MOMBASA CENTRE', lat: -4.03951, lng: 39.6260 },
@@ -172,6 +172,20 @@ const coreDataDetails = {
         organizationName: "Kenya Marine and Fisheries Research Institute",
         shortName: "KMFRI",
     },
+    notificationReminders: cachedPlatformConfig?.notificationReminders || {
+        clockInReminderMinutes: 15,
+        clockOutReminderMinutes: 15,
+        clockInMessage: 'Dear {firstName}, please clock in for your scheduled KMFRI workday.',
+        clockOutMessage: 'Dear {firstName}, please clock out before leaving your duty station.',
+        channels: ['in_app'],
+    },
+    attendancePolicy: cachedPlatformConfig?.attendancePolicy || {
+        standardClockIn: '08:00',
+        standardClockOut: '17:00',
+        gracePeriodMinutes: 15,
+        allowClockOutsideStation: false,
+        requireBiometricVerification: true,
+    },
 
 };
 
@@ -190,7 +204,7 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
 
     if (Array.isArray(config.stations) && config.stations.length > 0) {
         const stations = config.stations
-            .map((station) => normalizeStation(station, config?.geofence?.radiusMeters || 100))
+            .map((station) => normalizeStation(station, config?.geofence?.radiusMeters || 500))
             .filter((station) => station.name && station.active !== false);
         replaceArray(coreDataDetails.AvailableStations, stations);
     }
@@ -234,6 +248,28 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
             glassBorder: `${accent}47`,
             glassBorderHover: `${accent}94`,
         });
+    }
+
+    if (config.notificationReminders) {
+        coreDataDetails.notificationReminders = {
+            clockInReminderMinutes: config.notificationReminders.clockInReminderMinutes ?? coreDataDetails.notificationReminders.clockInReminderMinutes,
+            clockOutReminderMinutes: config.notificationReminders.clockOutReminderMinutes ?? coreDataDetails.notificationReminders.clockOutReminderMinutes,
+            clockInMessage: config.notificationReminders.clockInMessage || coreDataDetails.notificationReminders.clockInMessage,
+            clockOutMessage: config.notificationReminders.clockOutMessage || coreDataDetails.notificationReminders.clockOutMessage,
+            channels: Array.isArray(config.notificationReminders.channels)
+                ? config.notificationReminders.channels
+                : coreDataDetails.notificationReminders.channels,
+        };
+    }
+
+    if (config.attendancePolicy) {
+        coreDataDetails.attendancePolicy = {
+            standardClockIn: config.attendancePolicy.standardClockIn || coreDataDetails.attendancePolicy.standardClockIn,
+            standardClockOut: config.attendancePolicy.standardClockOut || coreDataDetails.attendancePolicy.standardClockOut,
+            gracePeriodMinutes: Number(config.attendancePolicy.gracePeriodMinutes ?? coreDataDetails.attendancePolicy.gracePeriodMinutes),
+            allowClockOutsideStation: config.attendancePolicy.allowClockOutsideStation ?? coreDataDetails.attendancePolicy.allowClockOutsideStation,
+            requireBiometricVerification: config.attendancePolicy.requireBiometricVerification ?? coreDataDetails.attendancePolicy.requireBiometricVerification,
+        };
     }
 };
 

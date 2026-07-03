@@ -7,6 +7,7 @@ import api from "../../service/Api";
 import {
   clearSessionStarted,
   getSessionTimeRemaining,
+  markSessionStarted,
 } from "../../service/SessionTimeout";
 import coreDataDetails from "../CoreDataDetails";
 
@@ -19,11 +20,18 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const POLL_INTERVAL_MS = 60 * 1000; // 1 minute
+    const ACTIVITY_EVENTS = [
+      "mousemove",
+      "keydown",
+      "mousedown",
+      "touchstart",
+      "scroll",
+    ];
+    const ACTIVITY_HEARTBEAT_MS = 5 * 60 * 1000; // send auth probe at most every 5 minutes on activity
 
     let refreshTimeout = null;
-    let pollInterval = null;
     let active = true;
+    const lastHeartbeatAt = { current: 0 };
 
     const clearClientSession = () => {
       clearSessionStarted();
@@ -44,6 +52,46 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
       }
     };
 
+    const scheduleLogout = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = window.setTimeout(async () => {
+        clearClientSession();
+        try {
+          await api.post("/user/signout");
+        } catch {
+          // ignore network issues during idle logout
+        }
+        window.location.reload();
+      }, getSessionTimeRemaining());
+    };
+
+    const handleUserActivity = async () => {
+      markSessionStarted();
+      scheduleLogout();
+
+      const now = Date.now();
+      if (now - lastHeartbeatAt.current > ACTIVITY_HEARTBEAT_MS) {
+        lastHeartbeatAt.current = now;
+        if (await checkAuth()) {
+          scheduleLogout();
+        } else {
+          window.location.reload();
+        }
+      }
+    };
+
+    const attachActivityListeners = () => {
+      ACTIVITY_EVENTS.forEach((eventName) =>
+        document.addEventListener(eventName, handleUserActivity, { passive: true })
+      );
+    };
+
+    const removeActivityListeners = () => {
+      ACTIVITY_EVENTS.forEach((eventName) =>
+        document.removeEventListener(eventName, handleUserActivity)
+      );
+    };
+
     checkAuth().then((valid) => {
       if (!active) return;
 
@@ -51,22 +99,15 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
 
       if (!valid || redirectIfAuth) return;
 
-      refreshTimeout = setTimeout(() => {
-        clearClientSession();
-        window.location.reload();
-      }, getSessionTimeRemaining());
-
-      pollInterval = setInterval(async () => {
-        if (!(await checkAuth())) {
-          window.location.reload();
-        }
-      }, POLL_INTERVAL_MS);
+      markSessionStarted();
+      scheduleLogout();
+      attachActivityListeners();
     });
 
     return () => {
       active = false;
       if (refreshTimeout) clearTimeout(refreshTimeout);
-      if (pollInterval) clearInterval(pollInterval);
+      removeActivityListeners();
     };
   }, [dispatch, redirectIfAuth]);
 

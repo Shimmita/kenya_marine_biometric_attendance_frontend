@@ -349,7 +349,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.97 }}
             transition={{ duration: 0.44, ease: [0.4, 0, 0.2, 1] }}>
-            <Card elevation={0} sx={{ ...G.formCard, p: { xs: 3, md: 4.5 }, maxWidth: { xs: '100%', sm: 480 }, width: '100%', mx: 'auto', borderRadius: '28px' }}>
+            <Card elevation={0} sx={{ ...G.formCard, p: { xs: 3, md: 4 }, maxWidth: { xs: '100%', sm: 480 }, width: '100%', mx: 'auto', borderRadius: '28px' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: -1 }}>
                     <IconButton onClick={currentView === 'role-select' ? onBack : switchToSignin} size="small" sx={{ background: 'rgba(10,61,98,0.07)', border: '1px solid rgba(10,61,98,0.12)', '&:hover': { background: 'rgba(10,61,98,0.13)' } }}>
                         {!selectedRole ? <Close sx={{ fontSize: 18, color: colorPalette.deepNavy }} /> : <ArrowBack sx={{ fontSize: 18, color: colorPalette.deepNavy }} />}
@@ -358,7 +358,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
                 {currentView === 'role-select' ? (
                     <>
-                            <Box sx={{ textAlign: 'center', mb: 3.5 }}>
+                            <Box sx={{ textAlign: 'center', mb: 3 }}>
                             <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--kmfri-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: '0 10px 32px var(--kmfri-secondary-soft)' }}>
                                 <Lock sx={{ fontSize: 38, color: '#fff' }} />
                             </Box>
@@ -761,7 +761,7 @@ const EnhancedLandingPage = () => {
                                             </Box>
                                         </Typography>
                                         <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.80)', mb: 4.5, fontWeight: 400, lineHeight: 1.7, maxWidth: 520 }}>
-                                            A unified digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
+                                            Digital platform for synchronized clocking and reporting for all our employees, interns, and attaches.                                            </Typography>
                                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                             <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
                                                 sx={{ background: 'var(--kmfri-gradient)', color: '#fff', fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 10px 30px var(--kmfri-accent-soft)', transition: 'all 0.26s ease', '&:hover': { filter: 'brightness(1.08)', transform: 'translateY(-2px)', boxShadow: '0 14px 36px var(--kmfri-secondary-soft)' } }}>

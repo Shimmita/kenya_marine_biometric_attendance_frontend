@@ -28,7 +28,7 @@ import WorkRoundedIcon from "@mui/icons-material/WorkRounded";
 import { BorderAllRounded, BusinessRounded, Face6Rounded, GroupsRounded, InfoRounded, LockClockRounded, ManageAccountsRounded, SecurityRounded, SelfImprovementRounded, ShieldRounded } from "@mui/icons-material";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../service/UserManagement";
 import { getUserProfile } from "../../service/UserProfile";
@@ -155,6 +155,7 @@ export default function UserDetailsDialog({
     const [tab, setTab] = useState(0);
 
     const dispatch = useDispatch();
+    const currentUserRank = useSelector((state) => state.currentUser.user?.rank);
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -164,11 +165,13 @@ export default function UserDetailsDialog({
 
     const [openClockModal, setOpenClockModal] = useState(false);
 
+
     const [formData, setFormData] = useState({
         startDate: "",
         endDate: "",
         reason: ""
     });
+
 
     useEffect(() => {
 
@@ -261,6 +264,8 @@ export default function UserDetailsDialog({
             setIsLoading(false);
         }
     };
+
+
 
     return (
 
@@ -413,7 +418,7 @@ export default function UserDetailsDialog({
                                                 backdropFilter: "blur(10px)",
 
                                                 border: `1px solid ${coreDataDetails.C.glassBorder}`,
-                                                      bgcolor: user.isAccountActive
+                                                bgcolor: user.isAccountActive
                                                     ? "rgba(72,201,176,.15)"
                                                     : "rgba(255,92,74,.15)",
 
@@ -428,7 +433,7 @@ export default function UserDetailsDialog({
                                                     ? "Active"
                                                     : "Inactive"
                                             }
-                                           
+
                                         />
 
                                     </Stack>
@@ -701,12 +706,14 @@ export default function UserDetailsDialog({
 
                                     </Grid>
 
-                                    <Grid size={{ xs: 12, md: 5 }}>
+                                    {/* shown only if current user is admin or superadmin */}
+                                    {['admin', 'superadmin'].includes(currentUserRank) && (
+                                        <Grid size={{ xs: 12, md: 5, }}>
 
-                                        <GlassSection
-                                            icon={<GroupsRounded />}
-                                            title="Rank Management"
-                                        >
+                                            <GlassSection
+                                                icon={<GroupsRounded />}
+                                                title="Rank Management"
+                                            >
 
                                             <Typography mb={1}>
                                                 Rank
@@ -730,7 +737,8 @@ export default function UserDetailsDialog({
                                                         "supervisor",
                                                         "ceo",
                                                         "user",
-                                                        "auditor"
+                                                        "auditor",
+                                                        "superadmin"
 
                                                     ].map(rank => (
 
@@ -749,14 +757,14 @@ export default function UserDetailsDialog({
 
                                             </FormControl>
                                         </GlassSection>
-
-
                                     </Grid>
+                                    )}
+
 
                                     <Grid size={{ xs: 12, md: 5 }}>
 
                                         <GlassSection
-                                        icon={<BorderAllRounded/>}
+                                            icon={<BorderAllRounded />}
                                             title="Department Management"
                                         >
 
@@ -810,7 +818,7 @@ export default function UserDetailsDialog({
                                     <Grid size={{ xs: 12, md: 5 }}>
 
                                         <GlassSection
-                                        icon={<BusinessRounded/>}
+                                            icon={<BusinessRounded />}
                                             title="Station Management"
                                         >
 
@@ -865,7 +873,7 @@ export default function UserDetailsDialog({
                                     <Grid size={{ xs: 12, md: 5 }}>
 
                                         <GlassSection
-                                        icon={<SelfImprovementRounded/>}
+                                            icon={<SelfImprovementRounded />}
                                             title="Supervisor Management"
                                         >
 
@@ -915,7 +923,7 @@ export default function UserDetailsDialog({
                                     <Grid size={{ xs: 12, md: 5 }}>
 
                                         <GlassSection
-                                        icon={<LockClockRounded/>}
+                                            icon={<LockClockRounded />}
                                             title="Clock Outside Access"
                                         >
 
@@ -960,7 +968,7 @@ export default function UserDetailsDialog({
                             <Box>
 
                                 <GlassSection
-                                icon={<SecurityRounded/>}
+                                    icon={<SecurityRounded />}
                                     title="Security Actions"
                                 >
 
@@ -995,7 +1003,7 @@ export default function UserDetailsDialog({
                                         onClick={() =>
                                             onResetBiometrics(user._id)
                                         }
-                                        
+
                                     >
 
                                         Reset User Biometrics
@@ -1005,7 +1013,7 @@ export default function UserDetailsDialog({
                                 </GlassSection>
 
                                 <GlassSection
-                                icon={<ManageAccountsRounded/>}
+                                    icon={<ManageAccountsRounded />}
                                     title="Account Lifecycle"
                                 >
 

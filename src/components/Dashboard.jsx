@@ -97,7 +97,7 @@ const ADMIN_ONLY_ITEMS = [
 ];
 
 const SUPERADMIN_GENERAL_ITEMS = [
-    { text: 'Platform Configuration', icon: <Settings />, color: '#93c5fd' },
+    { text: 'Platform Administration', icon: <Settings />, color: '#93c5fd' },
     { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
     { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
     { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
@@ -837,7 +837,7 @@ const EnhancedDashboard = () => {
             setPlatformBranding(response?.branding || coreDataDetails.branding);
             setPlatformConfigVersion((version) => version + 1);
         } catch (err) {
-            console.error('Failed to load platform config', err);
+            console.error('Failed to load platform Administration', err);
         }
     }, []);
 
@@ -986,7 +986,7 @@ const EnhancedDashboard = () => {
             case 'Departmental Requests': return <SupervisorDeptRequest />;
             case 'Audit Logs': return <AuditLogsContent />;
             case 'Feedback Statistics': return <FeedbackStatistics />;
-            case 'Platform Configuration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
+            case 'Platform Administration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
         }
     }, [activeTab, isElevated, platformConfigVersion, refreshPlatformConfig, sharedProps, user?.department, user?.rank]);

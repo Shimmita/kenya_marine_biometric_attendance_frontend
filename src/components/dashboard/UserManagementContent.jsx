@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import {
     deleteUser,
@@ -104,12 +104,13 @@ const menuProps = {
 const RANK_ACCENT = {
     admin: C.warmSand,
     hr: "#C97DFF",
-    supervisor: C.seafoamGreen,
-    ceo: C.coralSunset,
+    supervisor: C.cloudWhite,
+    ceo: C.seafoamGreen,
     user: C.cyanFresh,
+    superadmin: C.coralSunset,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user"];
+const RANKS = ["admin", "hr", "supervisor", "ceo", "user", "superadmin"];
 const ROLES = ["employee", "intern", "attachee", "employee-contract"];
 const { availableDepartments, AvailableStations } = coreDataDetails;
 
@@ -349,6 +350,9 @@ const UserManagementContent = ({ readOnly = false }) => {
     // dispatch and redux activities
     const dispatch = useDispatch();
 
+     //get current user from the redux
+    const currentUser = useSelector((state) => state?.currentUser);
+
     const fetchUsers = async () => {
         try {
             setLoading(true);
@@ -408,7 +412,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                     ? true
                     : statusFilter === "active"
                         ? user.isAccountActive
-                        : statusFilter==="clockoutside" ? user.canClockOutside :!user.isAccountActive)
+                        : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
     }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
@@ -451,13 +455,16 @@ const UserManagementContent = ({ readOnly = false }) => {
         );
     }
 
+
+   
+
     return (
         <>
             <Stack spacing={2}>
                 {/* Filter Bar */}
-                <motion.div style={{ willChange: 'transform, opacity' }} 
-                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28 }}>
+                <motion.div style={{ willChange: 'transform, opacity' }}
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28 }}>
                     <FilterBar
                         searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                         rankFilter={rankFilter} setRankFilter={setRankFilter}
@@ -560,7 +567,6 @@ const UserManagementContent = ({ readOnly = false }) => {
 
                     onResetBiometrics={handleResetBiometrics}
                 />
-
 
 
 

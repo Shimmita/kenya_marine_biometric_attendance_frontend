@@ -36,7 +36,7 @@ import LiveClock from '../util/LiveClock';
 import { detectCurrentDevice } from './AddDevice';
 
 const { AvailableStations, colorPalette } = coreDataDetails;
-const GEOFENCE_RADIUS_METERS = 1000;
+const GEOFENCE_RADIUS_METERS = 500;
 
 /* ══ GLASS TOKENS ══════════════════════════════════════════════════════════ */
 const G = {
@@ -98,23 +98,23 @@ const useNotification = () => {
 
 const CLOCKING_REMINDERS_STORAGE_KEY = 'kmfri_clocking_reminders';
 
-const morningClockInReminders = [
-    'Please confirm your station attendance by clocking in before beginning your shift.',
-    'A friendly reminder to clock in so your presence at the station is recorded.',
-    'Please clock in to confirm you have reported at your assigned station this morning.',
-    'Ensure your morning arrival is documented: please clock in now.',
-    'Kindly clock in to confirm your presence at the station before you proceed with your duties.',
-];
+const formatReminderTemplate = (template, user) => {
+    const firstName = user?.name?.split(' ')[0] || 'Team member';
+    const fullName = user?.name || firstName;
+    let message = String(template || '').trim();
+    if (!message) return '';
+    return message
+        .replace(/\{firstName\}/gi, firstName)
+        .replace(/\{name\}/gi, fullName);
+};
 
-const afternoonClockOutReminders = [
-    'Please clock out to confirm your exit from the station at the end of your shift.',
-    'A reminder to clock out so your departure is properly recorded.',
-    'Please confirm your end-of-day exit by clocking out before leaving.',
-    'Ensure your departure is registered: please clock out now.',
-    'Kindly clock out to confirm you have completed your shift and exited the station.',
-];
-
-const getRandomReminder = (messages) => messages[Math.floor(Math.random() * messages.length)];
+const getReminderMessage = (template, user) => {
+    if (!template) return '';
+    if (Array.isArray(template) && template.length > 0) {
+        template = template[Math.floor(Math.random() * template.length)];
+    }
+    return formatReminderTemplate(template, user);
+};
 
 const playReminderTone = () => {
     try {
@@ -757,9 +757,10 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         const sendReminder = () => {
             const now = new Date();
             const hour = now.getHours();
+            const reminders = coreDataDetails.notificationReminders || {};
 
             if (hour >= 6 && hour < 11 && !isClockedIn) {
-                const message = getRandomReminder(morningClockInReminders);
+                const message = getReminderMessage(reminders.clockInMessage, user) || 'Please clock in for your scheduled KMFRI workday.';
                 notify(message, 'info');
                 persistClockingReminder(message);
                 sendBrowserNotification('Clocking System Reminder', message);
@@ -767,7 +768,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             }
 
             if (hour >= 16 && hour < 18 && isClockedIn && isToClockOut) {
-                const message = getRandomReminder(afternoonClockOutReminders);
+                const message = getReminderMessage(reminders.clockOutMessage, user) || 'Please clock out before leaving your duty station.';
                 notify(message, 'info');
                 persistClockingReminder(message);
                 sendBrowserNotification('Clocking System Reminder', message);
@@ -777,7 +778,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         sendReminder();
         const reminderInterval = setInterval(sendReminder, 9 * 60 * 1000);
         return () => clearInterval(reminderInterval);
-    }, [isClockedIn, isToClockOut, notify]);
+    }, [isClockedIn, isToClockOut, notify, user]);
 
     useEffect(() => {
         if (!outsideClockingAuthorized) return;
@@ -1140,8 +1141,8 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                                 <Typography fontWeight={900} sx={{ fontSize: '0.92rem', color: '#fff', mb: 0.4 }}>Fingerprint Required</Typography>
                                                                 <Typography variant="body2" sx={{ opacity: 0.65, fontSize: '0.76rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.75)' }}>
                                                                     {user?.doneBiometric && enrolledDevices.length > 0
-                                                                        ? 'This browser is not enrolled yet. Register it as your second approved clocking device.'
-                                                                        : 'Register once to enable secure clocking at all KMFRI stations.'}
+                                                                        ? 'Enroll this browser to continue clocking.'
+                                                                        : 'Register once to enable secure clocking.'}
                                                                 </Typography>
                                                             </Box>
 

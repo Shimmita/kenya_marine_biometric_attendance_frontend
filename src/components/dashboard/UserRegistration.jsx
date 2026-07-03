@@ -214,8 +214,11 @@ const UserRegistrationContent = ({ readOnly = false }) => {
         }
         if (step === 1) {
             if (!formData.name?.trim()) e.name = 'Full name is required';
-            if (!formData.phone?.trim()) e.phone = 'Phone number is required';
-            if (formData.phone && formData.phone.length > 10) e.phone = 'Phone number max 10 digits';
+            if (!formData.phone?.trim()) {
+                e.phone = 'Phone number is required';
+            } else if (!/^\d{9}$/.test(formData.phone)) {
+                e.phone = 'Enter the 9 digits after the fixed 254 prefix';
+            }
             if (!formData.email?.trim()) {
                 e.email = 'Email is required';
             } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -226,7 +229,12 @@ const UserRegistrationContent = ({ readOnly = false }) => {
         if (step === 2) {
             if (!formData.station)     e.station     = 'Main clocking station is required';
             if (!formData.department)  e.department  = 'Department is required';
-            if (!formData.employeeId?.trim()) e.employeeId = 'ID / registration number is required';
+            if (!formData.employeeId?.trim()) e.employeeId = 'Passport or National ID is required';
+            if (!formData.startDate) e.startDate = 'Start date is required';
+            if (!formData.endDate) e.endDate = 'End date is required';
+            if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
+                e.endDate = 'End date cannot be before start date';
+            }
         }
         setErrors(e);
         return Object.keys(e).length === 0;
@@ -247,7 +255,11 @@ const UserRegistrationContent = ({ readOnly = false }) => {
     const handleRegister = async () => {
         setProcessing(true);
         try {
-            await registerUser({ formData });
+            const payload = {
+                ...formData,
+                phone: `254${formData.phone}`,
+            };
+            await registerUser({ formData: payload });
             setSnackMsg(`${formData.name || 'User'} registered successfully! Default password: 123456`);
             setSnackSev('success');
             setSnackOpen(true);

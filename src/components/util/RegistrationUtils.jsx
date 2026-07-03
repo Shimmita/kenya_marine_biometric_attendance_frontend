@@ -124,8 +124,8 @@ const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
     const cfg = {
         employee: { label: 'Staff ID', placeholder: 'Enter your staff ID' },
         'employee-contract': { label: 'Staff ID', placeholder: 'Enter your staff ID' },
-        intern: { label: 'National ID', placeholder: 'Enter your national ID' },
-        attachee: { label: 'Student Reg. Number', placeholder: 'Enter your student registration number' },
+        intern: { label: 'Passport or National ID', placeholder: 'Enter passport or national ID' },
+        attachee: { label: 'Passport or National ID', placeholder: 'Enter passport or national ID' },
     }[role] || { label: 'ID Number', placeholder: 'Enter your ID number' };
 
     return (
@@ -133,7 +133,7 @@ const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
             label={cfg.label} placeholder={cfg.placeholder}
             value={value} onChange={onChange}
             error={!!error} helperText={error}
-            type={role === 'intern' ? 'number' : 'text'}
+            type="text"
             InputProps={{
                 startAdornment: (
                     <InputAdornment position="start">
@@ -200,25 +200,28 @@ const PersonalDetailsStep = React.memo(({ formData, errors, handle, tf }) => (
         <TextField
             fullWidth
             required
-            type="number"
+            type="tel"
             label="Phone Number"
-            placeholder="0723569054"
+            placeholder="712345678"
             value={formData.phone}
             onChange={(e) => {
-                // Limit to 10 digits
-                if (e.target.value.length <= 10) {
-                    handle('phone')(e);
+                const digits = e.target.value.replace(/\D/g, '');
+                if (digits.length <= 9) {
+                    handle('phone')({ target: { value: digits } });
                 }
             }}
             error={!!errors.phone}
-            helperText={errors.phone}
+            helperText={errors.phone || 'Enter the 9 digits after the fixed 254 prefix.'}
             InputProps={{
                 startAdornment: (
                     <InputAdornment position="start">
-                        <Phone sx={{ color: colorPalette.oceanBlue }} />
+                        <Typography sx={{ color: colorPalette.oceanBlue, fontWeight: 700, letterSpacing: 0.5 }}>
+                            254
+                        </Typography>
                     </InputAdornment>
                 ),
             }}
+            inputProps={{ maxLength: 9 }}
             sx={tf}
         />
         <TextField fullWidth required label="Email Address" type="email" placeholder="john.doe@kmfri.go.ke"
@@ -279,19 +282,25 @@ const WorkDetailsStep = React.memo(({ formData, errors, handle, isEmployee, tf, 
         {/* Date range — always shown for interns/attachees */}
         {!isEmployee && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-                <TextField fullWidth label="Start Date" type="date"
+                <TextField fullWidth required label="Start Date" type="date"
                     value={formData.startDate} onChange={handle('startDate')}
                     InputLabelProps={{ shrink: true }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                        inputProps: { max: formData.endDate || undefined },
+                    }}
                     sx={tf} />
                 <Typography variant="body2" fontWeight={700} color="text.disabled"
                     sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
                     to
                 </Typography>
-                <TextField fullWidth label="End Date" type="date"
+                <TextField fullWidth required label="End Date" type="date"
                     value={formData.endDate} onChange={handle('endDate')}
                     InputLabelProps={{ shrink: true }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
+                        inputProps: { min: formData.startDate || undefined },
+                    }}
                     sx={tf} />
             </Stack>
         )}
