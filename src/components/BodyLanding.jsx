@@ -358,7 +358,7 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 
                 {currentView === 'role-select' ? (
                     <>
-                            <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Box sx={{ textAlign: 'center', mb: 3 }}>
                             <Box sx={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--kmfri-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2, boxShadow: '0 10px 32px var(--kmfri-secondary-soft)' }}>
                                 <Lock sx={{ fontSize: 38, color: '#fff' }} />
                             </Box>
@@ -695,26 +695,7 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
                         {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>
                             Staff Biometric Attendance System</Typography>}
                     </Box>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                        {currentView === 'landing' && (
-                            <Button variant="outlined" startIcon={<Lock sx={{ fontSize: 15 }} />} onClick={() => onNavigate('signin')}
-                                sx={{
-                                    display: { xs: 'none', sm: 'flex' },
-                                    ...G.ghostBtn,
-                                    fontWeight: 700,
-                                    px: 2.5,
-                                    borderRadius: '12px',
-                                    textTransform: 'none',
-                                    fontSize: '0.875rem',
-                                    transition: 'all 0.22s ease',
-                                    borderColor: 'var(--kmfri-accent)',
-                                    '&:hover': { background: 'var(--kmfri-accent-soft)', borderColor: 'var(--kmfri-accent)', color: '#fff', transform: 'translateY(-1px)' }
-                                }}>
-                                Sign In
-                            </Button>
-                        )}
 
-                    </Stack>
                 </Toolbar>
             </Container>
         </AppBar>

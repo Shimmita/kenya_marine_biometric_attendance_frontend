@@ -1,13 +1,18 @@
 import {
   Add as AddIcon,
+  AdminPanelSettings,
   Business,
+  CloudUpload,
   Delete as DeleteIcon,
+  Email,
   HomeRounded,
   Palette,
+  Phone,
   RestartAlt,
   Save,
   Schedule,
   Tune,
+  Visibility
 } from '@mui/icons-material';
 import {
   Alert,
@@ -70,34 +75,20 @@ const blankTheme = {
 
 const cardSx = {
   borderRadius: 4,
-  p: 3,
-  background:
-    "rgba(255,255,255,.72)",
+  p: { xs: 2, sm: 3 },
+  background: "rgba(255,255,255,.72)",
   backdropFilter: "blur(20px)",
-  border: "1px solid rgba(255,255,255,.25)",
-  boxShadow:
-    "0 15px 40px rgba(15,23,42,.08)"
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  boxShadow: "0 15px 40px rgba(15,23,42,.04)"
 };
 
 const paletteFields = [
-  { field: 'primaryColor', label: 'Primary brand color', helper: 'Navigation, main headers, and dominant brand surfaces.' },
-  { field: 'secondaryColor', label: 'Secondary brand color', helper: 'Buttons, links, focused controls, and supporting accents.' },
-  { field: 'accentColor', label: 'Accent highlight color', helper: 'Selections, success accents, chips, and active states.' },
-  { field: 'surfaceColor', label: 'Page surface color', helper: 'Dashboard shell and light content background.' },
-  { field: 'textColor', label: 'Primary text color', helper: 'Main readable text on light surfaces.' },
+  { field: 'primaryColor', label: 'Primary Brand Color', helper: 'Navigation bars, main actions, and headers.' },
+  { field: 'secondaryColor', label: 'Secondary Brand Color', helper: 'Supporting accents, secondary buttons, and states.' },
+  { field: 'accentColor', label: 'Accent Highlight Color', helper: 'Status markers, active chips, and badge components.' },
+  { field: 'surfaceColor', label: 'Page Surface Color', helper: 'Container surfaces, panels, and card backdrops.' },
+  { field: 'textColor', label: 'Primary Text Color', helper: 'Body content copy text color.' },
 ];
-
-const themePreviewSx = (theme) => ({
-  minHeight: 108,
-  borderRadius: 2,
-  border: '1px solid rgba(148,163,184,0.22)',
-  background: `linear-gradient(135deg, ${theme.primaryColor || '#0A3D62'} 0%, ${theme.secondaryColor || '#005B96'} 58%, ${theme.accentColor || '#48C9B0'} 100%)`,
-  color: '#fff',
-  p: 2,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
-});
 
 const ConfigPanel = ({ onConfigLoaded }) => {
   const [tab, setTab] = useState(0);
@@ -123,6 +114,12 @@ const ConfigPanel = ({ onConfigLoaded }) => {
       ...data,
       stations: (data?.stations || []).map(normalizeStation),
       dropdowns: normalizeDropdowns(data?.dropdowns),
+      masterSettings: data?.masterSettings || {
+        allowEmployeeSelfRegistration: false,
+        maintenanceMode: false,
+        requirePasswordResetOnFirstLogin: false,
+        maxDevicesPerUser: 2
+      }
     };
     setConfig(next);
     applyPlatformConfigToCoreData(next);
@@ -152,7 +149,6 @@ const ConfigPanel = ({ onConfigLoaded }) => {
       const data = await SuperadminAPI.updatePlatformConfig(payload);
       applyLoadedConfig(data);
       setStatus(message);
-      await load();
     } catch (err) {
       console.error(err);
       setError(err?.response?.data?.message || err?.message || 'Save failed');
@@ -162,18 +158,18 @@ const ConfigPanel = ({ onConfigLoaded }) => {
   };
 
   const resetConfig = async (section = 'all') => {
+    if (!window.confirm(`Are you sure you want to restore default values for ${section}?`)) return;
     try {
       setError('');
-      setIsLoading(true)
+      setIsLoading(true);
       const data = await SuperadminAPI.resetPlatformConfig(section);
       applyLoadedConfig(data);
-      setStatus(section === 'all' ? 'All configuration reset to defaults' : `${section} reset to defaults`);
-      await load();
+      setStatus(section === 'all' ? 'All configurations reset to defaults' : `${section} reset to defaults`);
     } catch (err) {
       console.error(err);
       setError(err?.response?.data?.message || err?.message || 'Reset failed');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   };
 
@@ -213,7 +209,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     } catch (err) {
       setError(err?.response?.data?.message || 'Station update failed');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   };
 
@@ -225,7 +221,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     } catch (err) {
       setError(err?.response?.data?.message || 'Station removal failed');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   };
 
@@ -286,9 +282,6 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     const theme = {
       ...newTheme,
       name,
-      primaryColor: newTheme.primaryColor || config.branding?.primaryColor || '#0A3D62',
-      secondaryColor: newTheme.secondaryColor || config.branding?.secondaryColor || '#005B96',
-      accentColor: newTheme.accentColor || config.branding?.accentColor || '#48C9B0',
     };
     const themes = [...(config.themes || []).filter((item) => item.name !== name), theme];
     setConfig({
@@ -305,79 +298,89 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     setNewTheme(blankTheme);
   };
 
-  if (!config) return <Typography>Loading configuration...</Typography>;
+  if (!config) return <Typography sx={{ p: 4 }}>Loading global parameters...</Typography>;
 
   return (
-    <Box
-      sx={{
-        maxWidth: 1700,
-        mx: "auto",
-        px: {
-          xs: 1,
-          sm: 2,
-          md: 3,
-        },
-        py: 2,
-      }}
-    >
-      <Stack spacing={2}>
+    <Box sx={{ maxWidth: 1600, mx: "auto", px: { xs: 1.5, sm: 3 }, py: 2 }}>
+      <Stack spacing={3}>
         {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
         {status && <Alert severity="success" onClose={() => setStatus('')}>{status}</Alert>}
 
-        {/* tabs */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={'center'} justifyContent="space-around" spacing={1}>
-          <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+        {/* Navigation Tabs Bar */}
+        <Paper elevation={0} sx={{ borderRadius: 3, p: 0.5, bgcolor: 'background.neutral', border: '1px solid rgba(148,163,184,0.15)' }}>
+          <Tabs
+            value={tab}
+            onChange={(e, v) => setTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTabs-indicator': { borderRadius: '4px' }
+            }}
+          >
             <Tab disabled={isLoading} icon={<HomeRounded />} iconPosition="start" label="Dashboard" />
             <Tab disabled={isLoading} icon={<Palette />} iconPosition="start" label="Branding" />
             <Tab disabled={isLoading} icon={<Business />} iconPosition="start" label="Stations" />
             <Tab disabled={isLoading} icon={<Schedule />} iconPosition="start" label="Attendance" />
             <Tab disabled={isLoading} icon={<Tune />} iconPosition="start" label="Dropdowns" />
-            <Tab disabled={isLoading} label="Departments" />
+            <Tab disabled={isLoading} icon={<AdminPanelSettings />} iconPosition="start" label="Departments" />
           </Tabs>
-        </Stack>
+        </Paper>
 
         <Divider />
 
-        {tab === 0 && (
-          <SuperAdminDashBoardTab />
-        )}
+        {tab === 0 && <SuperAdminDashBoardTab />}
 
         {tab === 1 && (
-          <Stack spacing={2.5}>
+          <Stack spacing={3}>
+            {/* Row 1: Identity & Logo Upload */}
             <Grid container spacing={3}>
               <Grid item xs={12} lg={7}>
-                <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid rgba(148,163,184,0.2)' }}>
-                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1.5 }}>Organization identity</Typography>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} md={8}>
-                      <TextField label="Organization name" value={config.branding?.organizationName || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, organizationName: e.target.value } })} fullWidth />
+                <Paper elevation={0} sx={cardSx}>
+                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Organization Identity</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={8}>
+                      <TextField label="Organization Name" value={config.branding?.organizationName || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, organizationName: e.target.value } })} fullWidth />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField label="Short display name" value={config.branding?.shortName || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, shortName: e.target.value } })} fullWidth />
+                    <Grid item xs={12} sm={4}>
+                      <TextField label="Short Acronym Name" value={config.branding?.shortName || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, shortName: e.target.value } })} fullWidth />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField label="Support email" value={config.branding?.supportEmail || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, supportEmail: e.target.value } })} fullWidth />
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Support Email Address"
+                        value={config.branding?.supportEmail || ''}
+                        onChange={(e) => setConfig({ ...config, branding: { ...config.branding, supportEmail: e.target.value } })}
+                        fullWidth
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Email fontSize="small" /></InputAdornment> }}
+                      />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField label="Support phone" value={config.branding?.supportPhone || ''} onChange={(e) => setConfig({ ...config, branding: { ...config.branding, supportPhone: e.target.value } })} fullWidth />
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Support Contact Number"
+                        value={config.branding?.supportPhone || ''}
+                        onChange={(e) => setConfig({ ...config, branding: { ...config.branding, supportPhone: e.target.value } })}
+                        fullWidth
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Phone fontSize="small" /></InputAdornment> }}
+                      />
                     </Grid>
                   </Grid>
                 </Paper>
               </Grid>
+
               <Grid item xs={12} lg={5}>
-                <Paper elevation={0} sx={{ p: 2, height: '100%', borderRadius: 2, border: '1px solid rgba(148,163,184,0.2)' }}>
-                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1.5 }}>Logo</Typography>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                    <Box sx={{ minHeight: 92, minWidth: 160, borderRadius: 2, border: '1px dashed rgba(148,163,184,0.5)', display: 'grid', placeItems: 'center', p: 1 }}>
-                      {config.logoUrl ? <img src={config.logoUrl} alt="KMFRI logo" style={{ maxHeight: 74, maxWidth: 180, objectFit: 'contain' }} /> : <Chip label="No logo set" />}
+                <Paper elevation={0} sx={cardSx}>
+                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Platform Identity Logo</Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center" justifyContent="center" sx={{ height: '100%' }}>
+                    <Box sx={{ height: 110, width: '100%', maxWidth: 220, borderRadius: 3, border: '2px dashed rgba(148,163,184,0.4)', display: 'grid', placeItems: 'center', p: 1, bgcolor: '#f8fafd' }}>
+                      {config.logoUrl ? <img src={config.logoUrl} alt="Logo preview" style={{ maxHeight: 90, maxWidth: '100%', objectFit: 'contain' }} /> : <Chip label="No Asset Set" variant="outlined" color="warning" />}
                     </Box>
-                    <Button variant="outlined" component="label" sx={{ minHeight: 48, textTransform: 'none' }}>
-                      Upload Logo
+                    <Button variant="contained" component="label" startIcon={<CloudUpload />} sx={{ minHeight: 48, textTransform: 'none', borderRadius: 2 }} fullWidth={{ xs: true, sm: false }}>
+                      Upload Image File
                       <input hidden accept="image/*" type="file" onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = () => savePatch({ logoUrl: reader.result }, 'Logo updated');
+                        reader.onload = () => savePatch({ logoUrl: reader.result }, 'Logo asset updated');
                         reader.readAsDataURL(file);
                       }} />
                     </Button>
@@ -386,37 +389,44 @@ const ConfigPanel = ({ onConfigLoaded }) => {
               </Grid>
             </Grid>
 
-            <Grid container spacing={2}>
+            {/* Row 2: Theme Management */}
+            <Grid container spacing={3}>
               <Grid item xs={12} md={4}>
-                <Paper elevation={0} sx={{ p: 2, height: '100%', borderRadius: 2, border: '1px solid rgba(148,163,184,0.2)' }}>
-                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1.5 }}>Selected theme</Typography>
-                  <TextField select label="Theme name" value={config.activeThemeName || ''} onChange={(e) => handleThemeSelect(e.target.value)} fullWidth sx={{ mb: 1.5 }}>
+                <Paper elevation={0} sx={cardSx}>
+                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Current Active Selection</Typography>
+                  <TextField select label="Theme Profiles" value={config.activeThemeName || ''} onChange={(e) => handleThemeSelect(e.target.value)} fullWidth sx={{ mb: 2.5 }}>
                     {(config.themes || []).map((theme) => <MenuItem key={theme.name} value={theme.name}>{theme.name}</MenuItem>)}
                   </TextField>
-                  <Box sx={themePreviewSx(activeTheme)}>
-                    <Typography fontWeight={900}>{activeTheme?.name || 'Theme preview'}</Typography>
-                    <Stack direction="row" spacing={1}>
+
+                  {/* Real-time Theme Preview Card */}
+                  <Box sx={{ p: 2.5, borderRadius: 3, bgcolor: activeTheme.surfaceColor, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 8px 24px rgba(0,0,0,0.03)' }}>
+                    <Typography variant="body2" fontWeight={800} sx={{ color: activeTheme.textColor, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><Visibility fontSize="small" /> {activeTheme.name || 'Preview Schema'}</Typography>
+                    <Stack direction="row" spacing={1.5}>
                       {['primaryColor', 'secondaryColor', 'accentColor'].map((field) => (
-                        <Box key={field} sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: activeTheme?.[field], border: '2px solid rgba(255,255,255,0.7)' }} />
+                        <Tooltip key={field} title={field} arrow>
+                          <Box sx={{ width: 34, height: 34, borderRadius: 2, bgcolor: activeTheme[field], border: '2px solid #fff', boxShadow: '0 4px 10px rgba(0,0,0,0.15)' }} />
+                        </Tooltip>
                       ))}
                     </Stack>
                   </Box>
                 </Paper>
               </Grid>
+
               <Grid item xs={12} md={8}>
-                <Paper elevation={0} sx={{ p: 2, height: '100%', borderRadius: 2, border: '1px solid rgba(148,163,184,0.2)' }}>
-                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1.5 }}>Color palette roles</Typography>
-                  <Grid container spacing={1.5}>
+                <Paper elevation={0} sx={cardSx}>
+                  <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Color Palette Settings Configuration</Typography>
+                  <Grid container spacing={2}>
                     {paletteFields.map(({ field, label, helper }) => (
-                      <Grid item xs={12} sm={6} lg={field === 'textColor' ? 4 : 6} key={field}>
+                      <Grid item xs={12} sm={6} lg={4} key={field}>
                         <TextField
                           label={label}
                           disabled={isLoading}
                           type="color"
-                          value={activeTheme?.[field] || config.branding?.[field] || '#0A3D62'}
+                          value={activeTheme[field] || '#0A3D62'}
                           onChange={(e) => updateActiveTheme(field, e.target.value)}
                           helperText={helper}
                           fullWidth
+                          slotProps={{ input: { style: { height: 42, padding: '4px' } } }}
                         />
                       </Grid>
                     ))}
@@ -425,152 +435,422 @@ const ConfigPanel = ({ onConfigLoaded }) => {
               </Grid>
             </Grid>
 
-            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid rgba(148,163,184,0.2)' }}>
-              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1.5 }}>Create new theme</Typography>
-              <Grid container spacing={1.5} alignItems="center">
-                <Grid item xs={12} md={4}><TextField label="New theme name" value={newTheme.name} onChange={(e) => setNewTheme({ ...newTheme, name: e.target.value })} fullWidth /></Grid>
-                {paletteFields.slice(0, 3).map(({ field, label }) => (
-                  <Grid item xs={12} sm={4} md={2} key={field}>
-                    <TextField type="color" label={label} value={newTheme[field]} onChange={(e) => setNewTheme({ ...newTheme, [field]: e.target.value })} fullWidth />
+            {/* Row 3: Custom Theme Builder Engine */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Theme Customizer Generator Engine</Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
+                  <TextField label="Unique Theme Name" value={newTheme.name} onChange={(e) => setNewTheme({ ...newTheme, name: e.target.value })} fullWidth />
+                </Grid>
+                {paletteFields.map(({ field, label }) => (
+                  <Grid item xs={6} sm={4} md={1.8} key={field}>
+                    <Tooltip title={label} arrow>
+                      <TextField type="color" label={field} value={newTheme[field] || ''} onChange={(e) => setNewTheme({ ...newTheme, [field]: e.target.value })} fullWidth slotProps={{ input: { style: { height: 42, padding: '2px' } } }} />
+                    </Tooltip>
                   </Grid>
                 ))}
-                <Grid item xs={12} md={2}><Button disabled={isLoading} startIcon={<AddIcon />} variant="outlined" onClick={handleCreateTheme} fullWidth sx={{ minHeight: 56 }}>Create</Button></Grid>
+                <Grid item xs={12} md={1.4}>
+                  <Button disabled={isLoading} startIcon={<AddIcon />} variant="contained" onClick={handleCreateTheme} fullWidth sx={{ minHeight: 48, borderRadius: 2 }}>Create</Button>
+                </Grid>
               </Grid>
             </Paper>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ branding: config.branding, logoUrl: config.logoUrl, themes: config.themes, activeThemeName: config.activeThemeName }, 'Branding and theme saved')}>Save branding/theme</Button>
-              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('themes')}>Reset themes</Button>
-              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('branding')}>Reset branding</Button>
+
+            {/* Row 4: Master Operational System Flags (New Branding Features) */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>More Operational Controls</Typography>
+              <Grid container spacing={3} alignItems="center">
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControlLabel
+                    control={<Switch checked={config.masterSettings?.maintenanceMode || false} onChange={(e) => setConfig({ ...config, masterSettings: { ...config.masterSettings, maintenanceMode: e.target.checked } })} color="error" />}
+                    label="Maintenance Shield Mode"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">Restrict regular accounts from accessing system interfaces.</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControlLabel
+                    control={<Switch checked={config.masterSettings?.requirePasswordResetOnFirstLogin || false} onChange={(e) => setConfig({ ...config, masterSettings: { ...config.masterSettings, requirePasswordResetOnFirstLogin: e.target.checked } })} />}
+                    label="Force Initial Credentials Reset"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">Compel password validation changes on initial system login cycles.</Typography>
+                </Grid>
+
+              </Grid>
+            </Paper>
+
+
+            {/* Submit Actions Toolbar */}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="flex-start">
+              <Button disabled={isLoading} startIcon={<Save />} variant="contained" size="large" onClick={() => savePatch({ branding: config.branding, logoUrl: config.logoUrl, themes: config.themes, activeThemeName: config.activeThemeName, masterSettings: config.masterSettings }, 'Global profile layout saves applied.')} sx={{ minWidth: 200, borderRadius: 2.5 }}>Save System Parameters</Button>
+              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('themes')} sx={{ borderRadius: 2.5 }}>Reset Palette Themes</Button>
+              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('branding')} sx={{ borderRadius: 2.5 }}>Reset Branding Info</Button>
             </Stack>
           </Stack>
         )}
 
         {tab === 2 && (
-          <Stack spacing={2}>
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} md={3}><TextField label="Station name" value={newStation.name} onChange={(e) => setNewStation({ ...newStation, name: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={6} md={2}><TextField label="Latitude" type="number" value={newStation.lat} onChange={(e) => setNewStation({ ...newStation, lat: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={6} md={2}><TextField label="Longitude" type="number" value={newStation.lng} onChange={(e) => setNewStation({ ...newStation, lng: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={6} md={2}><TextField label="Radius meters" type="number" value={newStation.radiusMeters} onChange={(e) => setNewStation({ ...newStation, radiusMeters: e.target.value })} fullWidth /></Grid>
-              <Grid item xs={6} md={3}><Button disabled={isLoading} variant="contained" startIcon={<AddIcon />} onClick={handleAddStation} fullWidth sx={{ height: 56 }}>Add station</Button></Grid>
-            </Grid>
-
-            {(config.stations || []).map((station, index) => (
-              <Grid container spacing={1.5} key={`${station.name}-${index}`} alignItems="center">
-                <Grid item xs={12} md={3}><TextField label="Name" value={station.name} onChange={(e) => updateStation(index, 'name', e.target.value)} fullWidth /></Grid>
-                <Grid item xs={6} md={2}><TextField label="Lat" type="number" value={station.lat} onChange={(e) => updateStation(index, 'lat', e.target.value)} fullWidth /></Grid>
-                <Grid item xs={6} md={2}><TextField label="Lng" type="number" value={station.lng} onChange={(e) => updateStation(index, 'lng', e.target.value)} fullWidth /></Grid>
-                <Grid item xs={6} md={2}><TextField label="Radius" type="number" value={station.radiusMeters} onChange={(e) => updateStation(index, 'radiusMeters', e.target.value)} fullWidth /></Grid>
-                <Grid item xs={4} md={2}><FormControlLabel control={<Switch checked={station.active} onChange={(e) => updateStation(index, 'active', e.target.checked)} />} label="Active" /></Grid>
-                <Grid item xs={2} md={1}>
-                  <Tooltip title="Remove station">
-                    <IconButton color="error" onClick={() => handleRemoveStation(station.name)}><DeleteIcon /></IconButton>
-                  </Tooltip>
-                </Grid>
+          <Stack spacing={3}>
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Register Facility Duty Station</Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3.5}><TextField label="Facility Station Location Name" value={newStation.name} onChange={(e) => setNewStation({ ...newStation, name: e.target.value })} fullWidth /></Grid>
+                <Grid item xs={6} sm={4} md={2}><TextField label="Geographic Latitude" type="number" value={newStation.lat} onChange={(e) => setNewStation({ ...newStation, lat: e.target.value })} fullWidth /></Grid>
+                <Grid item xs={6} sm={4} md={2}><TextField label="Geographic Longitude" type="number" value={newStation.lng} onChange={(e) => setNewStation({ ...newStation, lng: e.target.value })} fullWidth /></Grid>
+                <Grid item xs={12} sm={4} md={2.5}><TextField label="Geofence Radius Threshold" type="number" value={newStation.radiusMeters} onChange={(e) => setNewStation({ ...newStation, radiusMeters: e.target.value })} InputProps={{ endAdornment: <InputAdornment position="end">meters</InputAdornment> }} fullWidth /></Grid>
+                <Grid item xs={12} md={2}><Button disabled={isLoading} variant="contained" startIcon={<AddIcon />} onClick={handleAddStation} fullWidth sx={{ minHeight: 54, borderRadius: 2 }}>Add Station</Button></Grid>
               </Grid>
-            ))}
+            </Paper>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ stations: config.stations }, 'Stations saved')}>Save stations</Button>
-              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('stations')}>Reset stations</Button>
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Configured Operational Hub Stations ({config.stations?.length || 0})</Typography>
+              <Stack spacing={2} separator={<Divider />}>
+                {(config.stations || []).map((station, index) => (
+                  <Grid container spacing={2} key={`${station.name}-${index}`} alignItems="center">
+                    <Grid item xs={12} sm={6} md={3.5}><TextField label="Station Area Name" value={station.name} onChange={(e) => updateStation(index, 'name', e.target.value)} fullWidth /></Grid>
+                    <Grid item xs={6} sm={3} md={2}><TextField label="Lat Coord" type="number" value={station.lat} onChange={(e) => updateStation(index, 'lat', e.target.value)} fullWidth /></Grid>
+                    <Grid item xs={6} sm={3} md={2}><TextField label="Lng Coord" type="number" value={station.lng} onChange={(e) => updateStation(index, 'lng', e.target.value)} fullWidth /></Grid>
+                    <Grid item xs={7} sm={8} md={2.5}><TextField label="Boundary Perimeter" type="number" value={station.radiusMeters} onChange={(e) => updateStation(index, 'radiusMeters', e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} fullWidth /></Grid>
+                    <Grid item xs={3} sm={2} md={1}><FormControlLabel control={<Switch checked={station.active} onChange={(e) => updateStation(index, 'active', e.target.checked)} />} label="Active" /></Grid>
+                    <Grid item xs={2} sm={2} md={1} textAlign="right">
+                      <Tooltip title="Delete Location Entry" arrow>
+                        <IconButton color="error" onClick={() => handleRemoveStation(station.name)}><DeleteIcon /></IconButton>
+                      </Tooltip>
+                    </Grid>
+                  </Grid>
+                ))}
+              </Stack>
+            </Paper>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ stations: config.stations }, 'Facility location roster metrics updated.')} sx={{ borderRadius: 2.5 }}>Save Changes</Button>
+              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('stations')} sx={{ borderRadius: 2.5 }}>Reset Station Changes</Button>
             </Stack>
           </Stack>
         )}
 
         {tab === 3 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}><TextField label="Clock-in time" type="time" value={config.attendancePolicy?.standardClockIn || '08:00'} onChange={(e) => setConfig({ ...config, attendancePolicy: { ...config.attendancePolicy, standardClockIn: e.target.value } })} fullWidth /></Grid>
-            <Grid item xs={12} md={3}><TextField label="Clock-out time" type="time" value={config.attendancePolicy?.standardClockOut || '17:00'} onChange={(e) => setConfig({ ...config, attendancePolicy: { ...config.attendancePolicy, standardClockOut: e.target.value } })} fullWidth /></Grid>
-            <Grid item xs={12} md={3}><TextField label="Grace period" type="number" value={config.attendancePolicy?.gracePeriodMinutes || 0} onChange={(e) => setConfig({ ...config, attendancePolicy: { ...config.attendancePolicy, gracePeriodMinutes: Number(e.target.value) } })} InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }} fullWidth /></Grid>
-            <Grid item xs={12} md={3}><TextField label="Default geofence radius" type="number" value={config.geofence?.radiusMeters || 100} onChange={(e) => setConfig({ ...config, geofence: { ...config.geofence, radiusMeters: Number(e.target.value) } })} InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} fullWidth /></Grid>
-            <Grid item xs={12} md={4}><FormControlLabel control={<Switch disabled={isLoading} checked={config.geofence?.enabled || false} onChange={(e) => setConfig({ ...config, geofence: { ...config.geofence, enabled: e.target.checked } })} />} label="Enable geofence enforcement" /></Grid>
-            <Grid item xs={12} md={4}><FormControlLabel control={<Switch disabled={isLoading} checked={config.attendancePolicy?.allowClockOutsideStation || false} onChange={(e) => setConfig({ ...config, attendancePolicy: { ...config.attendancePolicy, allowClockOutsideStation: e.target.checked } })} />} label="Allow clocking outside station" /></Grid>
-            <Grid item xs={12} md={4}><FormControlLabel control={<Switch disabled={isLoading} checked={config.attendancePolicy?.requireBiometricVerification !== false} onChange={(e) => setConfig({ ...config, attendancePolicy: { ...config.attendancePolicy, requireBiometricVerification: e.target.checked } })} />} label="Require biometric verification" /></Grid>
-            <Grid item xs={12} md={6}><TextField label="Clock-in reminder" type="number" value={config.notificationReminders?.clockInReminderMinutes || 0} onChange={(e) => setConfig({ ...config, notificationReminders: { ...config.notificationReminders, clockInReminderMinutes: Number(e.target.value) } })} InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }} fullWidth /></Grid>
-            <Grid item xs={12} md={6}><TextField label="Clock-out reminder" type="number" value={config.notificationReminders?.clockOutReminderMinutes || 0} onChange={(e) => setConfig({ ...config, notificationReminders: { ...config.notificationReminders, clockOutReminderMinutes: Number(e.target.value) } })} InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }} fullWidth /></Grid>
-            <Grid item xs={12} md={6}><TextField label="Clock-in message template" multiline minRows={3} value={config.notificationReminders?.clockInMessage || ''} onChange={(e) => setConfig({ ...config, notificationReminders: { ...config.notificationReminders, clockInMessage: e.target.value } })} fullWidth /></Grid>
-            <Grid item xs={12} md={6}><TextField label="Clock-out message template" multiline minRows={3} value={config.notificationReminders?.clockOutMessage || ''} onChange={(e) => setConfig({ ...config, notificationReminders: { ...config.notificationReminders, clockOutMessage: e.target.value } })} fullWidth /></Grid>
-            <Grid item xs={12}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ attendancePolicy: config.attendancePolicy, geofence: config.geofence, notificationReminders: config.notificationReminders }, 'Attendance settings saved')}>Save attendance settings</Button>
-                <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('attendancePolicy')}>Reset attendance</Button>
-                <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('notificationReminders')}>Reset reminders</Button>
-              </Stack>
-            </Grid>
-          </Grid>
+          <Stack spacing={3}>
+            {/* Section A: Core Shift Timing Constants */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Schedule color="primary" /> Shift Constraints & Timing Windows
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Shift Start (Clock-In)"
+                    type="time"
+                    value={config.attendancePolicy?.standardClockIn || '08:00'}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      attendancePolicy: { ...(prev.attendancePolicy || {}), standardClockIn: e.target.value }
+                    }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Shift End (Clock-Out)"
+                    type="time"
+                    value={config.attendancePolicy?.standardClockOut || '17:00'}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      attendancePolicy: { ...(prev.attendancePolicy || {}), standardClockOut: e.target.value }
+                    }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Late Grace Period Window"
+                    type="number"
+                    value={config.attendancePolicy?.gracePeriodMinutes ?? 0}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      attendancePolicy: { ...(prev.attendancePolicy || {}), gracePeriodMinutes: Number(e.target.value) }
+                    }))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+
+                {/* GLOBAL GEOFECE RADIUS */}
+                {/* <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Global Geofence Radius"
+                    type="number"
+                    value={config.geofence?.radiusMeters ?? 500}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      geofence: { ...(prev.geofence || {}), radiusMeters: Number(e.target.value) }
+                    }))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid> */}
+              </Grid>
+            </Paper>
+
+            {/* Section B: Policy & Enforcement Toggles */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Tune color="primary" /> Verification Policies & System Rule Enforcement
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          disabled={isLoading}
+                          checked={!!config.geofence?.enabled}
+                          onChange={(e) => setConfig(prev => ({
+                            ...prev,
+                            geofence: { ...(prev.geofence || {}), enabled: e.target.checked }
+                          }))}
+                        />
+                      }
+                      label={<Typography fontWeight={700}>Geofence Enforcement</Typography>}
+                    />
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
+                      Restrict check-ins exclusively to verified coordinates.
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          disabled={isLoading}
+                          checked={!!config.attendancePolicy?.allowClockOutsideStation}
+                          onChange={(e) => setConfig(prev => ({
+                            ...prev,
+                            attendancePolicy: { ...(prev.attendancePolicy || {}), allowClockOutsideStation: e.target.checked }
+                          }))}
+                        />
+                      }
+                      label={<Typography fontWeight={700}>Allow Remote Clocking</Typography>}
+                    />
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
+                      Permit trusted staff to record attendance out of office.
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          disabled={isLoading}
+                          checked={config.attendancePolicy?.requireBiometricVerification !== false}
+                          onChange={(e) => setConfig(prev => ({
+                            ...prev,
+                            attendancePolicy: { ...(prev.attendancePolicy || {}), requireBiometricVerification: e.target.checked }
+                          }))}
+                        />
+                      }
+                      label={<Typography fontWeight={700}>Biometric Security Check</Typography>}
+                    />
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
+                      Require secondary face or fingerprint hardware authorization.
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Section C: Automated Reminders & Alerts */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AdminPanelSettings color="primary" /> Automated Dispatch Notifications
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Clock-In Reminder Threshold"
+                    type="number"
+                    value={config.notificationReminders?.clockInReminderMinutes ?? 15}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), clockInReminderMinutes: Number(e.target.value) }
+                    }))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">mins prior</InputAdornment> }}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    label="Clock-In Push Message Template"
+                    multiline
+                    minRows={3}
+                    value={config.notificationReminders?.clockInMessage || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), clockInMessage: e.target.value }
+                    }))}
+                    helperText="Dynamic variables: {firstName}"
+                    fullWidth
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Clock-Out Reminder Threshold"
+                    type="number"
+                    value={config.notificationReminders?.clockOutReminderMinutes ?? 15}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), clockOutReminderMinutes: Number(e.target.value) }
+                    }))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">mins prior</InputAdornment> }}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    label="Clock-Out Push Message Template"
+                    multiline
+                    minRows={3}
+                    value={config.notificationReminders?.clockOutMessage || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), clockOutMessage: e.target.value }
+                    }))}
+                    helperText="Dynamic variables: {firstName}"
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Form Control Persist Actions Footer */}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Button
+                disabled={isLoading}
+                startIcon={<Save />}
+                variant="contained"
+                size="large"
+                onClick={() => savePatch(
+                  {
+                    attendancePolicy: config.attendancePolicy,
+                    geofence: config.geofence,
+                    notificationReminders: config.notificationReminders
+                  },
+                  'Attendance guidelines synced successfully.'
+                )}
+                sx={{ minWidth: 240, borderRadius: 2.5 }}
+              >
+                Save Shift Parameters
+              </Button>
+              <Button
+                disabled={isLoading}
+                startIcon={<RestartAlt />}
+                color="warning"
+                variant="outlined"
+                onClick={() => resetConfig('attendancePolicy')}
+                sx={{ borderRadius: 2.5 }}
+              >
+                Reset to Default Values
+              </Button>
+            </Stack>
+          </Stack>
         )}
 
         {tab === 4 && (
-          <Stack spacing={2}>
-            <TextField select label="Dropdown list" value={dropdownKey} onChange={(e) => setDropdownKey(e.target.value)} sx={{ maxWidth: 360 }}>
-              {Object.keys(dropdowns).map((key) => <MenuItem key={key} value={key}>{key}</MenuItem>)}
-            </TextField>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <TextField label="New dropdown value" value={dropdownDraft} onChange={(e) => setDropdownDraft(e.target.value)} fullWidth />
-              <Button disabled={isLoading} variant="outlined" startIcon={<AddIcon />} onClick={handleAddDropdownValue}>Add</Button>
+          <Paper elevation={0} sx={cardSx}>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>System Selection Roster Lists</Typography>
+            <Stack spacing={3}>
+              <TextField select label="Target Custom Roster Dropdown" value={dropdownKey} onChange={(e) => setDropdownKey(e.target.value)} sx={{ maxWidth: 400 }}>
+                {Object.keys(dropdowns).map((key) => <MenuItem key={key} value={key}>{key}</MenuItem>)}
+              </TextField>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField label="Append New Row Entry Value" value={dropdownDraft} onChange={(e) => setDropdownDraft(e.target.value)} fullWidth />
+                <Button disabled={isLoading} variant="outlined" startIcon={<AddIcon />} onClick={handleAddDropdownValue} sx={{ minWidth: 120, minHeight: 54, borderRadius: 2 }}>Append</Button>
+              </Stack>
+
+              <Box sx={{ p: 2, minHeight: 80, borderRadius: 2, border: '1px solid rgba(148,163,184,0.15)', bg: '#fafbfc' }}>
+                <Stack direction="row" gap={1} flexWrap="wrap">
+                  {selectedDropdownValues.length === 0 ? <Typography variant="body2" color="text.secondary">No fields assigned yet.</Typography> : selectedDropdownValues.map((value) => (
+                    <Chip key={value} label={value} color="primary" variant="outlined" onDelete={() => handleRemoveDropdownValue(value)} sx={{ borderRadius: 1.5 }} />
+                  ))}
+                </Stack>
+              </Box>
+
+              <TextField
+                label="Structured Advanced JSON Payload Editor"
+                multiline
+                minRows={6}
+                value={JSON.stringify(dropdowns, null, 2)}
+                onChange={(e) => {
+                  try {
+                    setConfig({ ...config, dropdowns: JSON.parse(e.target.value) });
+                  } catch (err) {
+                    setError('Malformed payload script validation failure.');
+                  }
+                }}
+                fullWidth
+              />
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ dropdowns: config.dropdowns }, 'Selection dataset attributes updated globally.')} sx={{ borderRadius: 2.5 }}>Save Dropdown Attributes</Button>
+                <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('dropdowns')} sx={{ borderRadius: 2.5 }}>Reset Lists to Base</Button>
+              </Stack>
             </Stack>
-            <Stack direction="row" gap={1} flexWrap="wrap">
-              {selectedDropdownValues.map((value) => (
-                <Chip key={value} label={value} onDelete={() => handleRemoveDropdownValue(value)} />
-              ))}
-            </Stack>
-            <TextField
-              label="Advanced JSON editor"
-              multiline
-              minRows={5}
-              value={JSON.stringify(dropdowns, null, 2)}
-              onChange={(e) => {
-                try {
-                  setConfig({ ...config, dropdowns: JSON.parse(e.target.value) });
-                } catch (err) {
-                  setError('JSON is not valid yet');
-                }
-              }}
-              fullWidth
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ dropdowns: config.dropdowns }, 'Dropdown settings saved')}>Save dropdowns</Button>
-              <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('dropdowns')}>Reset dropdowns</Button>
-            </Stack>
-          </Stack>
+          </Paper>
         )}
 
         {tab === 5 && (
-          <Stack spacing={2}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <TextField label="New department" value={newDept} onChange={(e) => setNewDept(e.target.value)} fullWidth />
-              <Button disabled={isLoading} variant="contained" startIcon={<AddIcon />} onClick={handleAddDept}>Add</Button>
+          <Paper elevation={0} sx={cardSx}>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>Corporate Management Divisions</Typography>
+            <Stack spacing={3}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField label="Add Organizational Department" value={newDept} onChange={(e) => setNewDept(e.target.value)} fullWidth />
+                <Button disabled={isLoading} variant="contained" startIcon={<AddIcon />} onClick={handleAddDept} sx={{ minWidth: 160, minHeight: 54, borderRadius: 2 }}>Add</Button>
+              </Stack>
+
+              <Paper variant="outlined" sx={{ borderRadius: 3, maxHeight: 450, overflow: 'auto', p: 1 }}>
+                <List dense>
+                  {(config.departments || []).map((department,idx) => (
+                    <ListItem
+                      key={department}
+                      secondaryAction={<IconButton edge="end" color="error" onClick={() => handleRemoveDept(department)}><DeleteIcon /></IconButton>}
+                      sx={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}
+                    >
+                      <ListItemText primary={`${idx + 1}. ${department}`} primaryTypographyProps={{ fontWeight: 600 }} />
+                    </ListItem>
+                  ))}
+                </List>
+              </Paper>
+
+              <Box>
+                <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('departments')} sx={{ borderRadius: 2.5 }}>Reset Departments</Button>
+              </Box>
             </Stack>
-            <List dense>
-              {(config.departments || []).map((department) => (
-                <ListItem key={department} secondaryAction={<IconButton edge="end" color="error" onClick={() => handleRemoveDept(department)}><DeleteIcon /></IconButton>}>
-                  <ListItemText primary={department} />
-                </ListItem>
-              ))}
-            </List>
-            <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('departments')}>Reset departments</Button>
-          </Stack>
+          </Paper>
         )}
 
-
-        {/* floating action button visible across tabs and fixed even when scrolling */}
-        <Tooltip title="Reset all configurations" placement="left">
+        {/* Global Reset Float Trigger Button */}
+        <Tooltip title="Purge System Override Options" placement="left" arrow>
           <Fab
             color="error"
-            aria-label="reset"
-            size='medium'
+            aria-label="purge-all"
+            size="large"
             onClick={() => resetConfig('all')}
             sx={{
               position: 'fixed',
-              bottom: 20,
-              right: 10,
+              bottom: 24,
+              right: 24,
+              boxShadow: '0 6px 20px rgba(239,68,68,0.4)'
             }}
           >
             <RestartAlt />
           </Fab>
         </Tooltip>
-
       </Stack>
     </Box>
   );
