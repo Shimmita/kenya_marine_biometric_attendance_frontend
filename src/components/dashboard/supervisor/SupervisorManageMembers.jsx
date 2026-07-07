@@ -107,9 +107,7 @@ const RANK_ACCENT = {
     user: C.cyanFresh,
 };
 
-const ROLES = ["employee", "intern", "attachee", "employee-contract"];
-
-
+const { ROLE_OPTIONS } = coreDataDetails;
 
 /* ─────────────────────────────────────────────
    FILTER / SEARCH BAR
@@ -215,7 +213,7 @@ const FilterBar = ({
                     <FormControl size="small" fullWidth>
                         <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
                             <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-                            {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                            {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>

@@ -9,7 +9,6 @@ import {
     Divider, Fade,
     Grid,
     IconButton,
-    LinearProgress,
     Paper,
     Stack,
     Table, TableBody, TableCell, TableContainer, TableHead,
@@ -34,7 +33,12 @@ const BatchRegistration = ({ readOnly = false }) => {
     const [formatDialogOpen, setFormatDialogOpen] = useState(false);
     const [batchResult, setBatchResult] = useState(null);
 
-    const headersList = ['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Gender'];
+    const phoneRegex = /^254\d{9}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+
+
+    const headersList = ['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department'];
 
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
@@ -108,6 +112,27 @@ const BatchRegistration = ({ readOnly = false }) => {
         }));
     }, [data]);
 
+    const isValidPhone = (phone) => {
+        if (!phone) return false;
+        return phoneRegex.test(phone.toString().trim());
+    };
+
+    const isValidEmail = (email = "") => emailRegex.test(email.trim());
+
+    const invalidRows = useMemo(() => {
+        return data.map(row => ({
+            phone: !isValidPhone(row.Phone),
+            email: !isValidEmail(row.Email)
+        }));
+    }, [data]);
+
+    const invalidPhoneRows = invalidRows.filter(r => r.phone);
+    const invalidEmailRows = invalidRows.filter(r => r.email);
+
+    const hasValidationErrors =
+        invalidPhoneRows.length > 0 ||
+        invalidEmailRows.length > 0;
+
 
     const processData = (rawData) => {
         const cleanRows = rawData.filter(row => row.length > 0 && row.some(cell => cell !== undefined && cell !== null && cell.toString().trim() !== ''));
@@ -124,6 +149,8 @@ const BatchRegistration = ({ readOnly = false }) => {
             return;
         }
 
+
+
         const processedData = cleanRows.slice(1).map(row => {
             const obj = {};
             headers.forEach((header, index) => {
@@ -132,14 +159,14 @@ const BatchRegistration = ({ readOnly = false }) => {
             return obj;
         });
 
-        const allowedTypes = ['staff', 'employee', 'intern', 'attachee', 'attache'];
+        const allowedTypes = ['staff', 'employee'];
         const invalidTypeRow = processedData.find((row) => {
             const typeValue = row['Type']?.toString().trim().toLowerCase();
             return typeValue && !allowedTypes.includes(typeValue);
         });
 
         if (invalidTypeRow) {
-            setError('Invalid Type value found. Only intern, attachee, (staff or employee) are allowed.');
+            setError('Invalid Type value found. Only staff or employee values are allowed.');
             setLoading(false);
             return;
         }
@@ -152,7 +179,20 @@ const BatchRegistration = ({ readOnly = false }) => {
 
     const handleCellEdit = (index, field, value) => {
         const newData = [...data];
-        newData[index][field] = value;
+
+        if (field === "Phone") {
+            // keep only digits
+            value = value.replace(/\D/g, "");
+
+            // maximum 12 digits (254xxxxxxxxx)
+            value = value.slice(0, 12);
+        }
+
+        newData[index] = {
+            ...newData[index],
+            [field]: value
+        };
+
         setData(newData);
     };
 
@@ -165,20 +205,17 @@ const BatchRegistration = ({ readOnly = false }) => {
             const mappedData = data.map(row => ({
                 employeeId: row['User ID'],
                 staffNo: row['Staff No'],
-                role: (row['Type']?.toLowerCase() === 'staff' || row['Type']?.toLowerCase() === 'employee')
-                    ? 'employee'
-                    : row['Type']?.toLowerCase().includes("attach") ? 'attachee' : row['Type']?.toLowerCase(),
+                role: 'employee',
                 name: row['Full Name'],
                 email: row['Email'],
                 phone: row['Phone'],
                 station: row['Station'],
                 department: row['Department'],
-                gender: row['Gender'],
             }));
 
             const result = await registerBatchUsers(mappedData);
             const count = result?.count || mappedData.length;
-            const message = result?.message || `Successfully registered ${count} users!`;
+            const message = result?.message || `Successfully registered ${count} ${count === 1 ? 'Employee' : 'Employees'}!`;
             setSuccess(message);
             setBatchResult(result);
             setDialogOpen(true);
@@ -187,7 +224,7 @@ const BatchRegistration = ({ readOnly = false }) => {
             const message =
                 typeof err === 'string'
                     ? err
-                    : err?.message || 'Failed to register users.';
+                    : err?.message || 'Failed to register Employees.';
             setError(message);
             setErrorDialogOpen(true);
         } finally {
@@ -196,11 +233,11 @@ const BatchRegistration = ({ readOnly = false }) => {
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: '1200px', margin: 'auto' }}>
+        <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: '1200px', margin: 'auto' }}>
             <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 3, bgcolor: '#fcfcfc' }}>
                 <Typography variant="h5" fontWeight="600" gutterBottom>Batch User Registration</Typography>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                    Upload your table for batch user registration . You can edit information directly in the table before final submission.
+                    Upload your table for batch user registration. You can edit information directly in the table before final submission.
                 </Typography>
 
                 <Box sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.20)' }}>
@@ -211,14 +248,14 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 Your Table must include these header columns in the first row:
                             </Typography>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
-                                {['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Gender'].map(col => (
+                                {['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department'].map(col => (
                                     <Box key={col} sx={{ px: 1.5, py: 0.6, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.06)', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}>
                                         {col}
                                     </Box>
                                 ))}
                             </Stack>
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                For interns, <strong>User ID</strong> should be the National ID number. For attachees, use university/college registration or admission number. For staff, use the organization-assigned User ID used to login to the staff section. <strong>Staff No</strong> may be left blank for interns and attachees. In the <strong>Type</strong> column enter only <em>intern</em>, <em>attachee</em>, (<em>staff</em> or <em>employee</em>).
+                                For batch registration, only employee or staff accounts are accepted. <strong>User ID</strong> will be the one used to log in to the portal. In the <strong>Type</strong> column enter only <em>staff</em> or <em>employee</em>. The <strong>No.</strong> column will be automatically generated to count the number of employees, Therefore, do not include it in your table. <strong>Phone </strong>number must be in international format i.e 2547...
                             </Typography>
                         </Grid>
                         <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
@@ -231,7 +268,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                     startIcon={loading ? <CircularProgress size={15} color="inherit" /> : <CloudUpload />}
                                     sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                                 >
-                                   {loading ? 'Uploading...' : 'Upload Excel or CSV'}
+                                    {loading ? 'Uploading...' : 'Upload Excel or CSV'}
                                 </Button>
                             </label>
                             <Button
@@ -279,7 +316,7 @@ const BatchRegistration = ({ readOnly = false }) => {
 
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
                     <DialogTitle sx={{ bgcolor: '#eef6ff', color: '#0f172a', fontWeight: 800, px: 4, py: 3 }}>
-                        Batch Registration Complete
+                        Staff Registration Complete
                     </DialogTitle>
                     <DialogContent dividers sx={{ p: 4, bgcolor: '#f8fbff' }}>
                         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
@@ -327,6 +364,21 @@ const BatchRegistration = ({ readOnly = false }) => {
                         <Typography variant="body1" fontWeight={700} sx={{ mb: 2 }}>
                             Required columns for Excel/CSV upload
                         </Typography>
+                        {hasValidationErrors && (
+                            <Alert
+                                severity="warning"
+                                sx={{
+                                    mb: 2,
+                                    borderRadius: 2
+                                }}
+                            >
+                                {invalidPhoneRows.length > 0 &&
+                                    `${invalidPhoneRows.length} invalid phone number(s). `}
+                                {invalidEmailRows.length > 0 &&
+                                    `${invalidEmailRows.length} invalid email address(es). `}
+                                Correct all highlighted fields before registration.
+                            </Alert>
+                        )}
                         <TableContainer component={Paper} variant="outlined" sx={{ mb: 3, boxShadow: 'none' }}>
                             <Table size="small">
                                 <TableHead>
@@ -340,15 +392,14 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 </TableHead>
                                 <TableBody>
                                     {[
-                                        { col: 'User ID', desc: 'Staff: assigned org User ID; Intern: National ID; Attachee: university/college registration number' },
-                                        { col: 'Type', desc: 'intern / attachee / (staff or employee) (only these values are allowed)' },
-                                        { col: 'Staff No', desc: 'Organization-issued staff number; leave blank for interns and attachees' },
-                                        { col: 'Full Name', desc: 'Employee or intern full name' },
+                                        { col: 'User ID', desc: 'Staff assigned org User ID' },
+                                        { col: 'Type', desc: 'Staff / Employee only' },
+                                        { col: 'Staff No', desc: 'Organization-issued staff number i.e KMF001' },
+                                        { col: 'Full Name', desc: 'Employee or Staff Full Name' },
                                         { col: 'Email', desc: 'Valid email address' },
-                                        { col: 'Phone', desc: 'Phone number in international or local format' },
-                                        { col: 'Station', desc: 'Work location, branch or station assignment' },
-                                        { col: 'Department', desc: 'Assigned department or team' },
-                                        { col: 'Gender', desc: 'Gender identifier (e.g. Male, Female, Other)' },
+                                        { col: 'Phone', desc: 'Phone number in international format i.e 2547...' },
+                                        { col: 'Station', desc: 'Work station assignment' },
+                                        { col: 'Department', desc: 'Assigned department' },
                                     ].map((row) => (
                                         <TableRow key={row.col}>
                                             <TableCell sx={{ fontWeight: 700 }}>{row.col}</TableCell>
@@ -393,6 +444,22 @@ const BatchRegistration = ({ readOnly = false }) => {
                     data.length > 0 && (
                         <Fade in>
                             <Box>
+                                {hasValidationErrors && (
+                                    <Alert
+                                        severity="warning"
+                                        sx={{
+                                            mb: 2,
+                                            borderRadius: 2,
+                                            bgcolor: "rgba(245,158,11,0.08)",
+                                            border: "1px solid rgba(245,158,11,0.25)"
+                                        }}
+                                    >
+                                        {invalidPhoneRows.length} record {invalidPhoneRows.length > 1 ? "s" : ""} contain
+                                        invalid phone numbers. All phone numbers must begin with
+                                        <strong> 254 </strong>
+                                        before registration can continue.
+                                    </Alert>
+                                )}
                                 <TableContainer
                                     component={Paper}
                                     sx={{
@@ -424,21 +491,102 @@ const BatchRegistration = ({ readOnly = false }) => {
                                         </TableHead>
                                         <TableBody>
                                             {data.map((row, index) => (
-                                                <TableRow key={index} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                    <TableCell sx={{ minWidth: 60, fontWeight: 700 }}>
+                                                <TableRow
+                                                    key={index}
+                                                    hover
+                                                    sx={{
+                                                        '&:last-child td, &:last-child th': {
+                                                            border: 0
+                                                        }
+                                                    }}
+                                                >
+                                                    <TableCell
+                                                        sx={{
+                                                            minWidth: 60,
+                                                            fontWeight: 700
+                                                        }}
+                                                    >
                                                         {index + 1}
                                                     </TableCell>
-                                                    {headersList.map(field => (
-                                                        <TableCell key={field} sx={{ minWidth: 150 }}>
-                                                            <TextField
-                                                                variant="standard"
-                                                                value={row[field]}
-                                                                onChange={(e) => handleCellEdit(index, field, e.target.value)}
-                                                                InputProps={{ disableUnderline: true, sx: { fontSize: '0.875rem' } }}
-                                                                fullWidth
-                                                            />
-                                                        </TableCell>
-                                                    ))}
+
+                                                    {headersList.map((field) => {
+                                                        const invalidPhone =
+                                                            field === "Phone" && !isValidPhone(row.Phone);
+
+                                                        const invalidEmail =
+                                                            field === "Email" && !isValidEmail(row.Email);
+
+                                                        const hasError = invalidPhone || invalidEmail;
+
+                                                        return (
+                                                            <TableCell
+                                                                key={field}
+                                                                sx={{
+                                                                    minWidth: 150,
+                                                                    bgcolor: invalidPhone
+                                                                        ? "rgba(245,158,11,0.08)"
+                                                                        : "transparent",
+                                                                    transition: "0.2s"
+                                                                }}
+                                                            >
+                                                                <Box>
+
+                                                                    {invalidPhone && (
+                                                                        <Typography
+                                                                            variant="caption"
+                                                                            sx={{
+                                                                                display: "block",
+                                                                                color: "#b45309",
+                                                                                fontSize: "0.65rem",
+                                                                                fontWeight: 700,
+                                                                                mb: .4
+                                                                            }}
+                                                                        >
+                                                                            Begin with 254 e.g. 254712345678
+                                                                        </Typography>
+                                                                    )}
+
+                                                                    {invalidEmail && (
+                                                                        <Typography
+                                                                            variant="caption"
+                                                                            sx={{
+                                                                                display: "block",
+                                                                                color: "#b45309",
+                                                                                fontSize: "0.65rem",
+                                                                                fontWeight: 700,
+                                                                                mb: .4
+                                                                            }}
+                                                                        >
+                                                                            Invalid email format
+                                                                        </Typography>
+                                                                    )}
+
+                                                                    <TextField
+                                                                        variant="standard"
+                                                                        value={row[field]}
+                                                                        onChange={(e) =>
+                                                                            handleCellEdit(index, field, e.target.value)
+                                                                        }
+                                                                        error={hasError}
+                                                                        fullWidth
+                                                                        InputProps={{
+                                                                            disableUnderline: true,
+                                                                            sx: {
+                                                                                fontSize: "0.875rem",
+                                                                                px: 1,
+                                                                                py: .6,
+                                                                                borderRadius: 1,
+                                                                                bgcolor: hasError
+                                                                                    ? "rgba(245,158,11,.12)"
+                                                                                    : "transparent",
+                                                                                transition: ".2s"
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    })}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -451,10 +599,10 @@ const BatchRegistration = ({ readOnly = false }) => {
                                         size="large"
                                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PeopleRounded />}
                                         onClick={handleUpload}
-                                        disabled={loading || readOnly}
+                                        disabled={loading || readOnly || hasValidationErrors}
                                         sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 600, boxShadow: 3 }}
                                     >
-                                        {loading ? 'Processing...' : `Register ${data.length} Users`}
+                                        {loading ? 'Processing...' : `Register ${data.length} Employees`}
                                     </Button>
                                 </Box>
                             </Box>

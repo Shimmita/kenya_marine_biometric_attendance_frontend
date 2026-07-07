@@ -106,7 +106,7 @@ const SUPERADMIN_GENERAL_ITEMS = [
 
 const SUPERADMIN_HR_ITEMS = [
     { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
-    { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
+    { text: 'Staff Registration', icon: <UploadFile />, color: '#8b5cf6' },
 ];
 
 const SUPERADMIN_AUDITOR_ITEMS = [
@@ -125,7 +125,7 @@ const SUPERADMIN_CEO_ITEMS = [
 
 const HR_EXTRA_ITEMS = [
     { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
-    { text: 'Batch Registration', icon: <UploadFile />, color: '#8b5cf6' },
+    { text: 'Staff Registration', icon: <UploadFile />, color: '#8b5cf6' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
     // { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
 ];
@@ -532,7 +532,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
                             <Typography noWrap sx={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff', lineHeight: 1.2 }}>
-                                {user?.name || 'User'}
+                                {user?.name?.split(' ')[0] || 'User'}
                             </Typography>
                             <Typography noWrap sx={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.50)', mt: 0.2 }}>
                                 {user?.department || user?.email || ''}
@@ -720,7 +720,7 @@ const PAGE_TITLES = {
     'Add Device': 'Add Clocking Device',
     'Our Mobile App': 'KMFRI Mobile Application',
     'Register Intern/Attache': 'Register Intern/Attache',
-    'Batch Registration': 'Batch User Registration',
+    'Staff Registration': 'Staff Registration Window',
     'Help & Support': 'Help & Support Center',
     'Feedback Statistics': 'Feedback Statistics Overview',
     'Departmental Statistics': 'Departmental Statistics',
@@ -745,7 +745,7 @@ const PAGE_SUBTITLES = {
     'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
     'Organisations Stats': 'Organisation-wide attendance insights for decision making',
     'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
-    'Batch Registration': 'Upload and register multiple users from Excel or CSV files',
+    'Staff Registration': 'Register new staff members to the KMFRI Attendance System for seamless attendance tracking.',
     'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
     'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
     'Audit Reports': 'Review comprehensive audit reports and compliance documentation',
@@ -977,7 +977,7 @@ const EnhancedDashboard = () => {
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent key={`users-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Batch Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Staff Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;

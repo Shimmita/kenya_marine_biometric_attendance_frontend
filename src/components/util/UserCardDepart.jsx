@@ -56,8 +56,7 @@ const RANK_ACCENT = {
     user: C.cyanFresh,
 };
 
-const ROLES = ["employee", "intern", "attachee", "employee-contract"];
-const { availableDepartments, AvailableStations } = coreDataDetails;
+const { availableDepartments, AvailableStations, ROLE_OPTIONS } = coreDataDetails;
 
 /* ─────────────────────────────────────────────
    SHARED STYLE HELPERS

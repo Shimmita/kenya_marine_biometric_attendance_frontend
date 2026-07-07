@@ -60,9 +60,7 @@ const RANK_ACCENT = {
     user: C.cyanFresh,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user", 'auditor'];
-const ROLES = ["employee", "intern", "attachee"];
-const { availableDepartments, AvailableStations } = coreDataDetails;
+const { availableDepartments, AvailableStations, ROLE_OPTIONS, RANK_OPTIONS } = coreDataDetails;
 
 /* ─────────────────────────────────────────────
    SHARED STYLE HELPERS
@@ -497,7 +495,7 @@ const UserCard = ({
                         {currentUser?.rank === 'admin' && <ControlField label="Rank" minWidth={128}>
                             <FormControl size="small" fullWidth>
                                 <Select disabled={currentUser?.rank !== 'admin' || readOnly} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                    {RANKS.map((r) => (
+                                    {RANK_OPTIONS.map((r) => (
                                         <MenuItem key={r} value={r}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
                                                 <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: RANK_ACCENT[r] || C.cyanFresh, flexShrink: 0 }} />
@@ -512,7 +510,7 @@ const UserCard = ({
                         <ControlField label="Role" minWidth={155}>
                             <FormControl size="small" fullWidth>
                                 <Select disabled={currentUser?.rank !== 'hr' || readOnly} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                    {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                                    {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                                 </Select>
                             </FormControl>
                         </ControlField>

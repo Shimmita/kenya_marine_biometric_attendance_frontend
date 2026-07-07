@@ -376,7 +376,6 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                             </Stack>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.6}>
                                 <LockedField label="Employee ID" value={user?.employeeId ? `#${user.employeeId}` : null} icon={<BadgeRounded />} />
-                                <LockedField label="Gender" value={user?.gender} icon={<PersonRounded />} />
                             </Stack>
                         </Stack>
                     </Box>

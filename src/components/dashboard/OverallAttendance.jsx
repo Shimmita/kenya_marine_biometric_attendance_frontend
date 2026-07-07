@@ -1626,17 +1626,11 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                             <em>All Users</em>
                                         </MenuItem>
 
-                                        <MenuItem value="employee">
-                                            Staff / Employee
-                                        </MenuItem>
-
-                                        <MenuItem value="intern">
-                                            Intern
-                                        </MenuItem>
-
-                                        <MenuItem value="attachee">
-                                            Attachee
-                                        </MenuItem>
+                                        {coreDataDetails.ROLE_OPTIONS.map((role) => (
+                                            <MenuItem key={role} value={role}>
+                                                {role === 'employee' ? 'Staff / Employee' : role === 'intern' ? 'Intern' : role === 'attachee' ? 'Attaché' : role}
+                                            </MenuItem>
+                                        ))}
 
                                     </TextField>
                                 </Grid>
@@ -1992,17 +1986,11 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                             <em>All Users</em>
                                         </MenuItem>
 
-                                        <MenuItem value="employee">
-                                            Staff / Employee
-                                        </MenuItem>
-
-                                        <MenuItem value="intern">
-                                            Intern
-                                        </MenuItem>
-
-                                        <MenuItem value="attachee">
-                                            Attachee
-                                        </MenuItem>
+                                        {coreDataDetails.ROLE_OPTIONS.map((role) => (
+                                            <MenuItem key={role} value={role}>
+                                                {role === 'employee' ? 'Staff / Employee' : role === 'intern' ? 'Intern' : role === 'attachee' ? 'Attaché' : role}
+                                            </MenuItem>
+                                        ))}
 
                                     </TextField>
                                 </Grid>

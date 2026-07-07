@@ -34,7 +34,7 @@ import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../servic
 import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
 import ClockOutsideModal from "./ClockOutsideDialog";
-const { availableDepartments, AvailableStations } = coreDataDetails;
+const { availableDepartments, AvailableStations, ROLE_OPTIONS, RANK_OPTIONS } = coreDataDetails;
 
 const GlassSection = ({ title, icon, children }) => (
 
@@ -549,10 +549,7 @@ export default function UserDetailsDialog({
                                         value={user.phone}
                                     />
 
-                                    <InfoRow
-                                        label="Gender"
-                                        value={user.gender}
-                                    />
+                                   
 
                                 </GlassSection>
 
@@ -679,13 +676,7 @@ export default function UserDetailsDialog({
                                                     }
                                                 >
 
-                                                    {[
-                                                        "employee",
-                                                        "intern",
-                                                        "attachee",
-                                                        "employee-contract"
-
-                                                    ].map(role => (
+                                                    {ROLE_OPTIONS.map(role => (
 
                                                         <MenuItem
                                                             key={role}
@@ -731,16 +722,7 @@ export default function UserDetailsDialog({
                                                     }
                                                 >
 
-                                                    {[
-                                                        "admin",
-                                                        "hr",
-                                                        "supervisor",
-                                                        "ceo",
-                                                        "user",
-                                                        "auditor",
-                                                        "superadmin"
-
-                                                    ].map(rank => (
+                                                    {RANK_OPTIONS.map(rank => (
 
                                                         <MenuItem
                                                             key={rank}

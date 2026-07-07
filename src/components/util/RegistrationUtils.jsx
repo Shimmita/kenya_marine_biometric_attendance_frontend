@@ -24,23 +24,26 @@ import {
 import React from "react";
 import coreDataDetails from '../CoreDataDetails';
 
-const { colorPalette, genders, AvailableStations, availableDepartments: departments } = coreDataDetails;
+const { colorPalette,  AvailableStations, availableDepartments: departments, ROLE_OPTIONS } = coreDataDetails;
 
 /* ══ ROLE DEFINITIONS ══════════════════════════════════════════════════════ */
+const roleMetadata = {
+    employee: { label: 'Employee (P&P)', icon: '👔', desc: 'Permanent' },
+    'employee-contract': { label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
+    intern: { label: 'Intern', icon: '🎓', desc: 'University / college intern' },
+    attachee: { label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
+};
 
 /** All roles — used in public-facing / admin registration */
-export const ALL_ROLES = [
-    { value: 'employee', label: 'Employee (P&P)', icon: '👔', desc: 'Permanent' },
-    { value: 'employee-contract', label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
-    { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
-    { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
-];
+export const ALL_ROLES = ROLE_OPTIONS.map((value) => ({
+    value,
+    ...roleMetadata[value],
+})).filter((role) => role.label);
 
 /** Restricted roles — used in Dashboard → Intern & Attaché Registration */
-export const INTERN_ATTACHEE_ROLES = [
-    { value: 'intern', label: 'Intern', icon: '🎓', desc: 'University / college intern' },
-    { value: 'attachee', label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
-];
+export const INTERN_ATTACHEE_ROLES = ['intern', 'attachee']
+    .filter((value) => ROLE_OPTIONS.includes(value))
+    .map((value) => ({ value, ...roleMetadata[value] }));
 
 /* ══ MENU STYLE ════════════════════════════════════════════════════════════ */
 const menuProps = {
@@ -229,14 +232,7 @@ const PersonalDetailsStep = React.memo(({ formData, errors, handle, tf }) => (
             error={!!errors.email} helperText={errors.email}
             InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
             sx={tf} />
-        <TextField select fullWidth required label="Gender"
-            MenuProps={menuProps}
-            value={formData.gender} onChange={handle('gender')}
-            error={!!errors.gender} helperText={errors.gender}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Person sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
-            sx={tf}>
-            {genders.map(g => <MenuItem key={g} value={g}>{g}</MenuItem>)}
-        </TextField>
+        
     </Stack>
 ));
 
@@ -405,7 +401,6 @@ const ReviewDetailStep = React.memo(({ formData, isEmployee, role, roles = ALL_R
                 <ReviewRow label="Full Name" value={formData.name} />
                 <ReviewRow label="Phone" value={formData.phone} />
                 <ReviewRow label="Email" value={formData.email} />
-                <ReviewRow label="Gender" value={formData.gender} />
                 <ReviewRow label="Station" value={formData.station} />
                 <ReviewRow label="Department" value={formData.department} />
                 <ReviewRow label={

@@ -89,13 +89,7 @@ const CATEGORY_TABS = [
 
 const RANK_OPTIONS = [
     { value: "all", label: "All Ranks" },
-    { value: "admin", label: "Admin" },
-    { value: "hr", label: "HR" },
-    { value: "auditor", label: "Auditor" },
-    { value: "superadmin", label: "Super Admin" },
-    { value: "supervisor", label: "Supervisor" },
-    { value: "ceo", label: "CEO" },
-    { value: "user", label: "User" },
+    ...coreDataDetails.RANK_OPTIONS.map((rank) => ({ value: rank, label: rank.charAt(0).toUpperCase() + rank.slice(1) })),
 ];
 
 const columns = [
@@ -431,9 +425,7 @@ export default function AuditLogsContent() {
                                                                         <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                                             <Place sx={{ fontSize: 12 }} /> Station: {u.station || '—'}
                                                                         </Typography>
-                                                                        <Typography component="span" variant="caption" color="text.secondary">
-                                                                            Gender: {u.gender || '—'}
-                                                                        </Typography>
+                                                                       
                                                                     </Stack>
                                                                 }
                                                             />
@@ -468,9 +460,7 @@ export default function AuditLogsContent() {
                                                                         <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                                             <Place sx={{ fontSize: 12 }} /> Station: {singleUser?.station || '—'}
                                                                         </Typography>
-                                                                        <Typography component="span" variant="caption" color="text.secondary">
-                                                                            Gender: {singleUser?.gender || '—'}
-                                                                        </Typography>
+                                                                       
                                                                     </Stack>
                                                                 }
                                                             />

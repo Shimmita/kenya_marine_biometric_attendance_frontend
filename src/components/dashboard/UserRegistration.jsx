@@ -183,7 +183,6 @@ const UserRegistrationContent = ({ readOnly = false }) => {
         name:       '',
         phone:      '',
         email:      '',
-        gender:     '',
         department: '',
         station:    '',
         employeeId: '',
@@ -224,7 +223,6 @@ const UserRegistrationContent = ({ readOnly = false }) => {
             } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
                 e.email = 'Please enter a valid email address';
             }
-            if (!formData.gender) e.gender = 'Please select a gender';
         }
         if (step === 2) {
             if (!formData.station)     e.station     = 'Main clocking station is required';
@@ -265,7 +263,7 @@ const UserRegistrationContent = ({ readOnly = false }) => {
             setSnackOpen(true);
             /* Reset */
             setFormData({
-                role: '', name: '', phone: '', email: '', gender: '',
+                role: '', name: '', phone: '', email: '',
                 department: '', station: '', employeeId: '',
                 password: '123456',
                 startDate: new Date().toISOString().split('T')[0],

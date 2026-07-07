@@ -1260,8 +1260,8 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                             }
                                                             sx={{
                                                                 position: 'relative', zIndex: 1,
-                                                                bgcolor: isClockedIn && isToClockOut ? colorPalette.seafoamGreen : colorPalette.aquaVibrant,
-                                                                color: isClockedIn && isToClockOut ? '#fff' : colorPalette.deepNavy,
+                                                                bgcolor: colorPalette.aquaVibrant,
+                                                                color: '#fff' ,
                                                                 py: 1.8, borderRadius: '14px',
                                                                 fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
                                                                 boxShadow: isClockedIn && isToClockOut

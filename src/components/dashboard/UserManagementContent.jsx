@@ -110,9 +110,7 @@ const RANK_ACCENT = {
     superadmin: C.coralSunset,
 };
 
-const RANKS = ["admin", "hr", "supervisor", "ceo", "user", "superadmin"];
-const ROLES = ["employee", "intern", "attachee", "employee-contract"];
-const { availableDepartments, AvailableStations } = coreDataDetails;
+const { availableDepartments, AvailableStations, ROLE_OPTIONS, RANK_OPTIONS } = coreDataDetails;
 
 
 
@@ -220,7 +218,7 @@ const FilterBar = ({
                     <FormControl size="small" fullWidth>
                         <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
                             <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-                            {RANKS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                            {RANK_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>
@@ -231,7 +229,7 @@ const FilterBar = ({
                     <FormControl size="small" fullWidth>
                         <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
                             <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-                            {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                            {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>

@@ -53,6 +53,21 @@ const replaceArray = (target, values) => {
     target.splice(0, target.length, ...values);
 };
 
+const defaultRoleOptions = ['employee', 'intern', 'attachee'];
+const defaultRankOptions = ['admin', 'hr', 'supervisor', 'ceo', 'user', 'auditor', 'superadmin'];
+
+const normalizeDropdownValues = (values, fallback = []) => {
+    const normalized = (Array.isArray(values) ? values : fallback)
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean);
+    return normalized.length ? normalized : fallback;
+};
+
+const buildRoleOptions = (values) => {
+    const normalized = normalizeDropdownValues(values, defaultRoleOptions);
+    return [...new Set([...normalized, 'employee-contract'])];
+};
+
 const coreDataDetails = {
     availableDepartments: cachedPlatformConfig?.departments?.length ? cachedPlatformConfig.departments : [
         "Oceans and Coastal Systems & Blue Economy Research",
@@ -85,15 +100,7 @@ const coreDataDetails = {
         "Internal Audit",
         "Supply Chain Management",
     ],
-    availableSupervisors: [
-        "Edna N. Onkundi",
-        "Polycarp Atunga",
-        "Samuel Agwata",
-        "Faith Gwanda",
-        "Leonard Opasanjo",
-        "Peter Mutuku",
-        "Lawrence Bruce Owili",
-    ],
+  
     colorPalette: {
         deepNavy: '#0A3D62',
         oceanBlue: '#005B96',
@@ -146,7 +153,7 @@ const coreDataDetails = {
         : [
         // { name: 'MOMBASA CENTRE', lat: -4.03951, lng: 39.6260 },
         { name: 'MOMBASA CENTRE', lat: -4.0546356, lng: 39.6826 },
-        { name: 'SHIMONI CENTRE', lat: -4.0546356, lng: 39.6826 },
+        { name: 'SHIMONI CENTRE', lat: -4.644, lng: 39.375 },
         { name: 'KISUMU CENTRE', lat: -0.059149, lng: 34.8066 },
         { name: 'KEGATI STATION', lat: -0.644496, lng: 34.7481 },
         { name: 'TURKANA STATION', lat: 3.08222, lng: 36.0749 },
@@ -161,13 +168,12 @@ const coreDataDetails = {
         { name: 'MUTONGA CENTER', lat: -4.0546356, lng: 39.6826 },
 
     ],
-    genders: [
-        'Male',
-        'Female',
-    ],
+ 
 
     REASONS: ["Sickness", "Fieldwork", "Workshop", "Official Assignment", "Emergency", "Other"],
     LEAVE_TYPES: ["Adoption Leave", "Annual Leave", "Compassionate Leave", "Paternity Leave", "Sick Leave", "Study Leave", "Terminal Leave"],
+    ROLE_OPTIONS: buildRoleOptions(cachedPlatformConfig?.dropdowns?.roles),
+    RANK_OPTIONS: normalizeDropdownValues(cachedPlatformConfig?.dropdowns?.ranks, defaultRankOptions),
     branding: cachedPlatformConfig?.branding || {
         organizationName: "Kenya Marine and Fisheries Research Institute",
         shortName: "KMFRI",
@@ -210,9 +216,10 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
     }
 
     const dropdowns = config.dropdowns || {};
-    if (Array.isArray(dropdowns.genders)) replaceArray(coreDataDetails.genders, dropdowns.genders);
     if (Array.isArray(dropdowns.leaveTypes)) replaceArray(coreDataDetails.LEAVE_TYPES, dropdowns.leaveTypes);
     if (Array.isArray(dropdowns.absenceReasons)) replaceArray(coreDataDetails.REASONS, dropdowns.absenceReasons);
+    replaceArray(coreDataDetails.ROLE_OPTIONS, buildRoleOptions(dropdowns.roles));
+    replaceArray(coreDataDetails.RANK_OPTIONS, normalizeDropdownValues(dropdowns.ranks, defaultRankOptions));
 
     const activeTheme = getActiveTheme(config);
     const { branding } = config;
