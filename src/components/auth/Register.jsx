@@ -10,6 +10,16 @@ export const registerUser = async (formData) => {
   }
 };
 
+// register a single staff member
+export const registerStaff = async (formData) => {
+  try {
+    const res = await api.post("/auth/staffsignup", formData);
+    return res.data;
+  } catch (err) {
+    throw err.response?.data?.message || "Registration failed";
+  }
+};
+
 
 // register multiple users in batch
 export const registerBatchUsers = async (users) => {

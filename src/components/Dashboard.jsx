@@ -10,13 +10,14 @@ import {
     LockResetRounded,
     Logout,
     Menu as MenuIcon,
+    PeopleRounded,
     PersonAdd,
     PhoneLocked,
     QueryStats,
+    SchoolRounded,
     SensorOccupiedRounded,
     SupervisorAccount,
-    SupportAgentRounded,
-    UploadFile
+    SupportAgentRounded
 } from '@mui/icons-material';
 import Settings from '@mui/icons-material/Settings';
 import {
@@ -31,9 +32,9 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
-import SuperadminAPI from '../service/SuperadminService';
 import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
+import SuperadminAPI from '../service/SuperadminService';
 import { updateUserProfile, userSignOut } from '../service/UserProfile';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
@@ -60,7 +61,7 @@ const HelpSupport = lazy(() => import('./dashboard/HelpSupport'));
 const AddDeviceContent = lazy(() => import('./dashboard/AddDevice'));
 const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
-const UserRegistrationContent = lazy(() => import('./dashboard/UserRegistration'));
+const InternAttacheRegistration = lazy(() => import('./dashboard/InternAttacheRegistration'));
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
 const PasswordResetRequests = lazy(() => import('./dashboard/PasswordResetRequests'));
 const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
@@ -81,8 +82,8 @@ const RANK_META = {
     auditor: { label: 'Auditor' },
     supervisor: { label: 'Supervisor' },
     ceo: { label: 'CEO' },
-    superadmin: { label: 'Super Admin' },
-    user: { label: 'Employee' },
+    superadmin: { label: 'Superadmin' },
+    user: { label: '' },
 };
 
 /* ─── Shared admin items — HR-specific items split out ─────────────────── */
@@ -105,8 +106,8 @@ const SUPERADMIN_GENERAL_ITEMS = [
 ];
 
 const SUPERADMIN_HR_ITEMS = [
-    { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
-    { text: 'Staff Registration', icon: <UploadFile />, color: '#8b5cf6' },
+    { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: '#10b981' },
+    { text: 'Staff Registration', icon: <PeopleRounded />, color: '#8b5cf6' },
 ];
 
 const SUPERADMIN_AUDITOR_ITEMS = [
@@ -124,8 +125,8 @@ const SUPERADMIN_CEO_ITEMS = [
 ];
 
 const HR_EXTRA_ITEMS = [
-    { text: 'Register Intern/Attache', icon: <PersonAdd />, color: '#10b981' },
-    { text: 'Staff Registration', icon: <UploadFile />, color: '#8b5cf6' },
+    { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: '#10b981' },
+    { text: 'Staff Registration', icon: <PeopleRounded />, color: '#8b5cf6' },
     { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
     // { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
 ];
@@ -531,25 +532,47 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                             {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
-                            <Typography noWrap sx={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff', lineHeight: 1.2 }}>
-                                {user?.name?.split(' ')[0] || 'User'}
-                            </Typography>
-                            <Typography noWrap sx={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.50)', mt: 0.2 }}>
-                                {user?.department || user?.email || ''}
-                            </Typography>
+                            <Tooltip arrow title={user?.name || 'User'} placement="top-start">
+                                <Typography noWrap sx={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff', lineHeight: 1.2 }}>
+                                    {user?.name?.split(' ')[0] || 'User'}
+                                </Typography>
+                            </Tooltip>
+                            <Tooltip arrow title={user?.department || user?.email || ''} placement="top-start">
+                                <Typography noWrap sx={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.50)', mt: 0.2 }}>
+                                    {user?.department.slice(0, 30) || user?.email || ''}
+                                </Typography>
+                            </Tooltip>
                         </Box>
                     </Stack>
 
                     <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 1.3, position: 'relative', zIndex: 1 }}>
-                        <Chip label={rankMeta.label.toUpperCase()} size="small" sx={{
-                            height: 18, fontWeight: 900, fontSize: '0.55rem', letterSpacing: 1.6,
-                            bgcolor: 'rgba(0,220,255,0.14)', color: '#00e5ff',
-                            borderRadius: '6px', border: '1px solid rgba(0,220,255,0.28)',
-                        }} />
+
+                        {/* employee id */}
                         {user?.employeeId && (
-                            <Typography sx={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.36)', fontFamily: 'monospace' }}>
-                                #{user.employeeId}
-                            </Typography>
+                            <Chip label={`${user.employeeId}`} size="small" sx={{
+                                height: 18, fontWeight: 900, fontSize: '0.60rem', letterSpacing: 1.6,
+                                bgcolor: 'rgba(0,220,255,0.14)', color: '#00e5ff',
+                                borderRadius: '6px', border: '1px solid rgba(0,220,255,0.28)',
+                            }} />
+                        )}
+
+                        {/* rank */}
+                        {rankMeta.label !== '' && (
+                            <Chip label={rankMeta.label.toUpperCase()} size="small" sx={{
+                                height: 18, fontWeight: 900, fontSize: '0.55rem', letterSpacing: 1.6,
+                                bgcolor: 'rgba(0,220,255,0.14)', color: '#00e5ff',
+                                borderRadius: '6px', border: '1px solid rgba(0,220,255,0.28)',
+                            }} />
+                        )}
+
+
+                        {/* role */}
+                        {user?.role && (
+                            <Chip label={user.role.toUpperCase()} size="small" sx={{
+                                height: 18, fontWeight: 900, fontSize: '0.55rem', letterSpacing: 1.6,
+                                bgcolor: 'rgba(0,220,255,0.14)', color: '#00e5ff',
+                                borderRadius: '6px', border: '1px solid rgba(0,220,255,0.28)',
+                            }} />
                         )}
                     </Stack>
                 </Box>
@@ -894,14 +917,8 @@ const EnhancedDashboard = () => {
     const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
     const rankMeta = useMemo(() => {
-        if (user?.rank === 'user') {
-            const role = user?.role;
-            if (role === 'intern') return { label: 'Intern' };
-            if (role === 'attache') return { label: 'Attache' };
-            return { label: 'Employee' };
-        }
-        return RANK_META[user?.rank] || RANK_META.user;
-    }, [user?.rank, user?.role]);
+        return RANK_META[user?.rank]
+    }, [user?.rank]);
 
     /* Collapsed sidebar — all items flat list */
     const allNavItems = useMemo(() => {
@@ -976,7 +993,7 @@ const EnhancedDashboard = () => {
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent key={`users-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Register Intern/Attache': return canViewAdminFeatures ? <UserRegistrationContent key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Register Intern/Attache': return canViewAdminFeatures ? <InternAttacheRegistration key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Staff Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;

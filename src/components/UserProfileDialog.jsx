@@ -82,7 +82,6 @@ const ROLE_COLORS = {
     employee: { bg: 'rgba(52,211,153,0.12)', color: '#34d399', border: 'rgba(52,211,153,0.28)' },
     intern: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.28)' },
     attachee: { bg: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: 'rgba(167,139,250,0.28)' },
-    'employee-contract': { bg: 'rgba(249,115,22,0.12)', color: '#f97316', border: 'rgba(249,115,22,0.28)' },
 };
 
 /* ─── tiny helpers ──────────────────────────────────────────────────────── */

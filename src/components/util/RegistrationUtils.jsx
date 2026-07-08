@@ -29,7 +29,6 @@ const { colorPalette,  AvailableStations, availableDepartments: departments, ROL
 /* ══ ROLE DEFINITIONS ══════════════════════════════════════════════════════ */
 const roleMetadata = {
     employee: { label: 'Employee (P&P)', icon: '👔', desc: 'Permanent' },
-    'employee-contract': { label: 'Employee (Contract)', icon: '👔', desc: 'Contract' },
     intern: { label: 'Intern', icon: '🎓', desc: 'University / college intern' },
     attachee: { label: 'Attaché', icon: '📋', desc: 'Industrial attachment' },
 };
@@ -126,7 +125,6 @@ const ReviewRow = ({ label, value, accent }) => (
 const EmployeeIdField = React.memo(({ value, error, onChange, tf, role }) => {
     const cfg = {
         employee: { label: 'Staff ID', placeholder: 'Enter your staff ID' },
-        'employee-contract': { label: 'Staff ID', placeholder: 'Enter your staff ID' },
         intern: { label: 'Passport or National ID', placeholder: 'Enter passport or national ID' },
         attachee: { label: 'Passport or National ID', placeholder: 'Enter passport or national ID' },
     }[role] || { label: 'ID Number', placeholder: 'Enter your ID number' };
@@ -407,7 +405,7 @@ const ReviewDetailStep = React.memo(({ formData, isEmployee, role, roles = ALL_R
                     role === 'intern' ? 'National ID' :
                         role === 'attachee' ? 'Student Reg. No.' : 'Staff ID'
                 } value={formData.employeeId} />
-                {role !== 'employee' && role !== 'employee-contract' && (
+                {role !== 'employee' && (
                     <>
                         <ReviewRow label="Start Date" value={formData.startDate} />
                         <ReviewRow label="End Date" value={formData.endDate} />

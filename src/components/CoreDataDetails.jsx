@@ -65,7 +65,7 @@ const normalizeDropdownValues = (values, fallback = []) => {
 
 const buildRoleOptions = (values) => {
     const normalized = normalizeDropdownValues(values, defaultRoleOptions);
-    return [...new Set([...normalized, 'employee-contract'])];
+    return [...new Set([...normalized])];
 };
 
 const coreDataDetails = {

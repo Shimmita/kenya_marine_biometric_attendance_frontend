@@ -169,7 +169,7 @@ const DefaultPasswordNotice = () => (
 );
 
 /* ══ MAIN COMPONENT ═════════════════════════════════════════════════════════ */
-const UserRegistrationContent = ({ readOnly = false }) => {
+const InternAttacheRegistration = ({ readOnly = false }) => {
     const [step,       setStep]       = useState(0);
     const [direction,  setDirection]  = useState(1);
     const [processing, setProcessing] = useState(false);
@@ -600,4 +600,4 @@ const UserRegistrationContent = ({ readOnly = false }) => {
     );
 };
 
-export default UserRegistrationContent;
+export default InternAttacheRegistration;
