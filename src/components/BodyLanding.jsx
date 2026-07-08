@@ -23,7 +23,7 @@ import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
 import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
 import { markSessionStarted } from '../service/SessionTimeout';
-import ClockingImage from "./../images/clocking_image.png";
+import ClockingImage from "./../images/clocking_image_1.png";
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails from './CoreDataDetails';
 import GmailIcon from './custom/Gmail';
