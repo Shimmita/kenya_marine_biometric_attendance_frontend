@@ -1118,21 +1118,21 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Period', 'Present', 'Attendance %',  'Absent %', 'Avg In', 'Avg Out']],
+            head: [['Period', 'Present', 'Attendance %', 'Absent %', 'Avg In', 'Avg Out']],
             body: exportTrendRows.map((row) => [row.Period, row.Present, row['Attendance Rate (%)'], row['Absent Rate (%)'], row['Avg Clock In'], row['Avg Clock Out']]),
             headStyles: { fillColor: [0, 121, 140], textColor: 255 },
             styles: { fontSize: 7.5, cellPadding: 1.8 },
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Department', 'Headcount', 'Present', 'Absent','Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
+            head: [['Department', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
             body: exportDeptRows.map((row) => [row.Department, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
             headStyles: { fillColor: [7, 58, 82], textColor: 255 },
             styles: { fontSize: 7.1, cellPadding: 1.6 },
         });
         autoTable(doc, {
             startY: doc.lastAutoTable.finalY + 6,
-            head: [['Station', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %','Absent %']],
+            head: [['Station', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
             body: exportStationRows.map((row) => [row.Station, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
             headStyles: { fillColor: [24, 110, 99], textColor: 255 },
             styles: { fontSize: 7.1, cellPadding: 1.6 },
@@ -1511,7 +1511,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         duration: fmtDuration(rec.clock_in, rec.clock_out),
         inLocation: formatLocationLabel(rec, true),
         outLocation: formatLocationLabel(rec, false),
-        whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) :"",
+        whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",
         station: toTitleCase(rec.station || '—'),
         department: toTitleCase(rec.department || '—'),
         timing: rec.isLate ? 'Late' : 'Early',
@@ -1760,7 +1760,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
 
     useEffect(() => {
         if (!hasFetched.current) { hasFetched.current = true; loadSummary(); }
-    }, []); // eslint-disable-line
+    }, []);
 
     const workingDays = useMemo(() => {
         return getWorkingDaysCount(filterStartDate, filterEndDate);
@@ -1779,9 +1779,13 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }, [filterStartDate, filterEndDate]);
 
+
+
     const processedSummary = useMemo(() =>
 
         summary.map(rec => ({
+
+
 
             employeeId: rec.employeeId || "—",
 
@@ -1797,6 +1801,10 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
             daysPresent: rec.daysPresent,
 
             daysAbsent: rec.daysAbsent,
+            attendance:
+                workingDays > 0
+                    ? `${Math.round((rec.daysPresent / workingDays) * 100)}%`
+                    : "0%"
 
         })),
 
@@ -1873,6 +1881,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         "Station": r.station,
         "Department": r.department,
         "Role": r.role,
+        "Attendance": r.attendance
     }));
 
     const handleExportPDF = async () => {
@@ -1896,6 +1905,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                 'Working Days',
                 'Present',
                 'Absent',
+                "Attendance"
                 /*  'Station',
                  'Department', */
             ]],
@@ -1908,11 +1918,11 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                 r.totalDays,
                 r.workingDays,
                 r.daysPresent,
-
                 r.daysAbsent,
+                r.attendance
 
                 /*  r.station,
- 
+     
                  r.department, */
 
             ]),
@@ -2047,6 +2057,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                         "Working Days",
                                         "Days Present",
                                         "Days Absent",
+                                        "Attendance",
                                         /* "Station",
                                         "Department", */
                                     ].map((h, index) => (
@@ -2273,6 +2284,28 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                                             : "success"
                                                     }
                                                     sx={{ fontWeight: 700 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Chip
+                                                    label={row.attendance}
+                                                    size="small"
+                                                    color={
+                                                        parseInt(row.attendance) >= 90
+                                                            ? "success"
+                                                            : parseInt(row.attendance) >= 75
+                                                                ? "primary"
+                                                                : parseInt(row.attendance) >= 50
+                                                                    ? "warning"
+                                                                    : "error"
+                                                    }
+                                                    sx={{ fontWeight: 700, minWidth: 70 }}
                                                 />
                                             </TableCell>
 
