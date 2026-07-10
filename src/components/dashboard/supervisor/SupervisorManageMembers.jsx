@@ -13,23 +13,19 @@ import {
     useMediaQuery,
     useTheme
 } from "@mui/material";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import {
     getAllSupervisors,
-    getAllUsers,
     getAllUsersDepartment,
-    toggleUserActive,
     updateUserDepartment,
-    updateUserRank,
-    updateUserRole,
     updateUserStation,
     updateUserSupervisor,
 } from "../../../service/UserManagement";
 
 import coreDataDetails from "../../CoreDataDetails";
-import UserCard from "../../util/UserCard";
-import UserCardDepart from "../../util/UserCardDepart";
+import UserDetailsDialog from "../../util/UserDetailsDialog";
+import UserTable from "../../util/UserTable";
 
 /* ─────────────────────────────────────────────
    UPDATED COLOR PALETTE
@@ -206,7 +202,7 @@ const FilterBar = ({
                     />
                 </Box>
 
-              
+
                 {/* Role */}
                 <Box sx={{ minWidth: 160 }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Role</Typography>
@@ -230,9 +226,9 @@ const FilterBar = ({
                     </FormControl>
                 </Box>
 
-                
 
-        
+
+
 
                 {/* Clear */}
                 <Box sx={{ minWidth: 82 }}>
@@ -285,6 +281,10 @@ const UserManagementContent = () => {
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [stationFilter, setStationFilter] = useState("");
     const [supervisors, setSupervisors] = useState()
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
 
     const fetchUsers = async () => {
         try {
@@ -327,6 +327,8 @@ const UserManagementContent = () => {
                 user.email.toLowerCase().includes(search) ||
                 user.email.toLowerCase().includes(search) ||
                 user.rank.toLowerCase().includes(search) ||
+                user.employeeId?.toLowerCase().includes(search) ||
+
                 user.role.toLowerCase().includes(search) ||
                 (user.department || "").toLowerCase().includes(search) ||
                 (user.supervisor || "none").toLowerCase().includes(search);
@@ -345,9 +347,12 @@ const UserManagementContent = () => {
         });
     }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
 
-    const handleToggleActive = async (id) => { try { setUpdatingId(id); await toggleUserActive(id); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleRankChange = async (id, rank) => { try { setUpdatingId(id); await updateUserRank(id, rank); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleRoleChange = async (id, role) => { try { setUpdatingId(id); await updateUserRole(id, role); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handlePageChange = (event, newPage) => setPage(newPage);
+    const handleRowsPerPageChange = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
+
     const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); fetchSupervisors() } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
@@ -399,25 +404,30 @@ const UserManagementContent = () => {
                     </motion.div>
                 )}
 
-                {/* User Cards */}
-                <AnimatePresence mode="popLayout">
-                    {filteredUsers.map((user, index) => (
-                        <UserCardDepart
-                            key={user._id}
-                            user={user}
-                            supervisors={supervisors}
-                            updatingId={updatingId}
-                            onRankChange={handleRankChange}
-                            onRoleChange={handleRoleChange}
-                            onDepartmentSave={handleDepartmentSave}
-                            onSupervisorChange={handleSupervisorChange}
-                            onStationSave={handleStationSave}
-                            onToggleActive={handleToggleActive}
-                            isMobile={isMobile}
-                            index={index}
-                        />
-                    ))}
-                </AnimatePresence>
+                <UserTable
+                    users={filteredUsers}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    onViewUser={(user) => {
+                        setSelectedUser(user);
+                        setDialogOpen(true);
+                    }}
+                />
+
+                <UserDetailsDialog
+                    open={dialogOpen}
+                    onClose={() => setDialogOpen(false)}
+                    user={selectedUser}
+                    supervisors={supervisors}
+                    updatingId={updatingId}
+                    onDepartmentSave={handleDepartmentSave}
+                    onSupervisorChange={handleSupervisorChange}
+                    onStationSave={handleStationSave}
+                    hideActionsTab
+                    hideRoleRankManagement
+                />
             </Stack>
         </>
     );

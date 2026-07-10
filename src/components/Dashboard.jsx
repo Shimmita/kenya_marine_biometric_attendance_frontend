@@ -1014,6 +1014,11 @@ const EnhancedDashboard = () => {
             : (PAGE_TITLES[activeTab] || activeTab)
     ), [activeTab, user?.name]);
 
+    useEffect(() => {
+        const cleanTitle = String(pageTitle).replace('👋', '').trim();
+        document.title = `${cleanTitle} | KMFRI Attendance`;
+    }, [pageTitle]);
+
     /* ── Render ─────────────────────────────────────────────────────────── */
     return (
         <Box sx={{

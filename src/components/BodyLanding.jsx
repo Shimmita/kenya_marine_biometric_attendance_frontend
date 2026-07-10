@@ -14,7 +14,7 @@ import {
     Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import KMFRILogo from '../assets/kmfri.png';
@@ -684,7 +684,7 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
             <Container maxWidth="xl">
                 <Toolbar disableGutters sx={{ py: 0.8 }}>
                     <Box onClick={() => onNavigate('landing')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mr: 2, cursor: 'pointer' }}>
-                        <Box component="img" src={KMFRILogo} alt="KMFRI"
+                        <Box component="img" src={KMFRILogo} alt="KMFRI" width="48" height="48" loading="eager"
                             sx={{ height: { xs: 42, md: 48 }, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.22)', boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }} />
                     </Box>
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -706,6 +706,12 @@ const EnhancedNavbar = ({ onNavigate, currentView }) => {
 /* ══ LANDING PAGE ═══════════════════════════════════════════════════════════ */
 const EnhancedLandingPage = () => {
     const [view, setView] = useState('landing');
+
+    useEffect(() => {
+        document.title = view === 'landing'
+            ? 'KMFRI Attendance System'
+            : 'Sign In | KMFRI Attendance';
+    }, [view]);
 
     return (
         <Box
@@ -770,6 +776,11 @@ const EnhancedLandingPage = () => {
                                                 component="img"
                                                 src={ClockingImage}
                                                 alt="KMFRI Attendance"
+                                                width="500"
+                                                height="500"
+                                                loading="eager"
+                                                fetchPriority="high"
+                                                decoding="async"
                                                 sx={{
                                                     width: "100%",
                                                     maxWidth: 500,
@@ -806,7 +817,7 @@ const EnhancedLandingPage = () => {
                             <Grid container spacing={5}>
                                 <Grid item xs={12} md={4}>
                                     <Stack direction="row" gap={2} alignItems="center" mb={2}>
-                                        <Box component="img" src={KMFRILogo} alt="KMFRI" sx={{ height: 50, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }} />
+                                        <Box component="img" src={KMFRILogo} alt="KMFRI" width="50" height="50" loading="lazy" decoding="async" sx={{ height: 50, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }} />
                                         <Box>
                                             <Typography variant="h6" fontWeight={800} sx={{ color: '#fff' }}>KMFRI</Typography>
                                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.46)', fontSize: '0.67rem' }}>Kenya Marine & Fisheries Research Institute</Typography>

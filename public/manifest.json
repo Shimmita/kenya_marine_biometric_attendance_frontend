@@ -1,8 +1,8 @@
 {
-  "name": "KMFRI ATTENDANCE SYSTEM",
-  "short_name": "KMFRI",
-  "description": "Clock in and clock out reliably with the system.",
-  "start_url": "/dashboard",
+  "name": "KMFRI Attendance System",
+  "short_name": "KMFRI Attendance",
+  "description": "Secure attendance clocking and reporting for KMFRI staff, interns, and attaches.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b3140",
@@ -10,14 +10,16 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/vite.svg",
+      "src": "/kmfri.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/vite.svg",
+      "src": "/kmfri.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

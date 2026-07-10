@@ -1,9 +1,9 @@
-const CACHE_NAME = 'kmfri-attendance-cache-v2';
-const RUNTIME_CACHE = 'kmfri-attendance-runtime-v1';
+const CACHE_NAME = 'kmfri-attendance-cache-v3';
+const RUNTIME_CACHE = 'kmfri-attendance-runtime-v2';
 const PRECACHE_URLS = [
   '/index.html',
   '/manifest.json',
-  '/vite.svg',
+  '/kmfri.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -39,6 +39,16 @@ function networkFirst(event) {
     .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')));
 }
 
+function staleWhileRevalidate(request) {
+  return caches.match(request).then((cachedResponse) => {
+    const networkResponse = fetch(request)
+      .then((response) => cacheResponse(request, response))
+      .catch(() => cachedResponse);
+
+    return cachedResponse || networkResponse;
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const { request } = event;
@@ -56,13 +66,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === self.location.origin && ['style', 'script', 'image', 'font'].includes(request.destination)) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => cachedResponse || fetch(request).then((response) => cacheResponse(request, response)))
-    );
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
-  event.respondWith(
-    networkFirst(event)
-  );
+  if (url.origin === self.location.origin) {
+    event.respondWith(networkFirst(event));
+  }
 });

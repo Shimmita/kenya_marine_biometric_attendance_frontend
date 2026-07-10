@@ -32,6 +32,47 @@ html, body, #root {
 body {
   color: var(--kmfri-text);
   background: var(--kmfri-shell-gradient);
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.app-route-fallback {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--kmfri-shell-gradient);
+}
+
+.app-route-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(10, 61, 98, 0.18);
+  border-top-color: var(--kmfri-secondary);
+  animation: app-route-spin 0.8s linear infinite;
+}
+
+@keyframes app-route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .MuiAppBar-root,

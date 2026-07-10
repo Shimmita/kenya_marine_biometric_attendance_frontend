@@ -84,6 +84,12 @@ export default function UserTable({
     onViewUser
 }) {
 
+    const pageCount = Math.max(1, Math.ceil(users.length / rowsPerPage));
+    const safePage = Math.min(page, pageCount - 1);
+    const visibleUsers = React.useMemo(
+        () => users.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage),
+        [safePage, rowsPerPage, users]
+    );
 
 
     return (
@@ -100,9 +106,9 @@ export default function UserTable({
             }}
         >
 
-            <TableContainer>
+            <TableContainer sx={{ overflowX: "auto" }}>
 
-                <Table stickyHeader>
+                <Table stickyHeader sx={{ minWidth: 920, tableLayout: "fixed" }}>
                     <TableHead>
 
                         <TableRow
@@ -148,12 +154,7 @@ export default function UserTable({
 
                     <TableBody>
 
-                        {users
-                            .slice(
-                                page * rowsPerPage,
-                                page * rowsPerPage + rowsPerPage
-                            )
-                            .map((user) => {
+                        {visibleUsers.map((user) => {
 
                                 const style =
                                     rankStyles[user.rank] ||
@@ -185,6 +186,7 @@ export default function UserTable({
 
                                                 <Avatar
                                                     src={user.avatar}
+                                                    imgProps={{ loading: "lazy", decoding: "async" }}
                                                     sx={{
 
                                                         width: 42,
@@ -471,7 +473,7 @@ export default function UserTable({
 
                 component="div"
 
-                page={page}
+                page={safePage}
 
                 count={users.length}
 

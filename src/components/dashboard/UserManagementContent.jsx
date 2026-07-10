@@ -348,7 +348,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     // dispatch and redux activities
     const dispatch = useDispatch();
 
-     //get current user from the redux
+    //get current user from the redux
     const currentUser = useSelector((state) => state?.currentUser);
 
     const fetchUsers = async () => {
@@ -454,7 +454,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     }
 
 
-   
+
 
     return (
         <>
@@ -488,30 +488,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                     </motion.div>
                 )}
 
-                {/* User Cards */}
-                {/* <AnimatePresence mode="popLayout">
-                    {filteredUsers.map((user, index) => (
-                        <UserCard
-                            key={user._id}
-                            user={user}
-                            supervisors={supervisors}
-                            updatingId={updatingId}
-                            onRankChange={readOnly ? null : handleRankChange}
-                            onRoleChange={readOnly ? null : handleRoleChange}
-                            onDepartmentSave={readOnly ? null : handleDepartmentSave}
-                            onSupervisorChange={readOnly ? null : handleSupervisorChange}
-                            onStationSave={readOnly ? null : handleStationSave}
-                            onToggleActive={readOnly ? null : handleToggleActive}
-                            onDeleteUser={readOnly ? null : handleDeleteUser}
-                            isMobile={isMobile}
-                            readOnly={readOnly}
-                            index={index}
-                            onResetBiometrics={readOnly ? null : handleResetBiometrics}
-                            isLoading={loading}
-                            setIsLoading={setLoading}
-                        />
-                    ))}
-                </AnimatePresence> */}
+
 
                 <UserTable
 

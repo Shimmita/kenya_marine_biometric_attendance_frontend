@@ -150,6 +150,8 @@ export default function UserDetailsDialog({
     onToggleActive,
     onDeleteUser,
     onResetBiometrics,
+    hideActionsTab = false,
+    hideRoleRankManagement = false,
 }) {
 
     const [tab, setTab] = useState(0);
@@ -177,6 +179,8 @@ export default function UserDetailsDialog({
 
         if (!user) return;
 
+        setTab(0);
+
         setClockOutside(
             user.canClockOutside ? "yes" : "no"
         );
@@ -192,6 +196,12 @@ export default function UserDetailsDialog({
         setOpenClockModal(false);
 
     }, [user]);
+
+    useEffect(() => {
+        if (hideActionsTab && tab === 3) {
+            setTab(0);
+        }
+    }, [hideActionsTab, tab]);
 
     if (!user) return null;
 
@@ -519,11 +529,13 @@ export default function UserDetailsDialog({
                             label="Manage"
                         />
 
-                        <Tab
-                            icon={<SettingsRoundedIcon fontSize="small" />}
-                            iconPosition="top"
-                            label="Actions"
-                        />
+                        {!hideActionsTab && (
+                            <Tab
+                                icon={<SettingsRoundedIcon fontSize="small" />}
+                                iconPosition="top"
+                                label="Actions"
+                            />
+                        )}
                     </Tabs>
 
                     <DialogContent>
@@ -652,53 +664,55 @@ export default function UserDetailsDialog({
                                     alignItems="flex-start"
                                 >
 
-                                    <Grid size={{ xs: 12, md: 7 }}>
+                                    {!hideRoleRankManagement && (
+                                        <Grid size={{ xs: 12, md: 7 }}>
 
-                                        <GlassSection
-                                            icon={<Face6Rounded />}
-                                            title="Role Management"
-                                        >
+                                            <GlassSection
+                                                icon={<Face6Rounded />}
+                                                title="Role Management"
+                                            >
 
-                                            <Typography mb={1}>
-                                                Role
-                                            </Typography>
+                                                <Typography mb={1}>
+                                                    Role
+                                                </Typography>
 
-                                            <FormControl fullWidth size="small">
+                                                <FormControl fullWidth size="small">
 
-                                                <Select
+                                                    <Select
 
-                                                    value={user.role}
-                                                    onChange={(e) =>
-                                                        onRoleChange(
-                                                            user._id,
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                >
+                                                        value={user.role}
+                                                        onChange={(e) =>
+                                                            onRoleChange(
+                                                                user._id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                    >
 
-                                                    {ROLE_OPTIONS.map(role => (
+                                                        {ROLE_OPTIONS.map(role => (
 
-                                                        <MenuItem
-                                                            key={role}
-                                                            value={role}
-                                                        >
+                                                            <MenuItem
+                                                                key={role}
+                                                                value={role}
+                                                            >
 
-                                                            {role}
+                                                                {role}
 
-                                                        </MenuItem>
+                                                            </MenuItem>
 
-                                                    ))}
+                                                        ))}
 
-                                                </Select>
+                                                    </Select>
 
-                                            </FormControl>
+                                                </FormControl>
 
-                                        </GlassSection>
+                                            </GlassSection>
 
-                                    </Grid>
+                                        </Grid>
+                                    )}
 
                                     {/* shown only if current user is admin or superadmin */}
-                                    {['admin', 'superadmin'].includes(currentUserRank) && (
+                                    {!hideRoleRankManagement && ['admin', 'superadmin'].includes(currentUserRank) && (
                                         <Grid size={{ xs: 12, md: 5, }}>
 
                                             <GlassSection
@@ -945,7 +959,7 @@ export default function UserDetailsDialog({
                         )}
 
 
-                        {tab === 3 && (
+                        {!hideActionsTab && tab === 3 && (
 
                             <Box>
 

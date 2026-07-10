@@ -25,7 +25,8 @@ import {
 } from 'recharts';
 import { fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
-import coreDataDetails from '../CoreDataDetails';
+import SuperadminAPI from '../../service/SuperadminService';
+import coreDataDetails, { applyPlatformConfigToCoreData } from '../CoreDataDetails';
 import getWorkingDaysCount from '../util/GetWorkingDays';
 
 const { colorPalette } = coreDataDetails;
@@ -96,6 +97,17 @@ const fmtDuration = (clockIn, clockOut) => {
     if (!clockOut) return 'System';
     const h = (new Date(clockOut) - new Date(clockIn)) / 3600000;
     return h.toFixed(2);
+};
+const uniqueOptionValues = (values = []) => [...new Set((values || []).map((value) => String(value ?? '').trim()).filter(Boolean))];
+const normalizeStationName = (station) => (typeof station === 'string' ? station : station?.name || '');
+const humanizeOption = (value) => {
+    if (!value) return '—';
+    if (value === 'employee') return 'Staff / Employee';
+    if (value === 'intern') return 'Intern';
+    if (value === 'attachee') return 'Attachee';
+    if (value === 'ceo') return 'Chief Executive Officer';
+    if (value === 'hr') return 'HR Manager';
+    return String(value).replace(/[_-]+/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
 };
 
 /* ── Process raw API response ── */
@@ -1449,13 +1461,14 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
     );
 };
 
-const RecordsTab = ({ stationList, allDeptNames, user }) => {
+const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [filterStation, setFilterStation] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterRole, setFilterRole] = useState('');
+    const [filterRank, setFilterRank] = useState('');
     const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
     const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
     const [search, setSearch] = useState('');
@@ -1487,13 +1500,16 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
             const params = {};
             if (filterStartDate) params.startDate = filterStartDate;
             if (filterEndDate) params.endDate = filterEndDate;
+            if (filterStation) params.station = filterStation;
+            if (filterDept) params.department = filterDept;
             if (filterRole) params.role = filterRole;
+            if (filterRank) params.rank = filterRank;
             const res = await fetchOverallAttendanceRecords(params);
             setRecords(res || []);
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to load records');
         } finally { setLoading(false); }
-    }, [filterStartDate, filterEndDate]);
+    }, [filterStartDate, filterEndDate, filterStation, filterDept, filterRole, filterRank]);
 
     useEffect(() => {
         if (!hasFetched.current) { hasFetched.current = true; loadRecords(); }
@@ -1514,21 +1530,38 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",
         station: toTitleCase(rec.station || '—'),
         department: toTitleCase(rec.department || '—'),
+        rank: rec.rank || '',
+        role: rec.role || '',
         timing: rec.isLate ? 'Late' : 'Early',
     })), [records]);
 
+    const stationOptions = useMemo(() => (
+        platformOptions?.stations?.length ? platformOptions.stations : stationList.map((station) => station.name)
+    ), [platformOptions?.stations, stationList]);
+
     const deptOptions = useMemo(() => {
+        if (platformOptions?.departments?.length) return platformOptions.departments;
         if (!filterStation) return allDeptNames;
         const s = stationList.find(st => st.name === filterStation);
         return (s?.departments || []).map(d => d.name).sort();
-    }, [filterStation, stationList, allDeptNames]);
+    }, [filterStation, stationList, allDeptNames, platformOptions?.departments]);
+
+    const roleOptions = useMemo(() => (
+        platformOptions?.roles?.length ? platformOptions.roles : coreDataDetails.ROLE_OPTIONS
+    ), [platformOptions?.roles]);
+
+    const rankOptions = useMemo(() => (
+        platformOptions?.ranks?.length ? platformOptions.ranks : coreDataDetails.RANK_OPTIONS
+    ), [platformOptions?.ranks]);
 
     const filteredRecords = useMemo(() => processedRecords.filter(row => {
         if (filterStation && String(row.station || '').toLowerCase() !== String(filterStation || '').toLowerCase()) return false;
         if (filterDept && String(row.department || '').toLowerCase() !== String(filterDept || '').toLowerCase()) return false;
-        if (search) { const s = search.toLowerCase(); if (!String(row.name || '').toLowerCase().includes(s) && !String(row.station || '').toLowerCase().includes(s) && !String(row.department || '').toLowerCase().includes(s)) return false; }
+        if (filterRole && String(row.role || '').toLowerCase() !== String(filterRole || '').toLowerCase()) return false;
+        if (filterRank && String(row.rank || '').toLowerCase() !== String(filterRank || '').toLowerCase()) return false;
+        if (search) { const s = search.toLowerCase(); if (!String(row.name || '').toLowerCase().includes(s) && !String(row.userId || '').toLowerCase().includes(s) && !String(row.station || '').toLowerCase().includes(s) && !String(row.department || '').toLowerCase().includes(s)) return false; }
         return true;
-    }), [processedRecords, filterStation, filterDept, search]);
+    }), [processedRecords, filterStation, filterDept, filterRole, filterRank, search]);
 
     const paginatedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -1549,7 +1582,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI — ATTENDANCE RECORDS', pw / 2, 12, { align: 'center' });
         doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL USERS').toUpperCase()} · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL ROLES').toUpperCase()} · ${(filterRank || 'ALL RANKS').toUpperCase()} · ${filterStartDate} · ${filterEndDate}`, pw / 2, 20, { align: 'center' });
         doc.setFontSize(7.5);
         doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ROLE: ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredRecords.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
@@ -1588,14 +1621,14 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                         <Box sx={{ p: 2.5, borderRadius: '16px', background: 'rgba(10,61,98,0.04)', border: '1px solid rgba(10,61,98,0.08)' }}>
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <TextField fullWidth size="small" label="Search name / station / department" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+                                    <TextField fullWidth size="small" label="Search user ID / name / station / department" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
                                         InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: '1rem', color: 'text.disabled' }} /></InputAdornment> }}
                                         sx={G.input} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
                                     <TextField select fullWidth size="small" value={filterStation} onChange={e => { setFilterStation(e.target.value); setFilterDept(''); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Stations' }}>
                                         <MenuItem value=""><em>All Stations</em></MenuItem>
-                                        {stationList.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
+                                        {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                                     </TextField>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -1619,19 +1652,25 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                         SelectProps={{
                                             displayEmpty: true,
                                             renderValue: (selected) =>
-                                                selected || "All Users"
+                                                selected ? humanizeOption(selected) : "All Roles"
                                         }}
                                     >
                                         <MenuItem value="">
-                                            <em>All Users</em>
+                                            <em>All Roles</em>
                                         </MenuItem>
 
-                                        {coreDataDetails.ROLE_OPTIONS.map((role) => (
+                                        {roleOptions.map((role) => (
                                             <MenuItem key={role} value={role}>
-                                                {role === 'employee' ? 'Staff / Employee' : role === 'intern' ? 'Intern' : role === 'attachee' ? 'Attaché' : role}
+                                                {humanizeOption(role)}
                                             </MenuItem>
                                         ))}
 
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField select fullWidth size="small" value={filterRank} onChange={e => { setFilterRank(e.target.value); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected ? humanizeOption(selected) : 'All Ranks' }}>
+                                        <MenuItem value=""><em>All Ranks</em></MenuItem>
+                                        {rankOptions.map(rank => <MenuItem key={rank} value={rank}>{humanizeOption(rank)}</MenuItem>)}
                                     </TextField>
                                 </Grid>
 
@@ -1649,7 +1688,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                     </Button>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); setFilterRole(''); }} disabled={loading}
+                                    <Button fullWidth variant="outlined" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); setPage(0); setFilterRole(''); setFilterRank(''); }} disabled={loading}
                                         sx={{ height: 40, borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: 'rgba(10,61,98,0.22)', color: colorPalette.deepNavy }}>
                                         Clear Filters
                                     </Button>
@@ -1679,7 +1718,7 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
                                             <Stack alignItems="center" spacing={1.5}>
                                                 <Box sx={{ width: 64, height: 64, borderRadius: '20px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History sx={{ fontSize: 34, color: 'rgba(10,61,98,0.25)' }} /></Box>
                                                 <Typography variant="body2" color="text.disabled" fontWeight={600}>{error ? 'Backend route not available' : 'No records match current filters'}</Typography>
-                                                <Button size="small" onClick={() => { setFilterStation(''); setFilterDept(''); setSearch(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button>
+                                                <Button size="small" onClick={() => { setFilterStation(''); setFilterDept(''); setFilterRole(''); setFilterRank(''); setSearch(''); }} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 700, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button>
                                             </Stack>
                                         </TableCell></TableRow>
                                         : paginatedRecords.map((row, idx) => (
@@ -1712,13 +1751,14 @@ const RecordsTab = ({ stationList, allDeptNames, user }) => {
 
 
 // SUMMARY TAB
-const SummaryTab = ({ stationList, allDeptNames, user }) => {
+const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     const [summary, setSummary] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [filterStation, setFilterStation] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterRole, setFilterRole] = useState('');
+    const [filterRank, setFilterRank] = useState('');
     const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
     const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
     const [search, setSearch] = useState('');
@@ -1750,13 +1790,16 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
             const params = {};
             if (filterStartDate) params.startDate = filterStartDate;
             if (filterEndDate) params.endDate = filterEndDate;
+            if (filterStation) params.station = filterStation;
+            if (filterDept) params.department = filterDept;
             if (filterRole) params.role = filterRole;
+            if (filterRank) params.rank = filterRank;
             const res = await fetchOverallAttendanceSummary(params);
             setSummary(res || []);
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to load records. Ensure the /overall/attendance/records backend route is added.');
         } finally { setLoading(false); }
-    }, [filterStartDate, filterEndDate, filterRole]);
+    }, [filterStartDate, filterEndDate, filterStation, filterDept, filterRole, filterRank]);
 
     useEffect(() => {
         if (!hasFetched.current) { hasFetched.current = true; loadSummary(); }
@@ -1792,6 +1835,8 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
             name: toTitleCase(rec.name),
 
             role: toTitleCase(rec.role),
+            rawRole: rec.role || "",
+            rank: rec.rank || "",
 
             station: toTitleCase(rec.station),
 
@@ -1808,15 +1853,27 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
 
         })),
 
-        [summary, workingDays]);
+        [summary, workingDays, totalDays]);
 
 
+    const stationOptions = useMemo(() => (
+        platformOptions?.stations?.length ? platformOptions.stations : stationList.map((station) => station.name)
+    ), [platformOptions?.stations, stationList]);
 
     const deptOptions = useMemo(() => {
+        if (platformOptions?.departments?.length) return platformOptions.departments;
         if (!filterStation) return allDeptNames;
         const s = stationList.find(st => st.name === filterStation);
         return (s?.departments || []).map(d => d.name).sort();
-    }, [filterStation, stationList, allDeptNames]);
+    }, [filterStation, stationList, allDeptNames, platformOptions?.departments]);
+
+    const roleOptions = useMemo(() => (
+        platformOptions?.roles?.length ? platformOptions.roles : coreDataDetails.ROLE_OPTIONS
+    ), [platformOptions?.roles]);
+
+    const rankOptions = useMemo(() => (
+        platformOptions?.ranks?.length ? platformOptions.ranks : coreDataDetails.RANK_OPTIONS
+    ), [platformOptions?.ranks]);
 
 
     const filteredSummary = useMemo(() => processedSummary.filter(row => {
@@ -1837,8 +1894,15 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
 
         if (
             filterRole &&
-            row.role.toLowerCase() !==
+            String(row.rawRole || row.role).toLowerCase() !==
             filterRole.toLowerCase()
+        )
+            return false;
+
+        if (
+            filterRank &&
+            String(row.rank || '').toLowerCase() !==
+            filterRank.toLowerCase()
         )
             return false;
 
@@ -1862,7 +1926,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
 
         return true;
 
-    }), [processedSummary, filterStation, filterDept, filterRole, search]);
+    }), [processedSummary, filterStation, filterDept, filterRole, filterRank, search]);
 
     const paginatedSummary = useMemo(() => {
         return filteredSummary.slice(
@@ -1893,7 +1957,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI ATTENDANCE SUMMARY REPORT', pw / 2, 12, { align: 'center' });
         doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL USERS').toUpperCase()} · ${filterStartDate} to ${filterEndDate}`, pw / 2, 20, { align: 'center' });
+        doc.text(`${(filterStation || 'ALL STATIONS').toUpperCase()} · ${(filterDept || 'ALL DEPARTMENTS').toUpperCase()}  · ${(filterRole || 'ALL ROLES').toUpperCase()} · ${(filterRank || 'ALL RANKS').toUpperCase()} · ${filterStartDate} to ${filterEndDate}`, pw / 2, 20, { align: 'center' });
         doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || 'ADMIN').toUpperCase()} | ${(RANK_LABELS[user?.rank] || 'ADMIN').toUpperCase()} | ${filteredSummary.length} RECORDS`, pw / 2, 28, { align: 'center' });
         autoTable(doc, {
             head: [[
@@ -1959,14 +2023,14 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                         <Box sx={{ p: 2.5, borderRadius: '16px', background: 'rgba(10,61,98,0.04)', border: '1px solid rgba(10,61,98,0.08)' }}>
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <TextField fullWidth size="small" label="Search /employeeid / name / station / department" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+                                    <TextField fullWidth size="small" label="Search user ID / name" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
                                         InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: '1rem', color: 'text.disabled' }} /></InputAdornment> }}
                                         sx={G.input} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
                                     <TextField select fullWidth size="small" value={filterStation} onChange={e => { setFilterStation(e.target.value); setFilterDept(''); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected || 'All Stations' }}>
                                         <MenuItem value=""><em>All Stations</em></MenuItem>
-                                        {stationList.map(s => <MenuItem key={s.name} value={s.name}>{s.name}</MenuItem>)}
+                                        {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                                     </TextField>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -1989,19 +2053,25 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                         SelectProps={{
                                             displayEmpty: true,
                                             renderValue: (selected) =>
-                                                selected || "All Users"
+                                                selected ? humanizeOption(selected) : "All Roles"
                                         }}
                                     >
                                         <MenuItem value="">
-                                            <em>All Users</em>
+                                            <em>All Roles</em>
                                         </MenuItem>
 
-                                        {coreDataDetails.ROLE_OPTIONS.map((role) => (
+                                        {roleOptions.map((role) => (
                                             <MenuItem key={role} value={role}>
-                                                {role === 'employee' ? 'Staff / Employee' : role === 'intern' ? 'Intern' : role === 'attachee' ? 'Attaché' : role}
+                                                {humanizeOption(role)}
                                             </MenuItem>
                                         ))}
 
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <TextField select fullWidth size="small" value={filterRank} onChange={e => { setFilterRank(e.target.value); setPage(0); }} sx={G.input} SelectProps={{ displayEmpty: true, renderValue: selected => selected ? humanizeOption(selected) : 'All Ranks' }}>
+                                        <MenuItem value=""><em>All Ranks</em></MenuItem>
+                                        {rankOptions.map(rank => <MenuItem key={rank} value={rank}>{humanizeOption(rank)}</MenuItem>)}
                                     </TextField>
                                 </Grid>
 
@@ -2026,6 +2096,7 @@ const SummaryTab = ({ stationList, allDeptNames, user }) => {
                                         setFilterDept("");
 
                                         setFilterRole("");
+                                        setFilterRank("");
 
                                         setSearch("");
 
@@ -2669,6 +2740,12 @@ export default function OverallAttendanceStats() {
     const [data, setData] = useState(null);
     const [overviewRecords, setOverviewRecords] = useState([]);
     const [overviewLeaves, setOverviewLeaves] = useState(null);
+    const [platformOptions, setPlatformOptions] = useState(() => ({
+        stations: uniqueOptionValues(coreDataDetails.AvailableStations.map(normalizeStationName)),
+        departments: uniqueOptionValues(coreDataDetails.availableDepartments),
+        roles: uniqueOptionValues(coreDataDetails.ROLE_OPTIONS),
+        ranks: uniqueOptionValues(coreDataDetails.RANK_OPTIONS),
+    }));
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -2680,11 +2757,23 @@ export default function OverallAttendanceStats() {
         try {
             const startDate = dateKey(getPeriodStart(5));
             const endDate = dateKey(new Date());
-            const [statsRes, recordsRes, leavesRes] = await Promise.allSettled([
+            const [statsRes, recordsRes, leavesRes, configRes] = await Promise.allSettled([
                 fetchOverallOrgStats(),
                 fetchOverallAttendanceRecords({ startDate, endDate }),
                 fetchAllLeavesAdmin(),
+                SuperadminAPI.getPlatformConfig(),
             ]);
+
+            if (configRes.status === 'fulfilled') {
+                const config = configRes.value || {};
+                applyPlatformConfigToCoreData(config);
+                setPlatformOptions({
+                    stations: uniqueOptionValues((config.stations || coreDataDetails.AvailableStations).map(normalizeStationName)),
+                    departments: uniqueOptionValues(config.departments || coreDataDetails.availableDepartments),
+                    roles: uniqueOptionValues(config.dropdowns?.roles || coreDataDetails.ROLE_OPTIONS),
+                    ranks: uniqueOptionValues(config.dropdowns?.ranks || coreDataDetails.RANK_OPTIONS),
+                });
+            }
 
             if (statsRes.status === 'fulfilled') {
                 setData(processRawData(statsRes.value));
@@ -2704,7 +2793,7 @@ export default function OverallAttendanceStats() {
     useEffect(() => { loadData(); }, []); // eslint-disable-line
 
     const stationList = data?.stationList || [];
-    const allDeptNames = data?.allDeptNames || [];
+    const allDeptNames = platformOptions.departments.length ? platformOptions.departments : (data?.allDeptNames || []);
 
     return (
         <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', position: 'relative' }}>
@@ -2757,6 +2846,7 @@ export default function OverallAttendanceStats() {
                         <RecordsTab
                             stationList={stationList}
                             allDeptNames={allDeptNames}
+                            platformOptions={platformOptions}
                             user={user}
                         />
                     )}
@@ -2765,6 +2855,7 @@ export default function OverallAttendanceStats() {
                         <SummaryTab
                             stationList={stationList}
                             allDeptNames={allDeptNames}
+                            platformOptions={platformOptions}
                             user={user}
                         />
                     )}
