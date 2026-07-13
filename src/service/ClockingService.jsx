@@ -44,12 +44,21 @@ export const fetchAttendanceStats = async () => {
 };
 
 //for overall org
-export const fetchOverallOrgStats = async () => {
+export const fetchOverallOrgStats = async (params = {}) => {
   try {
-    const res = await api.get("/overall/attendance/stats");
+    const res = await api.get(
+      "/overall/attendance/stats",
+      {
+        params,
+      }
+    );
+
     return res.data;
   } catch (err) {
-    throw err.response?.data?.message || "Failed to fetch statistics";
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch statistics"
+    );
   }
 };
 

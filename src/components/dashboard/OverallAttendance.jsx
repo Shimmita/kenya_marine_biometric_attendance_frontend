@@ -1031,13 +1031,25 @@ const OverviewTab = ({ data, loading, stationList }) => {
     );
 };
 
+
 /* ══════════════════════════════════════════════════════════════════════════
    TAB 1 — RECORDS
 ══════════════════════════════════════════════════════════════════════════ */
-const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, user }) => {
+const ExecutiveOverviewTab = ({
+    data,
+    loading,
+    stationList,
+    records,
+    leaves,
+    user,
+
+    selectedStation,
+    setSelectedStation,
+
+    selectedDept,
+    setSelectedDept,
+}) => {
     const isCEO = user?.rank === 'ceo';
-    const [selectedStation, setSelectedStation] = useState('');
-    const [selectedDept, setSelectedDept] = useState('');
     const [trendView, setTrendView] = useState('daily');
     const [detailDept, setDetailDept] = useState(null);
     const [detailTrend, setDetailTrend] = useState(null);
@@ -1046,11 +1058,10 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
     const headline = analytics.headline;
     const hs = data?.healthSignals;
 
-    const deptOptions = useMemo(() => {
-        if (!selectedStation) return (data?.allDeptNames || []);
-        const station = stationList.find((entry) => entry.name === selectedStation);
-        return (station?.departments || []).map((dept) => dept.name).sort();
-    }, [data, selectedStation, stationList]);
+
+    const stationOptions = data?.filters?.stations || [];
+    const departmentOptions = data?.filters?.departments || [];
+
 
     const visibleDepartments = useMemo(() => analytics.departmentAttendance.filter((dept) => {
         if (selectedDept && dept.name !== selectedDept) return false;
@@ -1166,14 +1177,21 @@ const ExecutiveOverviewTab = ({ data, loading, stationList, records, leaves, use
                                 <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Station</InputLabel>
                                 <Select value={selectedStation} label="Station" onChange={(e) => { setSelectedStation(e.target.value); setSelectedDept(''); }} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
                                     <MenuItem value=""><em>All Stations</em></MenuItem>
-                                    {stationList.map((station) => <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>)}
+                                    {stationOptions.map((station) => (
+                                        <MenuItem
+                                            key={station}
+                                            value={station}
+                                        >
+                                            {station}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                             <FormControl size="small" sx={{ minWidth: 200 }}>
                                 <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Department</InputLabel>
                                 <Select value={selectedDept} label="Department" onChange={(e) => setSelectedDept(e.target.value)} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
                                     <MenuItem value=""><em>All Departments</em></MenuItem>
-                                    {deptOptions.map((dept) => <MenuItem key={dept} value={dept}>{dept}</MenuItem>)}
+                                    {departmentOptions.map((dept) => <MenuItem key={dept} value={dept}>{dept}</MenuItem>)}
                                 </Select>
                             </FormControl>
                             {(selectedStation || selectedDept) && <Button variant="outlined" onClick={() => { setSelectedStation(''); setSelectedDept(''); }} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>Clear</Button>}
@@ -2747,18 +2765,25 @@ export default function OverallAttendanceStats() {
         ranks: uniqueOptionValues(coreDataDetails.RANK_OPTIONS),
     }));
     const [loading, setLoading] = useState(true);
+    const [selectedStation, setSelectedStation] = useState("");
+    const [selectedDepartment, setSelectedDepartment] = useState("");
+
     const [activeTab, setActiveTab] = useState(0);
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
     const notify = (msg, sev = 'success') => setSnack({ open: true, message: msg, severity: sev });
 
-    const loadData = async () => {
+    const loadData = async (station = selectedStation,
+        department = selectedDepartment) => {
         setLoading(true);
         try {
             const startDate = dateKey(getPeriodStart(5));
             const endDate = dateKey(new Date());
             const [statsRes, recordsRes, leavesRes, configRes] = await Promise.allSettled([
-                fetchOverallOrgStats(),
+                fetchOverallOrgStats({
+                    station,
+                    department,
+                }),
                 fetchOverallAttendanceRecords({ startDate, endDate }),
                 fetchAllLeavesAdmin(),
                 SuperadminAPI.getPlatformConfig(),
@@ -2790,7 +2815,9 @@ export default function OverallAttendanceStats() {
         }
     };
 
-    useEffect(() => { loadData(); }, []); // eslint-disable-line
+    useEffect(() => {
+        loadData();
+    }, [selectedStation, selectedDepartment]);
 
     const stationList = data?.stationList || [];
     const allDeptNames = platformOptions.departments.length ? platformOptions.departments : (data?.allDeptNames || []);
@@ -2820,7 +2847,7 @@ export default function OverallAttendanceStats() {
                             sx={{ bgcolor: `${colorPalette.aquaVibrant}12`, color: colorPalette.deepNavy, fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${colorPalette.aquaVibrant}28`, borderRadius: '8px' }} />
                         <Button variant="outlined"
                             startIcon={loading ? <CircularProgress size={13} sx={{ color: colorPalette.deepNavy }} /> : <Refresh sx={{ fontSize: '1rem' }} />}
-                            onClick={loadData} disabled={loading}
+                            onClick={() => loadData()} disabled={loading}
                             sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, fontSize: '0.82rem', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)', borderColor: 'rgba(10,61,98,0.15)', color: colorPalette.deepNavy, '&:hover': { borderColor: colorPalette.oceanBlue, bgcolor: 'rgba(10,61,98,0.06)' } }}>
                             Refresh
                         </Button>
@@ -2830,7 +2857,7 @@ export default function OverallAttendanceStats() {
 
             {/* Tab panels */}
             <AnimatePresence mode="wait">
-                <Motion.div key={activeTab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
+                <Motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
                     {activeTab === 0 && (
                         <ExecutiveOverviewTab
                             data={data}
@@ -2839,6 +2866,12 @@ export default function OverallAttendanceStats() {
                             records={overviewRecords}
                             leaves={overviewLeaves}
                             user={user}
+
+                            selectedStation={selectedStation}
+                            setSelectedStation={setSelectedStation}
+
+                            selectedDept={selectedDepartment}
+                            setSelectedDept={setSelectedDepartment}
                         />
                     )}
 
