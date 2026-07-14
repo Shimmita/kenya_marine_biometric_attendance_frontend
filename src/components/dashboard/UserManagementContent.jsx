@@ -114,10 +114,8 @@ const { availableDepartments, AvailableStations, ROLE_OPTIONS, RANK_OPTIONS } = 
 
 
 
-/* ─────────────────────────────────────────────
-   FILTER / SEARCH BAR
-───────────────────────────────────────────── */
-const FilterBar = ({
+
+export const FilterBar = ({
     searchTerm, setSearchTerm,
     rankFilter, setRankFilter,
     roleFilter, setRoleFilter,
@@ -125,26 +123,47 @@ const FilterBar = ({
     departmentFilter, setDepartmentFilter,
     stationFilter, setStationFilter,
     totalCount, filteredCount,
-    isMobile,
 }) => {
+    const theme = useTheme();
+    const isSmall = useMediaQuery(theme.breakpoints.down('sm'));   // <600px
+    const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600-900px
+
     const hasFilters = searchTerm || rankFilter || roleFilter || statusFilter || departmentFilter;
 
+    // Responsive stat pills – reduce size and text on small screens
+    const statPills = [
+        { label: "Total", value: totalCount, color: C.cyanFresh },
+        { label: "Shown", value: filteredCount, color: C.seafoamGreen },
+    ];
+
     return (
-        <Box sx={{ ...glassCard(true), p: { xs: 2, md: 2.5 } }}>
-            {/* Header */}
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+        <Box sx={{ ...glassCard(true), p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+            {/* Header: title + stat pills */}
+            <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                justifyContent="space-between"
+                spacing={{ xs: 1.5, sm: 0 }}
+                mb={2}
+            >
+                {/* Left: Icon + title + count message */}
                 <Stack direction="row" spacing={1.5} alignItems="center">
                     <SupervisorAccountRounded />
-                    <Box ml={2}>
+                    <Box>
                         <Typography sx={{
-                            fontWeight: 800, fontSize: "0.95rem",
+                            fontWeight: 800,
+                            fontSize: { xs: '0.85rem', sm: '0.95rem' },
                             color: C.textPrimary,
                             fontFamily: "'Exo 2', sans-serif",
                             lineHeight: 1.25,
                         }}>
                             User Management
                         </Typography>
-                        <Typography sx={{ fontSize: "0.72rem", color: C.textSecondary, fontWeight: 'bold' }}>
+                        <Typography sx={{
+                            fontSize: { xs: '0.65rem', sm: '0.72rem' },
+                            color: C.textSecondary,
+                            fontWeight: 'bold',
+                        }}>
                             Showing{" "}
                             <Box component="span" sx={{ color: C.softGray, fontWeight: 800 }}>
                                 {filteredCount}
@@ -154,24 +173,39 @@ const FilterBar = ({
                     </Box>
                 </Stack>
 
-                {/* Stat pills */}
-                <Stack direction="row" spacing={1}>
-                    {[
-                        { label: "Total", value: totalCount, color: C.cyanFresh },
-                        { label: "Shown", value: filteredCount, color: C.seafoamGreen },
-                    ].map(({ label, value, color }) => (
+                {/* Right: Stat pills */}
+                <Stack
+                    direction="row"
+                    spacing={{ xs: 0.5, sm: 1 }}
+                    sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
+                >
+                    {statPills.map(({ label, value, color }) => (
                         <Box key={label} sx={{
-                            px: 1.3, py: 0.5,
+                            px: { xs: 1, sm: 1.3 },
+                            py: { xs: 0.3, sm: 0.5 },
                             borderRadius: "8px",
                             background: `${color}14`,
                             border: `1px solid ${color}38`,
                             textAlign: "center",
-                            minWidth: 46,
+                            flex: { xs: 1, sm: '0 1 auto' },
+                            minWidth: { xs: 40, sm: 46 },
                         }}>
-                            <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: C.cloudWhite, lineHeight: 1, fontFamily: "'Exo 2', sans-serif" }}>
+                            <Typography sx={{
+                                fontSize: { xs: '0.9rem', sm: '1rem' },
+                                fontWeight: 900,
+                                color: C.cloudWhite,
+                                lineHeight: 1,
+                                fontFamily: "'Exo 2', sans-serif",
+                            }}>
                                 {value}
                             </Typography>
-                            <Typography sx={{ fontSize: "0.57rem", fontWeight: 'bold', color: C.softGray, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            <Typography sx={{
+                                fontSize: { xs: '0.5rem', sm: '0.57rem' },
+                                fontWeight: 'bold',
+                                color: C.softGray,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                            }}>
                                 {label}
                             </Typography>
                         </Box>
@@ -179,16 +213,16 @@ const FilterBar = ({
                 </Stack>
             </Stack>
 
-            {/* Filters row */}
+            {/* Filters row – wraps naturally, becomes column on very small screens */}
             <Stack
-                direction={isMobile ? "column" : "row"}
-                spacing={1.5}
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 1, sm: 1.5 }}
                 flexWrap="wrap"
                 useFlexGap
-                alignItems={isMobile ? "stretch" : "flex-end"}
+                alignItems={{ xs: 'stretch', sm: 'flex-end' }}
             >
                 {/* Search */}
-                <Box sx={{ flex: "1 1 200px", minWidth: 160 }}>
+                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 200px' }, minWidth: { xs: '100%', sm: 160 } }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Search</Typography>
                     <TextField
                         size="small"
@@ -199,8 +233,7 @@ const FilterBar = ({
                         sx={{
                             "& .MuiOutlinedInput-root": {
                                 color: C.textPrimary,
-                                willChange: 'transform',
-                                fontSize: "0.83rem",
+                                fontSize: { xs: '0.75rem', sm: '0.83rem' },
                                 borderRadius: "10px",
                                 background: "rgba(0,91,150,0.32)",
                                 "& fieldset": { borderColor: "rgba(0,229,255,0.22)" },
@@ -213,7 +246,7 @@ const FilterBar = ({
                 </Box>
 
                 {/* Rank */}
-                <Box sx={{ minWidth: 128 }}>
+                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 128px' }, minWidth: { xs: '48%', sm: 128 } }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Rank</Typography>
                     <FormControl size="small" fullWidth>
                         <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
@@ -224,7 +257,7 @@ const FilterBar = ({
                 </Box>
 
                 {/* Role */}
-                <Box sx={{ minWidth: 148 }}>
+                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 148px' }, minWidth: { xs: '48%', sm: 148 } }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Role</Typography>
                     <FormControl size="small" fullWidth>
                         <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
@@ -235,7 +268,7 @@ const FilterBar = ({
                 </Box>
 
                 {/* Status */}
-                <Box sx={{ minWidth: 128 }}>
+                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 128px' }, minWidth: { xs: '48%', sm: 128 } }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Status</Typography>
                     <FormControl size="small" fullWidth>
                         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
@@ -248,7 +281,7 @@ const FilterBar = ({
                 </Box>
 
                 {/* Department */}
-                <Box sx={{ minWidth: 150 }}>
+                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
                     <Typography variant="caption" ml={2} color={C.softGray}>Department</Typography>
                     <FormControl size="small" fullWidth>
                         <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
@@ -258,31 +291,44 @@ const FilterBar = ({
                     </FormControl>
                 </Box>
 
-                {/* station */}
-                {/*  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>station</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-                            {AvailableStations.map((d) => <MenuItem key={d.name} value={d}>{d.name}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Box> */}
+                {/* (Optional) Station – uncomment if needed */}
+                {/* <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
+          <Typography variant="caption" ml={2} color={C.softGray}>Station</Typography>
+          <FormControl size="small" fullWidth>
+            <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
+              <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+              {AvailableStations.map((d) => <MenuItem key={d.name} value={d}>{d.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box> */}
 
-                {/* Clear */}
-                <Box sx={{ minWidth: 82 }}>
+                {/* Clear button – stays at the end, full width on small screens */}
+                <Box sx={{
+                    flex: { xs: '1 1 100%', sm: '0 0 auto' },
+                    minWidth: { xs: '100%', sm: 82 },
+                    mt: { xs: 0.5, sm: 0 },
+                }}>
                     <Button
                         size="small"
                         variant="outlined"
                         disabled={!hasFilters}
-                        onClick={() => { setSearchTerm(""); setRankFilter(""); setRoleFilter(""); setStatusFilter(""); setDepartmentFilter(""); }}
+                        onClick={() => {
+                            setSearchTerm("");
+                            setRankFilter("");
+                            setRoleFilter("");
+                            setStatusFilter("");
+                            setDepartmentFilter("");
+                            // also reset stationFilter if used
+                            // setStationFilter("");
+                        }}
                         sx={{
                             height: 36,
+                            width: { xs: '100%', sm: 'auto' },
                             px: 2,
                             borderRadius: "10px",
                             fontWeight: 700,
                             fontFamily: "'Exo 2', sans-serif",
-                            fontSize: "0.72rem",
+                            fontSize: { xs: '0.7rem', sm: '0.72rem' },
                             letterSpacing: "0.05em",
                             textTransform: "uppercase",
                             borderColor: hasFilters ? C.aquaVibrant : "rgba(0,229,255,0.18)",

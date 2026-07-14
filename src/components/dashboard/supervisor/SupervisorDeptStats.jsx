@@ -1,14 +1,13 @@
-import { CheckCircle, Download, LocationOn } from "@mui/icons-material";
+import { Download, LocationOn } from "@mui/icons-material";
 import {
   Box,
   Button,
   Card,
-  CardContent,
   Chip,
   CircularProgress,
   Grid,
   MenuItem,
-  Paper,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -34,7 +33,6 @@ import {
 import { fetchDepartmentStats, fetchOverallAttendanceRecords } from "../../../service/ClockingService";
 import { createVerification } from "../../../service/VerificationService";
 import coreDataDetails from "../../CoreDataDetails";
-import StatChip from "../../util/StatChip";
 
 const { colorPalette } = coreDataDetails;
 
@@ -78,6 +76,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+// ─── Reusable chart card ──────────────────────────────
 const ChartCard = ({ title, icon, children, sx = {} }) => (
   <Card
     elevation={0}
@@ -91,13 +90,7 @@ const ChartCard = ({ title, icon, children, sx = {} }) => (
     <Box sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
       <Box display="flex" alignItems="center" gap={1}>
         <Typography sx={{ fontSize: 18 }}>{icon}</Typography>
-        <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: 15,
-            color: T.deepNavy,
-          }}
-        >
+        <Typography sx={{ fontWeight: 700, fontSize: 15, color: T.deepNavy }}>
           {title}
         </Typography>
       </Box>
@@ -108,6 +101,7 @@ const ChartCard = ({ title, icon, children, sx = {} }) => (
   </Card>
 );
 
+// ─── Main component ────────────────────────────────────
 const SupervisorDeptStats = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +117,11 @@ const SupervisorDeptStats = () => {
   const [recPage, setRecPage] = useState(0);
   const [recRowsPerPage, setRecRowsPerPage] = useState(10);
   const [recSearch, setRecSearch] = useState('');
+  const [recRoleFilter, setRecRoleFilter] = useState(''); // '' = All
+  const [recStartDate, setRecStartDate] = useState('');
+  const [recEndDate, setRecEndDate] = useState('');
 
+  // ─── data fetching ────────────────────────────────────
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -139,6 +137,46 @@ const SupervisorDeptStats = () => {
     loadStats();
   }, []);
 
+  // Fetch clocking records – enriched with role from employee metrics
+  useEffect(() => {
+    const loadRecords = async () => {
+      if (!stats) return;
+      try {
+        setRecordsLoading(true);
+        const params = {};
+        if (stats.station) params.station = stats.station;
+        if (stats.department) params.department = stats.department;
+        const recs = await fetchOverallAttendanceRecords(params);
+        // Build a map email -> role from employeeMetrics
+        const roleMap = {};
+        (stats.employeeMetrics || []).forEach(emp => {
+          if (emp.email) roleMap[emp.email] = emp.role || 'employee';
+        });
+        const enriched = (recs || []).map(r => {
+          const email = r.email || '';
+          const role = roleMap[email] || 'employee';
+          return {
+            email,
+            role,
+            name: toTitleCase(r.name || r.email || '—'),
+            date: new Date(r.clock_in).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }),
+            dateObj: new Date(r.clock_in), // for date filtering
+            clockIn: new Date(r.clock_in).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
+            clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : 'System',
+            inLocation: formatLocationLabel(r, true),
+            outLocation: formatLocationLabel(r, false),
+            whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : "",
+          };
+        });
+        setDeptRecords(enriched);
+      } catch (err) {
+        console.error('Failed to load department records', err);
+      } finally { setRecordsLoading(false); }
+    };
+    loadRecords();
+  }, [stats]);
+
+  // ─── helpers ──────────────────────────────────────────
   const toTitleCase = (value) => {
     if (value == null || value === '') return '—';
     return String(value).trim().toLowerCase().replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
@@ -156,6 +194,7 @@ const SupervisorDeptStats = () => {
 
   const normalizeExportValue = (value) => (value == null || value === '' ? '—' : String(value));
 
+  // ─── derived data ─────────────────────────────────────
   const employees = useMemo(() => stats?.employeeMetrics || [], [stats?.employeeMetrics]);
   const topPerformers = useMemo(() => stats?.topPerformers || [], [stats?.topPerformers]);
 
@@ -182,45 +221,88 @@ const SupervisorDeptStats = () => {
     return sorted;
   }, [employees, searchTerm, sortBy]);
 
-  useEffect(() => {
-    const loadRecords = async () => {
-      if (!stats) return;
-      try {
-        setRecordsLoading(true);
-        const params = {};
-        if (stats.station) params.station = stats.station;
-        if (stats.department) params.department = stats.department;
-        const recs = await fetchOverallAttendanceRecords(params);
-        setDeptRecords((recs || []).map(r => ({
-          name: toTitleCase(r.name || r.email || '—'),
-          date: new Date(r.clock_in).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }),
-          clockIn: new Date(r.clock_in).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
-          clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : 'System',
-          inLocation: formatLocationLabel(r, true),
-          outLocation: formatLocationLabel(r, false),
-          whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : "",
-        })));
-      } catch (err) {
-        console.error('Failed to load department records', err);
-      } finally { setRecordsLoading(false); }
-    };
-    loadRecords();
-  }, [stats]);
+  const outsideClockingData = useMemo(() =>
+    employees
+      .filter((e) => e.outsideClockingCount > 0 || e.canClockOutside)
+      .map((e) => ({
+        name: (e.name || "Unknown").split(" ")[0],
+        Outside: e.outsideClockingCount || 0,
+      })),
+    [employees]
+  );
 
+  const burnoutCounts = stats?.burnoutCounts || {
+    Low: employees.filter(e => e.burnoutLevel === 'Low').length,
+    Moderate: employees.filter(e => e.burnoutLevel === 'Moderate').length,
+    High: employees.filter(e => e.burnoutLevel === 'High').length,
+  };
+
+  // Role breakdown for banner
+  const roleCounts = useMemo(() => {
+    const counts = { employee: 0, intern: 0, attachee: 0 };
+    employees.forEach(e => {
+      const role = e.role || 'employee';
+      if (counts.hasOwnProperty(role)) counts[role]++;
+    });
+    return counts;
+  }, [employees]);
+
+  // ─── pagination ────────────────────────────────────────
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  const handleRecChangePage = (event, newPage) => setRecPage(newPage);
+  const handleRecChangeRowsPerPage = (event) => {
+    setRecRowsPerPage(parseInt(event.target.value, 10));
+    setRecPage(0);
+  };
+
+  // Filter clocking records: search, role, date range
+  const filteredDeptRecords = useMemo(() => {
+    let filtered = [...deptRecords];
+    // Search
+    if (recSearch) {
+      const s = recSearch.toLowerCase();
+      filtered = filtered.filter(r =>
+        String(r.name || '').toLowerCase().includes(s) ||
+        String(r.inLocation || '').toLowerCase().includes(s) ||
+        String(r.outLocation || '').toLowerCase().includes(s) ||
+        String(r.whyOut || '').toLowerCase().includes(s) ||
+        String(r.date || '').toLowerCase().includes(s)
+      );
+    }
+    // Role filter
+    if (recRoleFilter) {
+      filtered = filtered.filter(r => r.role === recRoleFilter);
+    }
+    // Date range filter
+    if (recStartDate) {
+      const start = new Date(recStartDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(r => r.dateObj >= start);
+    }
+    if (recEndDate) {
+      const end = new Date(recEndDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(r => r.dateObj <= end);
+    }
+    return filtered;
+  }, [deptRecords, recSearch, recRoleFilter, recStartDate, recEndDate]);
+
+  const paginatedDeptRecords = filteredDeptRecords.slice(recPage * recRowsPerPage, recPage * recRowsPerPage + recRowsPerPage);
+  const paginatedEmployees = sortedEmployees.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  // ─── export functions ─────────────────────────────────
   const handleExportClockingPDF = async () => {
-    if (!deptRecords || !stats) return;
+    if (!filteredDeptRecords || !stats) return;
     setRecordsExporting(true);
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
 
-      const exportList = recSearch ? deptRecords.filter(r => (
-        String(r.name || '').toLowerCase().includes(recSearch.toLowerCase()) ||
-        String(r.inLocation || '').toLowerCase().includes(recSearch.toLowerCase()) ||
-        String(r.outLocation || '').toLowerCase().includes(recSearch.toLowerCase()) ||
-        String(r.whyOut || '').toLowerCase().includes(recSearch.toLowerCase()) ||
-        String(r.date || '').toLowerCase().includes(recSearch.toLowerCase())
-      )) : deptRecords;
+      const exportList = filteredDeptRecords;
 
       const { token, dataHash } = await createVerification(exportList);
       const verifyUrl = `${window.location.origin}/verify/${token}?hash=${encodeURIComponent(dataHash)}`;
@@ -240,10 +322,15 @@ const SupervisorDeptStats = () => {
       doc.addImage(qrImage, 'PNG', pw - qrSize - 12, 6, qrSize, qrSize, undefined, 'FAST');
 
       autoTable(doc, {
-        head: [['NAME', 'DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
+        head: [['NAME', 'ROLE', 'DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
         body: exportList.map(r => [
-          normalizeExportValue(r.name), normalizeExportValue(r.date), normalizeExportValue(r.clockIn),
-          normalizeExportValue(r.clockOut), normalizeExportValue(r.inLocation), normalizeExportValue(r.outLocation),
+          normalizeExportValue(r.name),
+          normalizeExportValue(r.role),
+          normalizeExportValue(r.date),
+          normalizeExportValue(r.clockIn),
+          normalizeExportValue(r.clockOut),
+          normalizeExportValue(r.inLocation),
+          normalizeExportValue(r.outLocation),
           normalizeExportValue(r.whyOut),
         ]),
         startY: 42,
@@ -347,48 +434,7 @@ const SupervisorDeptStats = () => {
     }
   };
 
-  const handleChangePage = (event, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-  const handleRecChangePage = (event, newPage) => setRecPage(newPage);
-  const handleRecChangeRowsPerPage = (event) => {
-    setRecRowsPerPage(parseInt(event.target.value, 10));
-    setRecPage(0);
-  };
-
-  const filteredDeptRecords = !recSearch
-    ? deptRecords
-    : deptRecords.filter(r => {
-        const s = recSearch.toLowerCase();
-        return (
-          String(r.name || '').toLowerCase().includes(s) ||
-          String(r.inLocation || '').toLowerCase().includes(s) ||
-          String(r.outLocation || '').toLowerCase().includes(s) ||
-          String(r.whyOut || '').toLowerCase().includes(s) ||
-          String(r.date || '').toLowerCase().includes(s)
-        );
-      });
-
-  const paginatedDeptRecords = filteredDeptRecords.slice(recPage * recRowsPerPage, recPage * recRowsPerPage + recRowsPerPage);
-  const paginatedEmployees = sortedEmployees.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-  // Outside clocking data for chart
-  const outsideClockingData = employees
-    .filter((e) => e.outsideClockingCount > 0 || e.canClockOutside)
-    .map((e) => ({
-      name: (e.name || "Unknown").split(" ")[0],
-      Outside: e.outsideClockingCount || 0,
-    }));
-
-  // Burnout counts (if not in stats, compute from employees)
-  const burnoutCounts = stats?.burnoutCounts || {
-    Low: employees.filter(e => e.burnoutLevel === 'Low').length,
-    Moderate: employees.filter(e => e.burnoutLevel === 'Moderate').length,
-    High: employees.filter(e => e.burnoutLevel === 'High').length,
-  };
-
+  // ─── loading & error states ──────────────────────────
   if (loading)
     return (
       <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={2}>
@@ -404,47 +450,37 @@ const SupervisorDeptStats = () => {
       </Box>
     );
 
-  const activeCoverage = stats?.totalStaff
-    ? (((stats.activeStaffThisMonth || 0) / stats.totalStaff) * 100).toFixed(1)
-    : "0.0";
-  const outsideUsageRate = stats?.totalStaff
-    ? (((stats.outsideClockingStaffCount || 0) / stats.totalStaff) * 100).toFixed(1)
-    : "0.0";
-
-  // Metrics for header chips
-  const headerMetrics = [
+  // ─── KPI data for banner ──────────────────────────────
+  const kpiItems = [
     { label: "Total Staff", value: stats.totalStaff, icon: "👥" },
     { label: "Active Staff", value: stats.activeStaffThisMonth || 0, icon: "📌" },
     { label: "Hours Worked", value: stats.totalHours, icon: "⏱" },
     { label: "Clocked In Now", value: stats.clockedInNow || 0, icon: "🟢" },
     { label: "Outside Clockings", value: stats.outsideClockingCount || 0, icon: "📍" },
     { label: "High Burnout", value: burnoutCounts.High || 0, icon: "🔴" },
+    { label: "On Leave", value: stats.onLeaveCount || 0, icon: "🏖️" },
+    { label: "Outside Authorized", value: stats.outsideAuthorizedCount || 0, icon: "✅" },
   ];
 
+  // ─── render ────────────────────────────────────────────
   return (
     <Box sx={{ background: T.cloudWhite, minHeight: "100vh", pb: 6 }}>
-      {/* ════ HERO HEADER ════ */}
+
+      {/* ── BANNER with KPI chips ── */}
       <Box
         sx={{
           background: colorPalette.oceanGradient,
           borderRadius: 2,
           px: { xs: 2.5, md: 4 },
-          pt: 4,
-          pb: 3,
+          pt: 3,
+          pb: 2,
           color: T.white,
         }}
       >
-        {/* Row 1: Department, Station, Total Staff, Month */}
-        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2.5 }}>
-          <Grid item xs={12} md={7}>
-            <Typography
-              sx={{
-                fontWeight: 800,
-                fontSize: { xs: 22, md: 28 },
-                color: T.white,
-                mb: 0.5,
-              }}
-            >
+        {/* Department, Station, Total, Month */}
+        <Grid container alignItems="center" spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={6}>
+            <Typography sx={{ fontWeight: 800, fontSize: { xs: 22, md: 28 }, mb: 0.5 }}>
               {stats.department}
             </Typography>
             <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
@@ -459,256 +495,120 @@ const SupervisorDeptStats = () => {
               <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.85)" }}>
                 {stats.totalStaff} Members
               </Typography>
+              {/* Role breakdown chips */}
+              {Object.entries(roleCounts).map(([role, count]) => (
+                <Chip
+                  key={role}
+                  label={`${role}: ${count}`}
+                  size="small"
+                  sx={{ background: "rgba(255,255,255,0.12)", color: T.white, fontWeight: 600, fontSize: 11 }}
+                />
+              ))}
             </Box>
           </Grid>
-          <Grid
-            item
-            xs={12}
-            md={5}
-            display="flex"
-            gap={1.5}
-            justifyContent={{ xs: "flex-start", md: "flex-end" }}
-          >
+          <Grid item xs={12} md={6} sx={{ textAlign: { xs: "left", md: "right" } }}>
             <Chip
               label={new Date().toLocaleDateString("en-KE", { month: "short", year: "numeric" })}
               size="small"
-              sx={{
-                background: "rgba(255,255,255,0.15)",
-                color: T.white,
-                fontWeight: 600,
-                fontSize: 12,
-              }}
+              sx={{ background: "rgba(255,255,255,0.15)", color: T.white, fontWeight: 600 }}
             />
           </Grid>
         </Grid>
 
-        {/* Row 2: Compact metric chips */}
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          {headerMetrics.map((metric) => (
-            <Grid item xs={4} sm={2} key={metric.label}>
-              <Box
-                sx={{
-                  background: "rgba(255,255,255,0.12)",
-                  borderRadius: "10px",
-                  p: "6px 12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  backdropFilter: "blur(2px)",
-                  transition: "all 0.2s",
-                  "&:hover": { background: "rgba(255,255,255,0.22)" },
-                }}
-              >
-                <Typography sx={{ fontSize: 18, lineHeight: 1 }}>{metric.icon}</Typography>
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: T.white,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {metric.value}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 8,
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.7)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.3px",
-                    }}
-                  >
-                    {metric.label}
-                  </Typography>
-                </Box>
+        {/* KPI chips row */}
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, justifyContent: "flex-start" }}>
+          {kpiItems.map((kpi) => (
+            <Box
+              key={kpi.label}
+              sx={{
+                background: "rgba(255,255,255,0.12)",
+                borderRadius: "8px",
+                px: 1.5,
+                py: 0.8,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.8,
+                backdropFilter: "blur(2px)",
+                transition: "all 0.2s",
+                "&:hover": { background: "rgba(255,255,255,0.22)" },
+              }}
+            >
+              <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{kpi.icon}</Typography>
+              <Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: T.white, lineHeight: 1.2 }}>
+                  {kpi.value}
+                </Typography>
+                <Typography sx={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                  {kpi.label}
+                </Typography>
               </Box>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Row 3: Average timings + Today's snapshot */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Box display="flex" gap={3} flexWrap="wrap">
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)" }}>
-                ⏱️ Avg Clock‑In: {stats.avgClockIn || "—"}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)" }}>
-                🕒 Avg Clock‑Out: {stats.avgClockOut || "—"}
-              </Typography>
             </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} textAlign={{ xs: "left", sm: "right" }}>
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)", fontWeight: 'bold' }}>
-              📅 Today: {stats.today?.clockIns || 0} clock‑ins, &nbsp;
-              {stats.today?.present || 0} present
-            </Typography>
-          </Grid>
-        </Grid>
+          ))}
+        </Box>
       </Box>
 
-      {/* ════ PAGE CONTENT (now leaner) ════ */}
-      <Box px={{ xs: 2.5, md: 4 }} mt={3.5}>
-        {/* ── TOP PERFORMERS ── */}
-        <Box mb={3}>
-          <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy, mb: 2 }}>
-            🏆 Top {topPerformers?.length} Performers
-          </Typography>
-          <Grid container spacing={2.5}>
-            {topPerformers.map((emp, index) => {
-              const medals = ["🥇", "🥈", "🥉", "🏅"];
-              return (
-                <Grid item xs={12} md={4} key={emp.email}>
-                  <Card
-                    elevation={0}
-                    sx={{
-                      border: `1.5px solid ${index === 0 ? T.warmSand + "60" : T.softGray}`,
-                      borderRadius: "12px",
-                      background: index === 0 ? "#FFFBEF" : T.white,
-                      transition: "all .2s",
-                      "&:hover": { transform: "translateY(-2px)", boxShadow: `0 8px 24px rgba(0,91,150,0.12)` },
-                    }}
-                  >
-                    <CardContent sx={{ p: "18px" }}>
-                      <Box display="flex" alignItems="center" gap={1.2} mb={1.5}>
-                        <Typography sx={{ fontSize: 28 }}>{medals[index]}</Typography>
-                        <Box>
-                          <Typography sx={{ fontWeight: 700, fontSize: 14, color: T.deepNavy }}>
-                            {emp.name}
-                          </Typography>
-                          <Typography sx={{ fontSize: 12, color: T.charcoal, opacity: 0.7 }}>
-                            {emp.station}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        </Box>
+      {/* ── Main content ── */}
+      <Box px={{ xs: 2.5, md: 4 }} mt={4}>
 
-        {/* ── EMPLOYEE PERFORMANCE TABLE ── */}
-        <Box mb={4}>
-          <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
-            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
-                  📋 Employee Performance Records
-                </Typography>
-                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
-                  <TextField
-                    size="small"
-                    placeholder="Search by name, email, or station..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{ width: { xs: "100%", sm: "200px" }, "& .MuiOutlinedInput-root": { borderRadius: "8px" } }}
-                  />
-                  <TextField
-                    size="small"
-                    select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    sx={{ width: "120px", "& .MuiOutlinedInput-root": { borderRadius: "8px" } }}
-                  >
-                    <MenuItem value="score">Sort by Score</MenuItem>
-                    <MenuItem value="hours">Sort by Hours</MenuItem>
-                    <MenuItem value="late">Sort by Late</MenuItem>
-                    <MenuItem value="outside">Sort by Outside</MenuItem>
-                    <MenuItem value="open">Sort by Open</MenuItem>
-                  </TextField>
-                  <Button
-                    variant="contained"
-                    onClick={handleExportPDF}
-                    disabled={exporting}
-                    startIcon={<Download />}
-                    sx={{
-                      background: colorPalette.oceanGradient,
-                      color: T.white,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      textTransform: "none",
-                      borderRadius: "10px",
-                      px: 3.5,
-                      py: 1.2,
-                      boxShadow: `0 4px 16px rgba(10,61,98,0.25)`,
-                      "&:hover": { boxShadow: `0 6px 24px rgba(10,61,98,0.35)` },
-                      "&:disabled": { opacity: 0.6 },
-                    }}
-                  >
-                    {exporting ? "Generating…" : "Export Report"}
-                  </Button>
-                </Box>
-              </Box>
-            </Box>
-            <TableContainer sx={{ maxHeight: "600px", overflowY: "auto" }}>
-              <Table stickyHeader>
-                <TableHead sx={{ background: T.softGray }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Station</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Hours</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Overtime</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Attendance</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Present</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Outside</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Open</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedEmployees.map((emp, idx) => (
-                    <TableRow
-                      key={emp.email}
-                      sx={{
-                        background: idx % 2 === 0 ? T.white : T.cloudWhite,
-                        "&:hover": { background: T.softGray + "50" },
-                      }}
-                    >
-                      <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 600 }}>{emp.name}</TableCell>
-                      <TableCell sx={{ fontSize: 13, color: T.charcoal, opacity: 0.8 }}>{emp.station}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: 13, color: T.charcoal }}>{emp.hours}h</TableCell>
-                      <TableCell align="right" sx={{ fontSize: 13, color: T.coralSunset, fontWeight: 600 }}>{emp.overtime}h</TableCell>
-                      <TableCell align="right" sx={{ fontSize: 13, color: T.oceanBlue, fontWeight: 600 }}>{emp.attendanceRate}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: 13, color: T.seafoamGreen, fontWeight: 600 }}>{emp.presentCount || 0}</TableCell>
-                      <TableCell align="center" sx={{ fontSize: 13, color: (emp.outsideClockingCount || 0) > 0 ? T.oceanBlue : T.charcoal, fontWeight: 700 }}>
-                        {emp.outsideClockingCount || 0}
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontSize: 13, color: (emp.openSessions || 0) > 0 ? T.seafoamGreen : T.charcoal, fontWeight: 700 }}>
-                        {emp.openSessions || 0}
-                      </TableCell>
+        {/* ─── Top Performers Table ─── */}
+        {topPerformers.length > 0 && (
+          <Box mb={4}>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy, mb: 2 }}>
+              🏆 Top {topPerformers.length} Performers
+            </Typography>
+            <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
+              <TableContainer>
+                <Table>
+                  <TableHead sx={{ background: T.softGray }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, color: T.deepNavy }}>#</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: T.deepNavy }}>Name</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: T.deepNavy }}>Station</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy }}>Hours</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy }}>Overtime</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy }}>Attendance</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: T.deepNavy }}>Score</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: T.deepNavy }}>Burnout</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 50, 100]}
-              component="div"
-              count={sortedEmployees.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{
-                borderBottom: 'none',
-                background: T.cloudWhite,
-                '.MuiTablePagination-toolbar': { minHeight: '48px' },
-                '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': { fontSize: '0.75rem', color: T.charcoal },
-              }}
-            />
-          </Card>
-        </Box>
+                  </TableHead>
+                  <TableBody>
+                    {topPerformers.map((emp, idx) => (
+                      <TableRow key={emp.email} sx={{ background: idx % 2 === 0 ? T.white : T.cloudWhite }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{idx + 1}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: T.deepNavy }}>{emp.name}</TableCell>
+                        <TableCell>{emp.station}</TableCell>
+                        <TableCell align="right">{emp.hours}h</TableCell>
+                        <TableCell align="right" sx={{ color: T.coralSunset }}>{emp.overtime}h</TableCell>
+                        <TableCell align="right" sx={{ color: T.oceanBlue }}>{emp.attendanceRate}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{emp.productivityScore?.toFixed(1)}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={emp.burnoutLevel}
+                            size="small"
+                            sx={{
+                              background: emp.burnoutLevel === 'High' ? T.coralSunset + '30' : emp.burnoutLevel === 'Moderate' ? T.warmSand + '30' : T.seafoamGreen + '30',
+                              color: emp.burnoutLevel === 'High' ? T.coralSunset : emp.burnoutLevel === 'Moderate' ? T.warmSand : T.seafoamGreen,
+                              fontWeight: 700,
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+          </Box>
+        )}
 
-        {/* ── DEPARTMENT CLOCKING RECORDS ── */}
+
+        {/* ─── Clocking Records Table with filters ─── */}
         <Box mb={4}>
           <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
             <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
               <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
                 <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
-                  📋 Department Clocking Records
+                  📋 Clocking Records
                 </Typography>
                 <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
                   <TextField
@@ -716,7 +616,37 @@ const SupervisorDeptStats = () => {
                     placeholder="Search name or location..."
                     value={recSearch}
                     onChange={e => { setRecSearch(e.target.value); setRecPage(0); }}
-                    sx={{ minWidth: 220 }}
+                    sx={{ minWidth: 180 }}
+                  />
+                  <Select
+                    size="small"
+                    value={recRoleFilter}
+                    onChange={e => { setRecRoleFilter(e.target.value); setRecPage(0); }}
+                    displayEmpty
+                    sx={{ minWidth: 120, background: T.white, borderRadius: "8px" }}
+                  >
+                    <MenuItem value="">All Roles</MenuItem>
+                    <MenuItem value="employee">Employee</MenuItem>
+                    <MenuItem value="intern">Intern</MenuItem>
+                    <MenuItem value="attachee">Attachee</MenuItem>
+                  </Select>
+                  <TextField
+                    size="small"
+                    type="date"
+                    label="Start Date"
+                    value={recStartDate}
+                    onChange={e => { setRecStartDate(e.target.value); setRecPage(0); }}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 150 }}
+                  />
+                  <TextField
+                    size="small"
+                    type="date"
+                    label="End Date"
+                    value={recEndDate}
+                    onChange={e => { setRecEndDate(e.target.value); setRecPage(0); }}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 150 }}
                   />
                   <Button
                     variant="contained"
@@ -744,6 +674,7 @@ const SupervisorDeptStats = () => {
                 <TableHead sx={{ background: T.softGray }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Role</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Date</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Clock In</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: T.deepNavy, background: T.softGray }}>Clock Out</TableCell>
@@ -755,14 +686,15 @@ const SupervisorDeptStats = () => {
                 <TableBody>
                   {recordsLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
-                      <TableRow key={i}>{Array.from({ length: 7 }).map((__, j) => <TableCell key={j}><CircularProgress size={18} /></TableCell>)}</TableRow>
+                      <TableRow key={i}>{Array.from({ length: 8 }).map((__, j) => <TableCell key={j}><CircularProgress size={18} /></TableCell>)}</TableRow>
                     ))
                   ) : paginatedDeptRecords.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>No records available</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6 }}>No records match filters</TableCell></TableRow>
                   ) : (
                     paginatedDeptRecords.map((r, idx) => (
                       <TableRow key={idx} sx={{ background: idx % 2 === 0 ? T.white : T.cloudWhite }}>
                         <TableCell sx={{ fontSize: 13, color: T.deepNavy, fontWeight: 700 }}>{r.name}</TableCell>
+                        <TableCell sx={{ fontSize: 13, color: T.charcoal }}>{r.role}</TableCell>
                         <TableCell sx={{ fontSize: 13, color: T.deepNavy }}>{r.date}</TableCell>
                         <TableCell sx={{ fontSize: 13, color: T.charcoal }}>{r.clockIn}</TableCell>
                         <TableCell sx={{ fontSize: 13, color: T.charcoal }}>{r.clockOut}</TableCell>
@@ -788,7 +720,7 @@ const SupervisorDeptStats = () => {
           </Card>
         </Box>
 
-        {/* ── OUTSIDE CLOCKING CHART ── */}
+        {/* ─── Outside Clocking Chart ─── */}
         {outsideClockingData.length > 0 && (
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12}>

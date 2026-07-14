@@ -1058,7 +1058,6 @@ const ExecutiveOverviewTab = ({
     const headline = analytics.headline;
     const hs = data?.healthSignals;
 
-
     const stationOptions = data?.filters?.stations || [];
     const departmentOptions = data?.filters?.departments || [];
 

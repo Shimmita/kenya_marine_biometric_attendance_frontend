@@ -6,11 +6,9 @@ import {
     CheckCircle,
     Email,
     Lock,
-    Person,
-    Phone,
     Security,
     Visibility, VisibilityOff,
-    WorkRounded,
+    WorkRounded
 } from '@mui/icons-material';
 import {
     Box,
@@ -24,7 +22,7 @@ import {
 import React from "react";
 import coreDataDetails from '../CoreDataDetails';
 
-const { colorPalette,  AvailableStations, availableDepartments: departments, ROLE_OPTIONS } = coreDataDetails;
+const { colorPalette, AvailableStations, availableDepartments: departments, ROLE_OPTIONS } = coreDataDetails;
 
 /* ══ ROLE DEFINITIONS ══════════════════════════════════════════════════════ */
 const roleMetadata = {
@@ -43,6 +41,11 @@ export const ALL_ROLES = ROLE_OPTIONS.map((value) => ({
 export const INTERN_ATTACHEE_ROLES = ['intern', 'attachee']
     .filter((value) => ROLE_OPTIONS.includes(value))
     .map((value) => ({ value, ...roleMetadata[value] }));
+
+
+
+// Today
+const today = () => new Date().toISOString().split('T')[0];
 
 /* ══ MENU STYLE ════════════════════════════════════════════════════════════ */
 const menuProps = {
@@ -230,7 +233,7 @@ const PersonalDetailsStep = React.memo(({ formData, errors, handle, tf }) => (
             error={!!errors.email} helperText={errors.email}
             InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: colorPalette.oceanBlue }} /></InputAdornment> }}
             sx={tf} />
-        
+
     </Stack>
 ));
 
@@ -281,7 +284,8 @@ const WorkDetailsStep = React.memo(({ formData, errors, handle, isEmployee, tf, 
                     InputLabelProps={{ shrink: true }}
                     InputProps={{
                         startAdornment: <InputAdornment position="start"><CalendarToday sx={{ color: colorPalette.oceanBlue }} /></InputAdornment>,
-                        inputProps: { max: formData.endDate || undefined },
+                        inputProps: { min: today(), max: formData.endDate || undefined },
+
                     }}
                     sx={tf} />
                 <Typography variant="body2" fontWeight={700} color="text.disabled"
