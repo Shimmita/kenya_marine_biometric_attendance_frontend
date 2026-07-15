@@ -1,8 +1,6 @@
-
 import {
     Avatar,
     Box,
-    Chip,
     IconButton,
     Paper,
     Table,
@@ -15,65 +13,8 @@ import {
     Tooltip,
     Typography
 } from "@mui/material";
-
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import React from "react";
-import coreDataDetails from "../CoreDataDetails";
-const { C } = coreDataDetails
-const rankStyles = {
-
-    superadmin: {
-        bg: "rgba(103,58,183,.18)",
-        color: "#B388FF",
-        border: "rgba(179,136,255,.45)"
-    },
-
-    admin: {
-        bg: "rgba(255,180,0,.16)",
-        color: C.warmSand,
-        border: "rgba(255,180,0,.40)"
-    },
-
-    ceo: {
-        bg: "rgba(26,35,126,.18)",
-        color: C.skyBlue,
-        border: "rgba(135,206,235,.35)"
-    },
-
-    hr: {
-        bg: "rgba(255,111,97,.16)",
-        color: C.coralSunset,
-        border: "rgba(255,111,97,.38)"
-    },
-
-    supervisor: {
-        bg: "rgba(72,201,176,.15)",
-        color: C.seafoamGreen,
-        border: "rgba(72,201,176,.38)"
-    },
-
-    auditor: {
-        bg: "rgba(156,39,176,.15)",
-        color: "#CE93D8",
-        border: "rgba(206,147,216,.38)"
-    },
-
-    user: {
-        bg: "rgba(0,229,255,.08)",
-        color: C.aquaVibrant,
-        border: "rgba(0,229,255,.35)"
-    }
-
-};
-
-
-const truncateText = (text, maxLength = 8) => {
-    if (!text) return "--";
-
-    return text.length > maxLength
-        ? `${text.substring(0, maxLength)}...`
-        : text;
-};
 
 export default function UserTable({
     users,
@@ -83,7 +24,6 @@ export default function UserTable({
     onRowsPerPageChange,
     onViewUser
 }) {
-
     const pageCount = Math.max(1, Math.ceil(users.length / rowsPerPage));
     const safePage = Math.min(page, pageCount - 1);
     const visibleUsers = React.useMemo(
@@ -91,431 +31,162 @@ export default function UserTable({
         [safePage, rowsPerPage, users]
     );
 
-
     return (
-
-        <Paper
-            elevation={0}
-            sx={{
-                borderRadius: 3,
-                overflow: "hidden",
-                bgcolor: C.glassBg,
-                backdropFilter: "blur(18px)",
-                border: `1px solid ${C.glassBorder}`,
-                boxShadow: "0 14px 32px rgba(0,0,0,.28)"
-            }}
-        >
-
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
             <TableContainer sx={{ overflowX: "auto" }}>
-
                 <Table stickyHeader sx={{ minWidth: 920, tableLayout: "fixed" }}>
                     <TableHead>
-
-                        <TableRow
-                            sx={{
-                                background: C.oceanGradient,
-
-                                "& .MuiTableCell-root": {
-                                    background: "transparent",
-                                    color: C.cloudWhite,
-                                    fontWeight: 800,
-                                    fontSize: ".70rem",
-                                    textTransform: "uppercase",
-                                    letterSpacing: ".06em",
-                                    borderBottom: `1px solid ${C.glassBorder}`
-                                }
-                            }}
-                        >
-
-
-                            <TableCell>Image</TableCell>
-
-                            <TableCell>UserID</TableCell>
-
-                            <TableCell>StaffNo</TableCell>
-
-                            <TableCell>Name</TableCell>
-                            <TableCell>Role</TableCell>
-
-                            <TableCell>Department</TableCell>
-                            <TableCell>Station</TableCell>
-
-                            <TableCell>Status</TableCell>
-
-                            <TableCell align="center">
-
-                                View
-
-                            </TableCell>
-
+                        <TableRow>
+                            {/* Set widths on header cells to distribute space */}
+                            {/* <TableCell sx={{ width: 60 }}>Image</TableCell> */}
+                            <TableCell sx={{ width: "10%" }}>UserID</TableCell>
+                            <TableCell sx={{ width: "10%" }}>StaffNo</TableCell>
+                            <TableCell sx={{ width: "22%" }}>Name</TableCell>
+                            <TableCell sx={{ width: "12%" }}>Role</TableCell>
+                            <TableCell sx={{ width: "16%" }}>Department</TableCell>
+                            <TableCell sx={{ width: "16%" }}>Station</TableCell>
+                            <TableCell sx={{ width: "10%" }}>Status</TableCell>
+                            <TableCell sx={{ width: 60, textAlign: "center" }}>View</TableCell>
                         </TableRow>
-
                     </TableHead>
-
                     <TableBody>
-
-                        {visibleUsers.map((user) => {
-
-                                const style =
-                                    rankStyles[user.rank] ||
-                                    rankStyles.user;
-
-                                return (
-
-                                    <React.Fragment key={user._id}>
-
-                                        {/* ===================== MAIN ROW ===================== */}
-
-                                        <TableRow
-                                            hover
-                                            sx={{
-                                                cursor: "pointer",
-                                                transition: ".25s ease",
-                                                "&:hover": {
-                                                    bgcolor: "rgba(0,229,255,.035)"
-                                                },
-                                                "& td": {
-                                                    borderBottom: user.canClockOutside
-                                                        ? "none"
-                                                        : "1px solid rgba(255,255,255,.08)"
-                                                }
-                                            }}
+                        {visibleUsers.map((user) => (
+                            <React.Fragment key={user._id}>
+                                <TableRow hover>
+                                    {/* <TableCell>
+                                        <Avatar
+                                            src={user.avatar}
+                                            imgProps={{ loading: "lazy", decoding: "async" }}
+                                            sx={{ width: 42, height: 42 }}
                                         >
-
-                                            <TableCell>
-
-                                                <Avatar
-                                                    src={user.avatar}
-                                                    imgProps={{ loading: "lazy", decoding: "async" }}
-                                                    sx={{
-
-                                                        width: 42,
-
-                                                        height: 42,
-
-                                                        fontWeight: 800,
-
-                                                        background:
-                                                            C.freshGradient,
-
-                                                        border: `1px solid ${C.glassBorder}`
-
-                                                    }}
-                                                >
-                                                    {user.name?.charAt(0)}
-                                                </Avatar>
-
-                                            </TableCell>
-
-
-                                            <Tooltip arrow title={user.employeeId}>
-                                                <TableCell>
-                                                    {user.employeeId || "--"}
-                                                </TableCell>
+                                            {user.name?.charAt(0)}
+                                        </Avatar>
+                                    </TableCell> */}
+                                    <Tooltip arrow title={user.employeeId}>
+                                        <TableCell>{user.employeeId || "--"}</TableCell>
+                                    </Tooltip>
+                                    <Tooltip title={user.staffNo} arrow>
+                                        <TableCell>{user.staffNo || "--"}</TableCell>
+                                    </Tooltip>
+                                    <TableCell>
+                                        <Box>
+                                            <Tooltip arrow title={user.name}>
+                                                <Typography variant="body2" fontWeight={600} noWrap>
+                                                    {user.name}
+                                                </Typography>
                                             </Tooltip>
-
-                                            <Tooltip title={user.staffNo} arrow>
-                                                <TableCell>
-                                                    {user.staffNo || "--"}
-                                                </TableCell>
+                                            <Tooltip arrow title={user.email}>
+                                                <Typography variant="caption" color="text.secondary" noWrap>
+                                                    {user.email}
+                                                </Typography>
                                             </Tooltip>
-
-                                            <TableCell>
-
-                                                <Box>
-                                                    <Tooltip arrow title={user.name}>
-                                                        <Typography variant="body2" fontWeight={600}>
-                                                            {user.name}
-                                                        </Typography>
-                                                    </Tooltip>
-                                                    <Tooltip arrow title={user.email}>
-                                                        <Typography
-                                                            variant="caption"
-                                                            color="text.secondary"
-                                                        >
-                                                            {user.email}
-                                                        </Typography>
-                                                    </Tooltip>
-
-                                                </Box>
-
-                                            </TableCell>
-
-                                            <TableCell>
-
-                                                <Tooltip arrow title={user.role}>
-                                                    <Chip
-
-                                                        label={user.role}
-
-                                                        sx={{
-
-                                                            bgcolor: style.bg,
-
-                                                            color: style.color,
-
-                                                            border: `1px solid ${style.border}`
-
-                                                        }}
-
-                                                    />
-                                                </Tooltip>
-
-
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <Tooltip arrow title={user.department}>
-                                                    <Chip
-                                                        label={truncateText(user.department)}
-                                                        size="small"
-                                                    />
-                                                </Tooltip>
-
-
-                                            </TableCell>
-
-                                            <TableCell>
-
-                                                <Tooltip arrow title={user.station}>
-                                                    <Chip
-                                                        label={user.station}
-                                                        size="small"
-                                                        color="primary"
-                                                    />
-                                                </Tooltip>
-
-                                            </TableCell>
-
-
-
-                                            <TableCell>
-
-                                                <Tooltip arrow title={user.isAccountActive
-                                                    ? "Active"
-                                                    : "Inactive"}>
-                                                    <Chip
-                                                        size="small"
-                                                        label={
-                                                            user.isAccountActive
-                                                                ? "Active"
-                                                                : "Inactive"
-                                                        }
-                                                        sx={{
-                                                            bgcolor: user.isAccountActive
-                                                                ? "rgba(72,201,176,.15)"
-                                                                : "rgba(255,92,74,.15)",
-
-                                                            color: user.isAccountActive
-                                                                ? "#48C9B0"
-                                                                : "#FF5C4A",
-
-                                                            border: `1px solid ${user.isAccountActive
-                                                                ? "rgba(72,201,176,.35)"
-                                                                : "rgba(255,92,74,.35)"
-                                                                }`
-                                                        }}
-                                                    />
-                                                </Tooltip>
-
-                                            </TableCell>
-
-                                            <TableCell align="center">
-
-                                                <Tooltip title="View User">
-
-                                                    <IconButton
-                                                        onClick={() => onViewUser(user)}
-
-                                                        sx={{
-
-                                                            border: `1px solid ${C.glassBorder}`,
-
-                                                            background: "rgba(0,229,255,.04)",
-
-                                                            "&:hover": {
-
-                                                                background: "rgba(0,229,255,.12)",
-
-                                                                color: C.aquaVibrant,
-
-                                                                transform: "scale(1.05)"
-
-                                                            }
-
-                                                        }}
-                                                    >
-                                                        <VisibilityRoundedIcon />
-                                                    </IconButton>
-
-                                                </Tooltip>
-
-                                            </TableCell>
-
-                                        </TableRow>
-
-                                        {/* ================= CLOCK OUTSIDE INFO ================= */}
-
-                                        {user.canClockOutside && (
-
-                                            <TableRow>
-
-                                                <TableCell
-                                                    colSpan={9}
-                                                    sx={{
-                                                        py: 1.25,
-                                                        px: 3,
-                                                        borderBottom:
-                                                            "1px solid rgba(72,201,176,.22)",
-                                                        bgcolor:
-                                                            "rgba(72,201,176,.045)"
-                                                    }}
-                                                >
-
-                                                    <Box
-                                                        sx={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            flexWrap: "wrap",
-                                                            gap: 2,
-
-                                                            py: .8,
-                                                            px: 2,
-
-                                                            borderLeft:
-                                                                "4px solid #48C9B0",
-
-                                                            borderRadius: 2,
-
-                                                            background:
-                                                                "linear-gradient(90deg, rgba(72,201,176,.08), rgba(0,229,255,.02))"
-                                                        }}
-                                                    >
-
-                                                        <Chip
-                                                            label="Clock Outside Authorized"
-                                                            size="small"
-                                                            color="success"
-                                                            sx={{
-                                                                fontWeight: 700
-                                                            }}
-                                                        />
-
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: "text.secondary"
-                                                            }}
-                                                        >
-
-                                                            <strong>Reason:</strong>{" "}
-
-                                                            {user.outsideClockingDetails?.reason}
-
-                                                        </Typography>
-
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: "text.secondary"
-                                                            }}
-                                                        >
-
-                                                            <strong>Authorized By:</strong>{" "}
-
-                                                            {user.outsideClockingDetails?.authorizedBy}
-
-                                                        </Typography>
-
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: "text.secondary"
-                                                            }}
-                                                        >
-
-                                                            <strong>Valid:</strong>{" "}
-
-                                                            {new Date(
-                                                                user.outsideClockingDetails.startDate
-                                                            ).toLocaleDateString()}
-
-                                                            {"  →  "}
-
-                                                            {new Date(
-                                                                user.outsideClockingDetails.endDate
-                                                            ).toLocaleDateString()}
-
-                                                        </Typography>
-
-                                                    </Box>
-
-                                                </TableCell>
-
-                                            </TableRow>
-
-                                        )}
-                                    </React.Fragment>
-
-                                );
-
-                            })
-
-                        }
-
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip arrow title={user.role}>
+                                            <Typography variant="body2" noWrap>
+                                                {user.role}
+                                            </Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip arrow title={user.department}>
+                                            <Typography variant="body2" noWrap>
+                                                {user.department || "--"}
+                                            </Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip arrow title={user.station}>
+                                            <Typography variant="body2" noWrap>
+                                                {user.station || "--"}
+                                            </Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip arrow title={user.isAccountActive ? "Active" : "Inactive"}>
+                                            <Typography
+                                                variant="body2"
+                                                noWrap
+                                                sx={{
+                                                    color: user.isAccountActive ? "success.main" : "error.main",
+                                                    fontWeight: 500
+                                                }}
+                                            >
+                                                {user.isAccountActive ? "Active" : "Inactive"}
+                                            </Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <Tooltip title="View User">
+                                            <IconButton onClick={() => onViewUser(user)}>
+                                                <VisibilityRoundedIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
+                                </TableRow>
+
+                                {/* Clock Outside Info – colSpan still 9 */}
+                                {user.canClockOutside && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={9}
+                                            sx={{ py: 1.25, px: 3, bgcolor: "action.hover" }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    flexWrap: "wrap",
+                                                    gap: 2,
+                                                    py: 0.8,
+                                                    px: 2,
+                                                    borderLeft: "4px solid",
+                                                    borderColor: "success.main",
+                                                    borderRadius: 2,
+                                                    bgcolor: "background.paper"
+                                                }}
+                                            >
+                                                <Typography variant="caption" fontWeight={700} color="success.main">
+                                                    Clock Outside Authorized
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    <strong>Reason:</strong>{" "}
+                                                    {user.outsideClockingDetails?.reason}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    <strong>Authorized By:</strong>{" "}
+                                                    {user.outsideClockingDetails?.authorizedBy}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    <strong>Valid:</strong>{" "}
+                                                    {new Date(
+                                                        user.outsideClockingDetails?.startDate
+                                                    ).toLocaleDateString()}
+                                                    {"  →  "}
+                                                    {new Date(
+                                                        user.outsideClockingDetails?.endDate
+                                                    ).toLocaleDateString()}
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </React.Fragment>
+                        ))}
                     </TableBody>
-
                 </Table>
-
             </TableContainer>
 
             <TablePagination
-
                 component="div"
-
                 page={safePage}
-
                 count={users.length}
-
                 rowsPerPage={rowsPerPage}
-
                 rowsPerPageOptions={[10, 50, 100]}
-
                 onPageChange={onPageChange}
-
                 onRowsPerPageChange={onRowsPerPageChange}
-                sx={{
-
-                    borderTop: `1px solid ${C.glassBorder}`,
-
-                    color: C.textSecondary,
-
-                    background: C.glassBgElevated,
-
-                    "& .MuiTablePagination-selectLabel": {
-
-                        color: C.textSecondary
-
-                    },
-
-                    "& .MuiTablePagination-displayedRows": {
-
-                        color: C.textSecondary
-
-                    },
-
-                    "& .MuiIconButton-root": {
-
-                        color: C.aquaVibrant
-
-                    }
-
-                }}
-
             />
-
         </Paper>
-
     );
-
 }
