@@ -812,21 +812,10 @@ const EnhancedLandingPage = () => {
 
 
                     {/* Footer */}
-                    <Box sx={{ ...G.surface, borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderTop: '1px solid rgba(255,255,255,0.09)', py: 7, position: 'relative', zIndex: 1 }}>
+                    <Box sx={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderTop: '1px solid rgba(255,255,255,0.09)', py: 7, position: 'relative', zIndex: 1 }}>
                         <Container maxWidth="lg">
                             <Grid container spacing={5}>
-                                <Grid item xs={12} md={4}>
-                                    <Stack direction="row" gap={2} alignItems="center" mb={2}>
-                                        <Box component="img" src={KMFRILogo} alt="KMFRI" width="50" height="50" loading="lazy" decoding="async" sx={{ height: 50, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }} />
-                                        <Box>
-                                            <Typography variant="h6" fontWeight={800} sx={{ color: '#fff' }}>KMFRI</Typography>
-                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.46)', fontSize: '0.67rem' }}>Kenya Marine & Fisheries Research Institute</Typography>
-                                        </Box>
-                                    </Stack>
-                                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.56)', lineHeight: 1.76 }}>
-                                        Leading marine research and sustainable fisheries development in East Africa since 1979.
-                                    </Typography>
-                                </Grid>
+
                                 <Grid item xs={12} sm={6} md={4}>
                                     <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.44)', letterSpacing: 1.1, textTransform: 'uppercase', fontSize: '0.67rem' }}>Quick Links</Typography>
                                     <Stack spacing={0.3}>

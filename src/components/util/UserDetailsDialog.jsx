@@ -166,6 +166,8 @@ export default function UserDetailsDialog({
     const [clockOutside, setClockOutside] = useState("no");
 
     const [openClockModal, setOpenClockModal] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+
 
 
     const [formData, setFormData] = useState({
@@ -179,23 +181,34 @@ export default function UserDetailsDialog({
 
         if (!user) return;
 
-        setTab(0);
+        // Only reset when opening a different user
+        if (currentUserId !== user._id) {
+            setCurrentUserId(user._id);
+            setTab(0);
 
-        setClockOutside(
-            user.canClockOutside ? "yes" : "no"
-        );
+            setClockOutside(
+                user.canClockOutside ? "yes" : "no"
+            );
 
-        setFormData({
-            startDate: "",
-            endDate: "",
-            reason: ""
-        });
+            setFormData({
+                startDate: "",
+                endDate: "",
+                reason: ""
+            });
 
-        setError("");
+            setError("");
 
-        setOpenClockModal(false);
+            setOpenClockModal(false);
+        } else {
+            // Same user refreshed, just update the permission state
+            setClockOutside(
+                user.canClockOutside ? "yes" : "no"
+            );
+        }
 
-    }, [user]);
+    }, [user, currentUserId]);
+
+
 
     useEffect(() => {
         if (hideActionsTab && tab === 3) {
@@ -561,7 +574,7 @@ export default function UserDetailsDialog({
                                         value={user.phone}
                                     />
 
-                                   
+
 
                                 </GlassSection>
 
@@ -720,40 +733,40 @@ export default function UserDetailsDialog({
                                                 title="Rank Management"
                                             >
 
-                                            <Typography mb={1}>
-                                                Rank
-                                            </Typography>
+                                                <Typography mb={1}>
+                                                    Rank
+                                                </Typography>
 
-                                            <FormControl fullWidth size="small">
+                                                <FormControl fullWidth size="small">
 
-                                                <Select
-                                                    value={user.rank}
-                                                    onChange={(e) =>
-                                                        onRankChange(
-                                                            user._id,
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                >
+                                                    <Select
+                                                        value={user.rank}
+                                                        onChange={(e) =>
+                                                            onRankChange(
+                                                                user._id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                    >
 
-                                                    {RANK_OPTIONS.map(rank => (
+                                                        {RANK_OPTIONS.map(rank => (
 
-                                                        <MenuItem
-                                                            key={rank}
-                                                            value={rank}
-                                                        >
+                                                            <MenuItem
+                                                                key={rank}
+                                                                value={rank}
+                                                            >
 
-                                                            {rank}
+                                                                {rank}
 
-                                                        </MenuItem>
+                                                            </MenuItem>
 
-                                                    ))}
+                                                        ))}
 
-                                                </Select>
+                                                    </Select>
 
-                                            </FormControl>
-                                        </GlassSection>
-                                    </Grid>
+                                                </FormControl>
+                                            </GlassSection>
+                                        </Grid>
                                     )}
 
 

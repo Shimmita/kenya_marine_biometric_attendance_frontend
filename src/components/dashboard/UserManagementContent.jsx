@@ -383,6 +383,27 @@ const UserManagementContent = ({ readOnly = false }) => {
 
     };
 
+
+    const refreshUsers = async (selectedId = null) => {
+        const [usersData, supervisorsData] = await Promise.all([
+            getAllUsers(),
+            getAllSupervisors(),
+        ]);
+
+        setUsers(usersData);
+        setSupervisors(supervisorsData);
+
+        if (selectedId) {
+            const updatedUser = usersData.find(u => u._id === selectedId);
+
+            if (updatedUser) {
+                setSelectedUser(updatedUser);
+            }
+        }
+    };
+
+
+
     const handleRowsPerPageChange = (event) => {
 
         setRowsPerPage(parseInt(event.target.value, 10));
@@ -461,23 +482,163 @@ const UserManagementContent = ({ readOnly = false }) => {
         });
     }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
 
-    const handleToggleActive = async (id) => { try { setLoading(true); setUpdatingId(id); await toggleUserActive(id); fetchUsers(); fetchSupervisors(); alert("user status updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleRankChange = async (id, rank) => { try { setLoading(true); setUpdatingId(id); await updateUserRank(id, rank); fetchUsers(); fetchSupervisors(); alert("user rank updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleRoleChange = async (id, role) => { try { setLoading(true); setUpdatingId(id); await updateUserRole(id, role); fetchUsers(); fetchSupervisors(); alert("user role updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleDepartmentSave = async (id, dept) => { try { setLoading(true); setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); fetchSupervisors(); alert("user department updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleSupervisorChange = async (id, supervisor) => { try { setLoading(true); setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); fetchSupervisors(); alert("user supervisor updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleStationSave = async (id, station) => { try { setLoading(true); setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); fetchSupervisors(); alert("user station updated successfully") } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
-    const handleDeleteUser = async (id) => { try { setLoading(true); setUpdatingId(id); await deleteUser(id); fetchUsers(); fetchSupervisors(); alert("User deleted successfully"); } catch (e) { alert(e); } finally { setUpdatingId(null); setLoading(false); } };
+    const handleToggleActive = async (id) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await toggleUserActive(id);
+
+            await refreshUsers(id);
+
+            alert("User status updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleRankChange = async (id, rank) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserRank(id, rank);
+
+            await refreshUsers(id);
+
+            alert("User rank updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleRoleChange = async (id, role) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserRole(id, role);
+
+            await refreshUsers(id);
+
+            alert("User role updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleDepartmentSave = async (id, dept) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserDepartment(id, dept);
+
+            await refreshUsers(id);
+
+            alert("User department updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleSupervisorChange = async (id, supervisor) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserSupervisor(id, supervisor);
+
+            await refreshUsers(id);
+
+            alert("User supervisor updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleStationSave = async (id, station) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserStation(id, station === "none" ? null : station);
+
+            await refreshUsers(id);
+
+            alert("User station updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteUser = async (id) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await deleteUser(id);
+
+            await refreshUsers();
+
+            setDialogOpen(false);
+            setSelectedUser(null);
+
+            alert("User deleted successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
     const handleResetBiometrics = async (id) => {
         try {
-            setLoading(true); setUpdatingId(id);
+            setLoading(true);
+            setUpdatingId(id);
+
             await resetUserBiometrics(id);
-            fetchUsers(); fetchSupervisors();
+
+            await refreshUsers(id);
+
             const updatedUser = await getUserProfile();
+
             dispatch(updateUserCurrentUserRedux(updatedUser));
+
             alert("User biometrics reset successfully");
-        } catch (e) { alert(e); }
-        finally { setUpdatingId(null); setLoading(false); }
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
     };
 
 
