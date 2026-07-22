@@ -99,12 +99,16 @@ const useNotification = () => {
 const CLOCKING_REMINDERS_STORAGE_KEY = 'kmfri_clocking_reminders';
 
 const formatReminderTemplate = (template, user) => {
-    const firstName = user?.name?.split(' ')[0] || 'Team member';
+    const firstName = user?.name?.split(' ')[0] || 'User';
     const fullName = user?.name || firstName;
     let message = String(template || '').trim();
     if (!message) return '';
     return message
         .replace(/\{firstName\}/gi, firstName)
+        .replace(/\{email\}/gi, user?.email)
+        .replace(/\{phone\}/gi, user?.phone)
+        .replace(/\{station\}/gi, user?.station)
+        .replace(/\{department\}/gi, user?.department)
         .replace(/\{name\}/gi, fullName);
 };
 
@@ -1261,7 +1265,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                             sx={{
                                                                 position: 'relative', zIndex: 1,
                                                                 bgcolor: colorPalette.aquaVibrant,
-                                                                color: '#fff' ,
+                                                                color: '#fff',
                                                                 py: 1.8, borderRadius: '14px',
                                                                 fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
                                                                 boxShadow: isClockedIn && isToClockOut

@@ -6,6 +6,7 @@ import {
   Delete as DeleteIcon,
   Email,
   HomeRounded,
+  MessageRounded,
   Palette,
   Phone,
   RestartAlt,
@@ -727,6 +728,47 @@ const ConfigPanel = ({ onConfigLoaded }) => {
               </Grid>
             </Paper>
 
+
+            {/* automated reg messages */}
+            <Paper elevation={0} sx={cardSx}>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MessageRounded color="primary" /> Automated Registration Messages
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  {/* intern reg message */}
+                  <TextField
+                    label="Intern/Attache signup message"
+                    multiline
+                    minRows={3}
+                    gutterbottom
+                    value={config.notificationReminders?.internRegMessage || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), internRegMessage: e.target.value }
+                    }))}
+                    helperText="Dynamic variables: {firstName} {email}"
+                    fullWidth
+                  />
+
+                  {/* staff reg message */}
+                  <TextField
+                    label="Staff signup message"
+                    multiline
+                    sx={{ mt: 2 }}
+                    minRows={3}
+                    value={config.notificationReminders?.staffRegMessage || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), staffRegMessage: e.target.value }
+                    }))}
+                    helperText="Dynamic variables: {firstName}"
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
             {/* Form Control Persist Actions Footer */}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button
@@ -815,7 +857,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
 
               <Paper variant="outlined" sx={{ borderRadius: 3, maxHeight: 450, overflow: 'auto', p: 1 }}>
                 <List dense>
-                  {(config.departments || []).map((department,idx) => (
+                  {(config.departments || []).map((department, idx) => (
                     <ListItem
                       key={department}
                       secondaryAction={<IconButton edge="end" color="error" onClick={() => handleRemoveDept(department)}><DeleteIcon /></IconButton>}

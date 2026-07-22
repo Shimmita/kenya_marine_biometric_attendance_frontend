@@ -8,7 +8,8 @@ import {
 } from '@mui/icons-material';
 import {
     Alert, AppBar,
-    Box, Button, Card, Chip, CircularProgress,
+    Box, Button, Card,
+    CircularProgress,
     Container, Divider, Grid, IconButton, InputAdornment,
     Snackbar, Stack, TextField, Toolbar,
     Typography, useMediaQuery, useTheme
@@ -17,7 +18,8 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import KMFRILogo from '../assets/kmfri.png';
+import KenyaArmsLogo from "../images/gov_logo.png";
+import KMFRILogo from "../images/kmfri_logo.png";
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
@@ -33,13 +35,26 @@ const { colorPalette } = coreDataDetails;
 /* ══ GLASS DESIGN TOKENS ═══════════════════════════════════════════════════ */
 const G = {
     meshBg: `
-        radial-gradient(ellipse at 12% 18%, rgba(0,130,190,0.52) 0%, transparent 46%),
-        radial-gradient(ellipse at 80% 10%, rgba(0,55,115,0.62) 0%, transparent 40%),
-        radial-gradient(ellipse at 58% 78%, rgba(0,110,155,0.42) 0%, transparent 50%),
-        radial-gradient(ellipse at 3%  88%, rgba(8,44,82,0.56)  0%, transparent 38%),
-        radial-gradient(ellipse at 94% 85%, rgba(0,185,175,0.24) 0%, transparent 36%),
-        linear-gradient(158deg, #051c30 0%, #09355a 38%, #073a52 68%, #052840 100%)
-    `,
+    radial-gradient(circle at 12% 15%, rgba(0,180,255,.22) 0%, transparent 32%),
+    radial-gradient(circle at 85% 12%, rgba(0,92,180,.30) 0%, transparent 34%),
+    radial-gradient(circle at 58% 72%, rgba(0,155,190,.18) 0%, transparent 38%),
+    radial-gradient(circle at 8% 88%, rgba(8,44,82,.55) 0%, transparent 42%),
+
+    /* Kenya Green */
+    radial-gradient(circle at 92% 82%, rgba(0,120,65,.12) 0%, transparent 30%),
+
+    /* Kenya Red */
+    radial-gradient(circle at 72% 42%, rgba(180,30,35,.08) 0%, transparent 28%),
+
+    linear-gradient(
+        145deg,
+        #041627 0%,
+        #062848 22%,
+        #0A4D74 48%,
+        #07576A 72%,
+        #052A40 100%
+    )
+`,
     surface: {
         background: 'rgba(255,255,255,0.08)',
         backdropFilter: 'blur(20px) saturate(170%)',
@@ -138,24 +153,6 @@ const G = {
     },
 };
 
-
-/* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
-const AmbientOrbs = () => (
-    <>
-        {[
-            { s: 500, t: -100, l: -150, c: 'rgba(0,160,210,0.10)', b: 80 },
-            { s: 380, t: '32%', r: -120, c: 'rgba(0,220,255,0.07)', b: 65 },
-            { s: 560, bot: -180, l: '18%', c: 'rgba(8,44,80,0.20)', b: 90 },
-            { s: 280, t: '52%', l: '52%', c: 'rgba(0,190,165,0.09)', b: 55 },
-        ].map(({ s, t, l, r, bot, c, b }, i) => (
-            <Box key={i} sx={{
-                position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
-                top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)`,
-                willChange: 'transform',
-            }} />
-        ))}
-    </>
-);
 
 
 
@@ -675,25 +672,160 @@ const SignInCard = ({ onBack, onSwitchToSignup }) => {
 };
 
 /* ══ NAV BAR ════════════════════════════════════════════════════════════════ */
-const EnhancedNavbar = ({ onNavigate, currentView }) => {
+/* ════════════════════════════════════════════════════════════════════════ */
+/* NAVBAR */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+const EnhancedNavbar = ({ onNavigate }) => {
     const theme = useTheme();
-    const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
+    const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+    const isTablet = useMediaQuery(theme.breakpoints.up("sm"));
 
     return (
-        <AppBar position="fixed" elevation={0} sx={{ ...G.nav }}>
+        <AppBar
+            position="fixed"
+            elevation={0}
+            sx={{
+                ...G.nav,
+                backdropFilter: "blur(18px)",
+                background: "rgba(5,24,46,.82)",
+                borderBottom: "1px solid rgba(255,255,255,.08)"
+            }}
+        >
             <Container maxWidth="xl">
-                <Toolbar disableGutters sx={{ py: 0.8 }}>
-                    <Box onClick={() => onNavigate('landing')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mr: 2, cursor: 'pointer' }}>
-                        <Box component="img" src={KMFRILogo} alt="KMFRI" width="48" height="48" loading="eager"
-                            sx={{ height: { xs: 42, md: 48 }, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.22)', boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }} />
-                    </Box>
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography noWrap fontWeight={800} onClick={() => onNavigate('landing')}
-                            sx={{ fontSize: { xs: '0.88rem', md: '1rem' }, letterSpacing: 0.35, color: '#fff', cursor: 'pointer', textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-                            {isMdUp ? 'Kenya Marine and Fisheries Research Institute'.toUpperCase() : 'KMFRI Attendance System'.toUpperCase()}
-                        </Typography>
-                        {isMdUp && <Typography variant="caption" sx={{ opacity: 0.62, display: 'block', fontWeight: 500, letterSpacing: 0.55 }}>
-                            Staff Biometric Attendance System</Typography>}
+                <Toolbar
+                    disableGutters
+                    sx={{
+                        minHeight: { xs: 68, md: 78 },
+                        py: 1,
+                        px: { md: 0 }
+                    }}
+                >
+
+                    {/* ================= BRAND ================= */}
+
+                    <Box
+                        onClick={() => onNavigate("landing")}
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            cursor: "pointer",
+                            flexGrow: 1,
+                            minWidth: 0
+                        }}
+                    >
+
+                        {/* Kenya Coat of Arms */}
+
+                        <Box
+                            component="img"
+                            src={KenyaArmsLogo}
+                            alt="Government of Kenya"
+                            loading="eager"
+                            sx={{
+                                height: { xs: 42, sm: 50, md: 60 },
+                                width: "auto",
+                                flexShrink: 0,
+                                borderRadius: "2px",
+                            }}
+                        />
+
+                        {/* Kenya Flag Divider */}
+
+                        <Box
+                            sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                width: { xs: 5, md: 6 },
+                                height: { xs: 42, sm: 50, md: 60 },
+                                overflow: "hidden",
+                                borderRadius: "8px",
+                                mx: 1,
+                                flexShrink: 0,
+                                border: "1px solid rgba(255,255,255,.15)",
+                                boxShadow:
+                                    "0 3px 10px rgba(0,0,0,.25), inset 0 1px 1px rgba(255,255,255,.18)"
+                            }}
+                        >
+                            <Box sx={{ flex: 3, bgcolor: "#000000" }} />
+                            <Box sx={{ flex: .45, bgcolor: "#FFFFFF" }} />
+                            <Box sx={{ flex: 3, bgcolor: "#BB1E10" }} />
+                            <Box sx={{ flex: .45, bgcolor: "#FFFFFF" }} />
+                            <Box sx={{ flex: 3, bgcolor: "#006600" }} />
+                        </Box>
+
+                        {/* KMFRI Logo */}
+
+                        <Box
+                            sx={{
+                                background: "#fff",
+                                borderRadius: "3px",
+                                p: .45,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: "0 5px 16px rgba(0,0,0,.18)",
+                                flexShrink: 0
+                            }}
+                        >
+                            <Box
+                                component="img"
+                                src={KMFRILogo}
+                                alt="KMFRI"
+                                loading="eager"
+                                sx={{
+                                    height: { xs: 34, sm: 40, md: 50 },
+                                    width: "auto",
+                                    objectFit: "contain"
+                                }}
+                            />
+                        </Box>
+
+                        {/* Text */}
+
+                        <Box
+                            sx={{
+                                ml: { xs: 1.2, md: 2 },
+                                overflow: "hidden"
+                            }}
+                        >
+                            <Typography
+                                noWrap
+                                sx={{
+                                    color: "#fff",
+                                    fontWeight: 800,
+                                    lineHeight: 1.15,
+                                    letterSpacing: .4,
+                                    ml:.5,
+                                    fontSize: {
+                                        xs: ".82rem",
+                                        sm: ".95rem",
+                                        md: "1.1rem"
+                                    },
+                                    textShadow:
+                                        "0 2px 8px rgba(0,0,0,.35)"
+                                }}
+                            >
+                                {(isMdUp || isTablet) && "KENYA MARINE AND FISHERIES RESEARCH INSTITUTE"}
+                            </Typography>
+
+                            {(isMdUp || isTablet) && (
+                                <Typography
+                                    sx={{
+                                        color: "#00E5FF",
+                                        fontWeight: 700,
+                                        fontSize: ".74rem",
+                                        lineHeight: 1.2,
+                                        my: .5,
+                                         ml:.5,
+                                        letterSpacing: .35
+                                    }}
+                                >
+                                    Staff Biometric Attendance System
+                                </Typography>
+                            )}
+                        </Box>
+
                     </Box>
 
                 </Toolbar>
@@ -734,13 +866,12 @@ const EnhancedLandingPage = () => {
                 <>
                     {/* Hero */}
                     <Box sx={{ pt: { xs: 13, md: 18 }, pb: { xs: 5, md: 12 }, position: 'relative', overflow: 'hidden' }}>
-                        <AmbientOrbs />
+
                         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                             <Grid container spacing={5} alignItems="center">
                                 <Grid item xs={12} md={6}>
                                     <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, x: -44 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.75 }}>
-                                        <Chip label="Attendance System" size="small"
-                                            sx={{ background: 'rgba(0,220,255,0.12)', backdropFilter: 'blur(8px)', color: '#00e5ff', fontWeight: 700, border: '1px solid rgba(0,220,255,0.26)', mb: 2.5, px: 1, fontSize: '0.72rem' }} />
+
                                         <Typography variant={'h5'} fontWeight={900}
                                             sx={{ color: '#fff', mb: 2, lineHeight: 1.16, textShadow: '0 4px 18px rgba(0,0,0,0.24)' }}>
                                             <Box component="span" sx={{ color: '#00e5ff', display: 'block' }}>
@@ -784,12 +915,9 @@ const EnhancedLandingPage = () => {
                                                 sx={{
                                                     width: "100%",
                                                     maxWidth: 500,
-                                                    borderRadius: "28px",
+                                                    borderRadius: 4,
 
                                                     ...G.surfaceStrong,
-
-                                                    p: 2,
-
                                                     objectFit: "contain",
 
 
@@ -847,23 +975,25 @@ const EnhancedLandingPage = () => {
                         </Container>
                     </Box>
                 </>
-            )}
+            )
+            }
 
             {/* ══ AUTH VIEWS ══ */}
-            {view !== 'landing' && (
-                <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
-                    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', pt: { xs: 10, md: 13 }, pb: { xs: 6, md: 8 }, position: 'relative', overflow: 'hidden' }}>
-                        <AmbientOrbs />
-                        <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
-                            {view === 'signin'
-                                ? <SignInCard key="signin" onBack={() => setView('landing')} onSwitchToSignup={() => setView('signup')} />
-                                : <RegisterStepper key="signup" onBack={() => setView('landing')} onSwitchToSignin={() => setView('signin')} />
-                            }
-                        </Container>
-                    </Box>
-                </motion.div>
-            )}
-        </Box>
+            {
+                view !== 'landing' && (
+                    <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}>
+                        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', pt: { xs: 10, md: 13 }, pb: { xs: 6, md: 8 }, position: 'relative', overflow: 'hidden' }}>
+                            <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+                                {view === 'signin'
+                                    ? <SignInCard key="signin" onBack={() => setView('landing')} onSwitchToSignup={() => setView('signup')} />
+                                    : <RegisterStepper key="signup" onBack={() => setView('landing')} onSwitchToSignin={() => setView('signin')} />
+                                }
+                            </Container>
+                        </Box>
+                    </motion.div>
+                )
+            }
+        </Box >
     );
 };
 
