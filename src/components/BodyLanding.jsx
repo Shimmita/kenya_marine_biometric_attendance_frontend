@@ -229,9 +229,9 @@ const HelpSupportDialog = ({ open, onClose, supportEmail, supportPhone }) => {
                         </Typography>
                     </Box>
                     <Tooltip title="Close" placement="left" arrow>
-                        <IconButton size="small" sx={{border:'1px solid', borderColor:'divider'}} onClick={onClose} aria-label="Close">
-                        <Close fontSize="small" sx={{width:17,height:17}} />
-                    </IconButton>
+                        <IconButton size="small" sx={{ border: '1px solid', borderColor: 'divider' }} onClick={onClose} aria-label="Close">
+                            <Close fontSize="small" sx={{ width: 17, height: 17 }} />
+                        </IconButton>
                     </Tooltip>
                 </Stack>
 
@@ -858,23 +858,7 @@ const EnhancedLandingPage = () => {
                                         <Typography sx={{ color: 'rgba(15, 23, 42, 0.78)', mb: 3.5, fontWeight: 500, lineHeight: 1.7, maxWidth: 520, fontSize: 'clamp(0.95rem, 1.6vw, 1.15rem)' }}>
                                             Digital platform for synchronized clocking and reporting for all our employees, interns, and attaches across research stations nationwide.
                                         </Typography>
-
-                                        {/* Feature Chips / Pills */}
-                                        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1, mb: 4 }}>
-                                            <Box sx={{ px: 1.75, py: 0.6, borderRadius: '20px', background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(10,61,98,0.14)', boxShadow: '0 4px 12px rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                                <ShieldRounded sx={{ fontSize: 16, color: 'var(--kmfri-secondary, #005B96)' }} />
-                                                <Typography variant="caption" sx={{ color: '#0f172a', fontWeight: 700 }}>Trusted Security</Typography>
-                                            </Box>
-                                            <Box sx={{ px: 1.75, py: 0.6, borderRadius: '20px', background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(10,61,98,0.14)', boxShadow: '0 4px 12px rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                                <VerifiedUserRounded sx={{ fontSize: 16, color: 'var(--kmfri-accent, #48C9B0)' }} />
-                                                <Typography variant="caption" sx={{ color: '#0f172a', fontWeight: 700 }}>All Staff, Interns and Attaches </Typography>
-                                            </Box>
-                                            <Box sx={{ px: 1.75, py: 0.6, borderRadius: '20px', background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(10,61,98,0.14)', boxShadow: '0 4px 12px rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                                <AssessmentRounded sx={{ fontSize: 16, color: 'var(--kmfri-secondary, #368DC5)' }} />
-                                                <Typography variant="caption" sx={{ color: '#0f172a', fontWeight: 700 }}>Real-Time Analytics</Typography>
-                                            </Box>
-                                        </Stack>
-
+                                        
                                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                             <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
                                                 sx={{ background: 'var(--kmfri-gradient)', color: '#fff', fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 10px 30px var(--kmfri-secondary-soft)', transition: 'all 0.26s ease', '&:hover': { filter: 'brightness(1.08)', transform: 'translateY(-2px)', boxShadow: '0 14px 36px var(--kmfri-secondary-soft)' } }}>
