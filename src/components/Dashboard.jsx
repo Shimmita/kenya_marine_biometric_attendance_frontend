@@ -6,7 +6,6 @@ import {
     EmojiPeopleRounded,
     History,
     InsightsRounded,
-    InstallDesktop,
     LockResetRounded,
     Logout,
     Menu as MenuIcon,
@@ -21,10 +20,10 @@ import {
 } from '@mui/icons-material';
 import Settings from '@mui/icons-material/Settings';
 import {
-    AppBar, Avatar, Box, Button, Chip, CircularProgress,
+    Avatar, Box, Button, Chip, CircularProgress,
     Dialog, DialogActions, DialogContent, DialogTitle,
     Drawer, IconButton,
-    List, ListItem, ListItemIcon, ListItemText, Stack, Toolbar,
+    List, ListItem, ListItemIcon, ListItemText, Stack,
     Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -37,6 +36,8 @@ import { fetchAllLostDevices } from '../service/DeviceService';
 import SuperadminAPI from '../service/SuperadminService';
 import { updateUserProfile, userSignOut } from '../service/UserProfile';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
+import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
+import GuideDialog from './GuideDialog';
 import DialogAlert from './DialogAlert';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
@@ -135,22 +136,15 @@ const AUDITOR_ITEMS = [
     { text: 'Audit Logs', icon: <History />, color: '#8b5cf6' },
 ];
 
-/* ─── Glass tokens ──────────────────────────────────────────────────────── */
+/* ─── Glass tokens (CSS variable based) ───────────────────────────────────── */
 const G = {
-    meshBg: `
-        radial-gradient(ellipse at 12% 18%, rgba(0,130,190,0.52) 0%, transparent 46%),
-        radial-gradient(ellipse at 80% 10%, rgba(0,55,115,0.62) 0%, transparent 40%),
-        radial-gradient(ellipse at 58% 78%, rgba(0,110,155,0.42) 0%, transparent 50%),
-        radial-gradient(ellipse at 3%  88%, rgba(8,44,82,0.56)  0%, transparent 38%),
-        radial-gradient(ellipse at 94% 85%, rgba(0,185,175,0.24) 0%, transparent 36%),
-        linear-gradient(158deg, #051c30 0%, #09355a 38%, #073a52 68%, #052840 100%)
-    `,
+    meshBg: 'var(--kmfri-shell-gradient)',
     nav: {
-        background: 'rgba(5,24,46,0.82)',
-        backdropFilter: 'blur(14px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(14px) saturate(200%)',
-        borderBottom: '1px solid rgba(255,255,255,0.09)',
-        boxShadow: '0 4px 28px rgba(0,0,0,0.28)',
+        background: 'var(--kmfri-nav-gradient, var(--kmfri-gradient, linear-gradient(135deg, #062848 0%, #0A4D74 100%)))',
+        backdropFilter: 'blur(18px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(200%)',
+        borderBottom: '1px solid rgba(255,255,255,0.12)',
+        boxShadow: '0 4px 28px rgba(0,0,0,0.25)',
     },
     surface: {
         background: 'rgba(255,255,255,0.07)',
@@ -160,10 +154,10 @@ const G = {
         boxShadow: '0 4px 20px rgba(6,28,50,0.22), inset 0 1px 0 rgba(255,255,255,0.10)',
     },
     sidebarBg: {
-        background: 'rgba(5,20,42,0.78)',
+        background: 'var(--kmfri-sidebar-bg, linear-gradient(180deg, rgba(5,20,42,0.94) 0%, rgba(0,91,150,0.90) 55%, rgba(10,61,98,0.88) 100%))',
         backdropFilter: 'blur(32px) saturate(180%)',
         WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-        borderRight: '1px solid rgba(255,255,255,0.08)',
+        borderRight: '1px solid var(--kmfri-sidebar-border, rgba(72,201,176,0.22))',
         boxShadow: '4px 0 32px rgba(0,0,0,0.24)',
     },
     dialog: {
@@ -175,12 +169,12 @@ const G = {
     },
 };
 
-/* ─── Sidebar orbs (static decorative) ─────────────────────────────────── */
+/* ─── Sidebar orbs (theme-aware decorative) ─────────────────────────────── */
 const SidebarOrbs = React.memo(() => (
     <>
         {[
-            { s: 180, t: -30, l: -40, c: 'rgba(0,140,200,0.12)', b: 48 },
-            { s: 140, bot: -20, r: -30, c: 'rgba(0,185,175,0.10)', b: 40 },
+            { s: 180, t: -30, l: -40, c: 'var(--kmfri-secondary-soft, rgba(0,140,200,0.12))', b: 48 },
+            { s: 140, bot: -20, r: -30, c: 'var(--kmfri-accent-soft, rgba(0,185,175,0.10))', b: 40 },
         ].map(({ s, t, l, r, bot, c, b }, i) => (
             <Box key={i} sx={{
                 position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
@@ -353,7 +347,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
 ));
 
 /* ─── Collapsed drawer ──────────────────────────────────────────────────── */
-const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
+const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems, platformConfigVersion }) => (
     <Box sx={{
         height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
         position: 'relative', overflow: 'hidden', ...G.sidebarBg, pt: 1.5, pb: 2,
@@ -438,7 +432,7 @@ const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTa
 ));
 
 /* ─── Full drawer ────────────────────────────────────────────────────────── */
-const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse }) => {
+const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, rankMeta, onCollapse, platformConfigVersion }) => {
     const isAdmin = user?.rank === 'admin';
     const isHR = user?.rank === 'hr';
     const isSupervisor = user?.rank === 'supervisor';
@@ -447,45 +441,63 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const isSuperadmin = user?.rank === 'superadmin';
 
     const baseItems = useMemo(() => [
-        { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
-        { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-    ], []);
+        { text: 'Clocking Dashboard', icon: <DashIcon />, color: coreDataDetails.navPalette?.clocking || colorPalette.aquaVibrant },
+        { text: 'Attendance History', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+    ], [platformConfigVersion]);
 
     const techItems = useMemo(() => [
-        { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
-        { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
-        { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
-    ], []);
+        { text: 'Lost Device', icon: <PhoneLocked />, color: coreDataDetails.navPalette?.lost || '#fb923c' },
+        { text: 'Add Device', icon: <AddCircle />, color: coreDataDetails.navPalette?.add || '#fbbf24' },
+        { text: 'Help & Support', icon: <SupportAgentRounded />, color: coreDataDetails.navPalette?.help || '#22d3ee' },
+    ], [platformConfigVersion]);
 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
     const adminItems = useMemo(() => {
-        const items = [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS];
+        const items = [
+            { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+            { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
+            { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
+        ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
-    }, [isAuditor]);
+    }, [isAuditor, platformConfigVersion]);
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
-    const hrItems = useMemo(() => [...HR_EXTRA_ITEMS, ...ADMIN_SHARED_ITEMS], []);
+    const hrItems = useMemo(() => [
+        { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
+        { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
+        { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+        { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+        { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+    ], [platformConfigVersion]);
 
     const supervisorItems = useMemo(() => [
-        { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
-        { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
-    ], []);
+        { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+        { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
+        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
+    ], [platformConfigVersion]);
 
     const ceoItems = useMemo(() => [
-        { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
-    ], []);
+        { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+    ], [platformConfigVersion]);
 
     const superadminItems = useMemo(() => {
         const items = [
-            ...SUPERADMIN_GENERAL_ITEMS,
-            ...SUPERADMIN_HR_ITEMS,
-            ...SUPERADMIN_AUDITOR_ITEMS,
-            ...SUPERADMIN_SUPERVISOR_ITEMS,
-            ...SUPERADMIN_CEO_ITEMS,
+            { text: 'Platform Administration', icon: <Settings />, color: coreDataDetails.navPalette?.platform || '#93c5fd' },
+            { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+            { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
+            { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
+            { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
+            { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
+            { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
+            { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+            { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
+            { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
+            { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
         ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
-    }, [isAuditor]);
+    }, [isAuditor, platformConfigVersion]);
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', ...G.sidebarBg }}>
@@ -583,7 +595,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 flex: 1, overflowY: 'auto', overflowX: 'hidden', px: 1, pb: 1, position: 'relative', zIndex: 1,
                 '&::-webkit-scrollbar': { width: 2 },
                 '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.10)', borderRadius: 2 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: 'var(--kmfri-sidebar-hover, rgba(255,255,255,0.10))', borderRadius: 2 },
             }}>
                 <SectionLabel>Navigation</SectionLabel>
                 <List disablePadding>
@@ -703,7 +715,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
             {/* Logout */}
             <Box sx={{ px: 1.5, pb: 2.5, pt: 0.5, position: 'relative', zIndex: 1 }}>
-                <Box sx={{ height: '1px', bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5 }} />
+                <Box sx={{ height: '1px', bgcolor: 'var(--kmfri-sidebar-border, rgba(255,255,255,0.08))', mb: 1.5 }} />
                 <Button fullWidth startIcon={<Logout sx={{ fontSize: '16px !important' }} />} onClick={onLogout} sx={{
                     borderRadius: '13px', py: 1.1, fontWeight: 700, fontSize: '0.875rem',
                     textTransform: 'none', justifyContent: 'flex-start', pl: 1.8,
@@ -807,6 +819,8 @@ const EnhancedDashboard = () => {
     const [platformLogoUrl, setPlatformLogoUrl] = useState('');
     const [platformBranding, setPlatformBranding] = useState(coreDataDetails.branding);
     const [platformConfigVersion, setPlatformConfigVersion] = useState(0);
+    const [a11yPrefs, setA11yPrefs] = useAccessibilityPrefs();
+    const [guideOpen, setGuideOpen] = useState(false);
 
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
@@ -890,6 +904,24 @@ const EnhancedDashboard = () => {
         refreshPlatformConfig();
     }, [refreshPlatformConfig]);
 
+    /* Live theme sync — triggered by ConfigPanel/CoreDataDetails after superadmin saves */
+    useEffect(() => {
+        const handleConfigUpdate = (e) => {
+            const cfg = e.detail || JSON.parse(localStorage.getItem('kmfri_platform_config') || 'null');
+            if (cfg) {
+                if (cfg.logoUrl !== undefined) setPlatformLogoUrl(cfg.logoUrl || '');
+                if (cfg.branding) setPlatformBranding(cfg.branding);
+                setPlatformConfigVersion((v) => v + 1);
+            }
+        };
+        window.addEventListener('kmfri_platform_config_updated', handleConfigUpdate);
+        window.addEventListener('storage', handleConfigUpdate);
+        return () => {
+            window.removeEventListener('kmfri_platform_config_updated', handleConfigUpdate);
+            window.removeEventListener('storage', handleConfigUpdate);
+        };
+    }, []);
+
     const handleInstall = async () => {
         if (!deferredInstallPrompt) return;
 
@@ -920,44 +952,62 @@ const EnhancedDashboard = () => {
         return RANK_META[user?.rank]
     }, [user?.rank]);
 
-    /* Collapsed sidebar — all items flat list */
+    /* Collapsed sidebar — all items flat list (theme-aware) */
     const allNavItems = useMemo(() => {
         const base = [
-            { text: 'Clocking Dashboard', icon: <DashIcon />, color: colorPalette.aquaVibrant },
-            { text: 'Attendance History', icon: <History />, color: '#60a5fa' },
-            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: '#38bdf8' },
+            { text: 'Clocking Dashboard', icon: <DashIcon />, color: coreDataDetails.navPalette?.clocking || colorPalette.aquaVibrant },
+            { text: 'Attendance History', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: coreDataDetails.navPalette?.leaves || '#38bdf8' },
         ];
         const tech = [
-            { text: 'Lost Device', icon: <PhoneLocked />, color: '#fb923c' },
-            { text: 'Add Device', icon: <AddCircle />, color: '#fbbf24' },
-            { text: 'Help & Support', icon: <SupportAgentRounded />, color: '#22d3ee' },
+            { text: 'Lost Device', icon: <PhoneLocked />, color: coreDataDetails.navPalette?.lost || '#fb923c' },
+            { text: 'Add Device', icon: <AddCircle />, color: coreDataDetails.navPalette?.add || '#fbbf24' },
+            { text: 'Help & Support', icon: <SupportAgentRounded />, color: coreDataDetails.navPalette?.help || '#22d3ee' },
         ];
         const roleMap = {
             /* Admin: no Orgs Stats / Leave Management */
-            admin: [...ADMIN_SHARED_ITEMS, ...ADMIN_ONLY_ITEMS],
+            admin: [
+                { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+                { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+                { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
+                { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
+            ],
             /* HR: full set including Orgs Stats + Leave Management */
-            hr: [...HR_EXTRA_ITEMS, ...ADMIN_SHARED_ITEMS],
+            hr: [
+                { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
+                { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
+                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+                { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+            ],
             supervisor: [
-                { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
-                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+                { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
+                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
             ],
             ceo: [
-                { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
+                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
             ],
             auditor: [
-                ...AUDITOR_ITEMS,
+                { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
             ],
             superadmin: [
-                ...SUPERADMIN_GENERAL_ITEMS,
-                ...SUPERADMIN_HR_ITEMS,
-                ...SUPERADMIN_AUDITOR_ITEMS,
-                ...SUPERADMIN_SUPERVISOR_ITEMS,
-                ...SUPERADMIN_CEO_ITEMS,
+                { text: 'Platform Administration', icon: <Settings />, color: coreDataDetails.navPalette?.platform || '#93c5fd' },
+                { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
+                { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+                { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
+                { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
+                { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
+                { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
+                { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
+                { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
+                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
+                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
             ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
-    }, [user?.rank]);
+    }, [user?.rank, platformConfigVersion]);
 
     /* Drawer shared props */
     const drawerProps = useMemo(() => ({
@@ -966,8 +1016,9 @@ const EnhancedDashboard = () => {
         onLogout: openLogout,
         onCollapse: collapseSidebar,
         onProfileOpen: openProfile,
+        platformConfigVersion,
     }), [user, isElevated, isPrivileged, activeTab, pendingCount, rankMeta,
-        handleTabChange, openLogout, collapseSidebar, openProfile]);
+        handleTabChange, openLogout, collapseSidebar, openProfile, platformConfigVersion]);
 
     const currentDrawerWidth = sidebarCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
 
@@ -1026,70 +1077,25 @@ const EnhancedDashboard = () => {
             background: 'var(--kmfri-shell-gradient)',
         }}>
 
-            {/* AppBar */}
-            <AppBar position="fixed" elevation={0} sx={{ zIndex: theme.zIndex.drawer + 1, ...G.nav }}>
-                <Toolbar sx={{ minHeight: `${APPBAR_HEIGHT}px !important`, gap: 1 }}>
-                    <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(p => !p)}
-                        sx={{
-                            display: { md: 'none' }, bgcolor: 'rgba(255,255,255,0.09)',
-                            borderRadius: '11px', p: 0.9, border: '1px solid rgba(255,255,255,0.14)',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.16)' },
-                        }}>
-                        <MenuIcon />
-                    </IconButton>
 
-                    <Box component="img" src={platformLogoUrl || KMFRILogo} alt="KMFRI"
-                        sx={{ height: { xs: 38, md: 44 }, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid rgba(255,255,255,0.22)', boxShadow: '0 3px 12px rgba(0,0,0,0.24)', flexShrink: 0 }} />
+            {/* AppBar — unified shared navbar */}
+            <AppNavbar
+                variant="dashboard"
+                platformLogoUrl={platformLogoUrl}
+                platformBranding={platformBranding}
+                setMobileOpen={setMobileOpen}
+                user={user}
+                openProfile={openProfile}
+                onLogout={openLogout}
+                canInstall={canInstall}
+                handleInstall={handleInstall}
+                installStatus={installStatus}
+                setActiveTab={handleTabChange}
+                onOpenGuide={() => setGuideOpen(true)}
+                a11yPrefs={a11yPrefs}
+                setA11yPrefs={setA11yPrefs}
+            />
 
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography variant="h6" noWrap sx={{ fontWeight: 800, letterSpacing: 0.3, fontSize: { xs: '0.88rem', md: '1rem' }, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-                            {isMobile || isTablet
-                                ? `${platformBranding?.shortName || 'KMFRI'} ATTENDANCE SYSTEM`
-                                : (platformBranding?.organizationName || 'Kenya Marine and Fisheries Research Institute').toUpperCase()}
-                        </Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.6, display: { xs: 'none', sm: 'block' }, fontSize: '0.67rem', color: 'rgba(255,255,255,0.8)' }}>
-                            Staff Attendance System
-                        </Typography>
-                    </Box>
-
-                    {canInstall && (
-                        <Tooltip title="Install KMFRI Digital Attendance System">
-                            <IconButton
-                                color="inherit"
-                                onClick={handleInstall}
-                                sx={{
-                                    bgcolor: 'rgba(255,255,255,0.12)',
-                                    borderRadius: '12px',
-                                    p: 1,
-                                    mr: 1,
-                                    '&:hover': {
-                                        bgcolor: 'rgba(255,255,255,0.22)',
-                                    },
-                                }}
-                            >
-                                <InstallDesktop sx={{ fontSize: 22 }} />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    {installStatus && (
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)', mr: 1, whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline-flex' } }}>
-                            {installStatus}
-                        </Typography>
-                    )}
-
-                    <Tooltip title="View Profile">
-                        <Avatar src={user?.avatar} onClick={openProfile} sx={{
-                            background: 'rgba(0,220,255,0.18)', border: '2px solid rgba(255,255,255,0.28)',
-                            color: '#fff', fontWeight: 900, fontSize: '0.82rem',
-                            cursor: 'pointer', backdropFilter: 'blur(4px)',
-                            '&:hover': { background: 'rgba(0,220,255,0.28)' },
-                            transition: 'all 0.2s',
-                        }}>
-                            {user?.name?.split(' ')[0]?.charAt(0)}{user?.name?.split(' ')[1]?.charAt(0)}
-                        </Avatar>
-                    </Tooltip>
-                </Toolbar>
-            </AppBar>
 
             {/* Sidebar nav */}
             <Box component="nav" sx={{
@@ -1130,6 +1136,7 @@ const EnhancedDashboard = () => {
                                     onLogout={openLogout}
                                     onExpand={expandSidebar}
                                     allItems={allNavItems}
+                                    platformConfigVersion={platformConfigVersion}
                                 />
                             </motion.div>
                         ) : (
@@ -1193,6 +1200,9 @@ const EnhancedDashboard = () => {
 
             {/* Profile dialog */}
             <UserProfileDialog open={profileOpen} onClose={closeProfile} user={user} onSave={handleProfileSave} />
+
+            {/* Guide Dialog */}
+            <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
 
             {/* Logout confirmation */}
             <Dialog open={logoutDialogOpen} onClose={closeLogout}

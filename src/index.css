@@ -10,11 +10,20 @@
   --kmfri-accent: #48C9B0;
   --kmfri-surface: #f8fafd;
   --kmfri-text: #0f172a;
-  --kmfri-primary-soft: #0A3D6218;
-  --kmfri-secondary-soft: #005B9616;
-  --kmfri-accent-soft: #48C9B022;
+  --kmfri-primary-soft: rgba(10, 61, 98, 0.10);
+  --kmfri-secondary-soft: rgba(0, 91, 150, 0.14);
+  --kmfri-accent-soft: rgba(72, 201, 176, 0.18);
+  --kmfri-accent-bright: #6dd9c8;
   --kmfri-gradient: linear-gradient(135deg, #0A3D62 0%, #005B96 58%, #48C9B0 100%);
-  --kmfri-shell-gradient: linear-gradient(160deg, #f8fafd 0%, #005B9614 52%, #48C9B012 100%);
+  --kmfri-nav-gradient: linear-gradient(135deg, #0A3D62 0%, #005B96 72%, #48C9B0 100%);
+  --kmfri-shell-gradient: linear-gradient(160deg, #f8fafd 0%, rgba(0, 91, 150, 0.08) 52%, rgba(72, 201, 176, 0.07) 100%);
+  --kmfri-body-gradient: radial-gradient(circle at 10% 12%, rgba(0, 91, 150, 0.10) 0%, transparent 38%), radial-gradient(circle at 85% 20%, rgba(72, 201, 176, 0.12) 0%, transparent 40%), radial-gradient(circle at 50% 80%, rgba(10, 61, 98, 0.06) 0%, transparent 45%), linear-gradient(180deg, #fcfdfe 0%, #f8fafd 48%, #eef4f8 100%);
+  --kmfri-sidebar-bg: linear-gradient(180deg, rgba(10, 61, 98, 0.94) 0%, rgba(0, 91, 150, 0.90) 55%, rgba(10, 61, 98, 0.88) 100%);
+  --kmfri-sidebar-border: rgba(72, 201, 176, 0.22);
+  --kmfri-sidebar-surface: rgba(72, 201, 176, 0.10);
+  --kmfri-sidebar-hover: rgba(72, 201, 176, 0.16);
+  --kmfri-sidebar-text: rgba(255, 255, 255, 0.88);
+  --kmfri-sidebar-text-muted: rgba(255, 255, 255, 0.52);
 }
 
 html, body, #root {
@@ -75,9 +84,12 @@ canvas {
   }
 }
 
-.MuiAppBar-root,
+.MuiAppBar-root {
+  background: var(--kmfri-nav-gradient) !important;
+}
+
 .MuiDrawer-paper {
-  background: var(--kmfri-gradient) !important;
+  background: var(--kmfri-sidebar-bg) !important;
 }
 
 .MuiButton-contained {

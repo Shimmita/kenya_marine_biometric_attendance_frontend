@@ -22,10 +22,58 @@ const normalizeStation = (station, fallbackRadius = 500) => {
 
 const cachedPlatformConfig = readCachedPlatformConfig();
 
-const getActiveTheme = (config = {}) => {
+export const getActiveTheme = (config = {}) => {
     const themes = Array.isArray(config.themes) ? config.themes : [];
     return themes.find((theme) => theme.name === config.activeThemeName) || themes[0] || null;
 };
+
+const hexToRgba = (hex, alpha = 1) => {
+    if (!hex || typeof hex !== 'string') return `rgba(10,61,98,${alpha})`;
+    let clean = hex.replace('#', '');
+    if (clean.length === 3) clean = clean.split('').map((c) => c + c).join('');
+    const int = parseInt(clean, 16);
+    if (Number.isNaN(int)) return `rgba(10,61,98,${alpha})`;
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const mixHex = (hexA, hexB, weight = 0.5) => {
+    const parse = (hex) => {
+        let clean = (hex || '#000000').replace('#', '');
+        if (clean.length === 3) clean = clean.split('').map((c) => c + c).join('');
+        const int = parseInt(clean, 16);
+        return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+    };
+    const [r1, g1, b1] = parse(hexA);
+    const [r2, g2, b2] = parse(hexB);
+    const w = Math.min(1, Math.max(0, weight));
+    const r = Math.round(r1 * (1 - w) + r2 * w);
+    const g = Math.round(g1 * (1 - w) + g2 * w);
+    const b = Math.round(b1 * (1 - w) + b2 * w);
+    return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+const buildNavPalette = (primary, secondary, accent) => ({
+    clocking: accent,
+    history: mixHex(secondary, accent, 0.35),
+    leave: mixHex(accent, secondary, 0.45),
+    stats: mixHex(accent, secondary, 0.25),
+    members: secondary,
+    leaves: mixHex(accent, primary, 0.4),
+    device: '#fb923c',
+    add: '#fbbf24',
+    help: accent,
+    admin: mixHex(secondary, accent, 0.3),
+    feedback: mixHex(accent, '#cbd5e1', 0.55),
+    register: '#10b981',
+    staff: mixHex(primary, accent, 0.55),
+    password: '#f97316',
+    audit: mixHex(primary, accent, 0.65),
+    platform: mixHex(secondary, accent, 0.2),
+    lost: '#a78bfa',
+});
 
 const setCssVariables = (theme = {}, branding = {}) => {
     if (typeof document === 'undefined') return;
@@ -34,6 +82,8 @@ const setCssVariables = (theme = {}, branding = {}) => {
     const accent = theme.accentColor || branding.accentColor || '#48C9B0';
     const surface = theme.surfaceColor || '#f8fafd';
     const text = theme.textColor || '#0f172a';
+    const surfaceLight = mixHex(surface, '#ffffff', 0.72);
+    const surfaceMuted = mixHex(surface, secondary, 0.08);
     const root = document.documentElement;
 
     root.style.setProperty('--kmfri-primary', primary);
@@ -41,11 +91,25 @@ const setCssVariables = (theme = {}, branding = {}) => {
     root.style.setProperty('--kmfri-accent', accent);
     root.style.setProperty('--kmfri-surface', surface);
     root.style.setProperty('--kmfri-text', text);
-    root.style.setProperty('--kmfri-primary-soft', `${primary}18`);
-    root.style.setProperty('--kmfri-secondary-soft', `${secondary}16`);
-    root.style.setProperty('--kmfri-accent-soft', `${accent}22`);
+    root.style.setProperty('--kmfri-primary-soft', hexToRgba(primary, 0.10));
+    root.style.setProperty('--kmfri-secondary-soft', hexToRgba(secondary, 0.14));
+    root.style.setProperty('--kmfri-accent-soft', hexToRgba(accent, 0.18));
+    root.style.setProperty('--kmfri-accent-bright', mixHex(accent, '#ffffff', 0.35));
     root.style.setProperty('--kmfri-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 58%, ${accent} 100%)`);
-    root.style.setProperty('--kmfri-shell-gradient', `linear-gradient(160deg, ${surface} 0%, ${secondary}14 52%, ${accent}12 100%)`);
+    root.style.setProperty('--kmfri-nav-gradient', `linear-gradient(135deg, ${primary} 0%, ${secondary} 72%, ${accent} 100%)`);
+    root.style.setProperty('--kmfri-shell-gradient', `linear-gradient(160deg, ${surface} 0%, ${hexToRgba(secondary, 0.08)} 52%, ${hexToRgba(accent, 0.07)} 100%)`);
+    root.style.setProperty('--kmfri-body-gradient', `
+        radial-gradient(circle at 10% 12%, ${hexToRgba(secondary, 0.10)} 0%, transparent 38%),
+        radial-gradient(circle at 85% 20%, ${hexToRgba(accent, 0.12)} 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, ${hexToRgba(primary, 0.06)} 0%, transparent 45%),
+        linear-gradient(180deg, ${surfaceLight} 0%, ${surface} 48%, ${surfaceMuted} 100%)
+    `.replace(/\s+/g, ' ').trim());
+    root.style.setProperty('--kmfri-sidebar-bg', `linear-gradient(180deg, ${hexToRgba(primary, 0.94)} 0%, ${hexToRgba(secondary, 0.90)} 55%, ${hexToRgba(primary, 0.88)} 100%)`);
+    root.style.setProperty('--kmfri-sidebar-border', hexToRgba(accent, 0.22));
+    root.style.setProperty('--kmfri-sidebar-surface', hexToRgba(accent, 0.10));
+    root.style.setProperty('--kmfri-sidebar-hover', hexToRgba(accent, 0.16));
+    root.style.setProperty('--kmfri-sidebar-text', 'rgba(255,255,255,0.88)');
+    root.style.setProperty('--kmfri-sidebar-text-muted', 'rgba(255,255,255,0.52)');
 };
 
 const replaceArray = (target, values) => {
@@ -178,6 +242,14 @@ const coreDataDetails = {
         organizationName: "Kenya Marine and Fisheries Research Institute",
         shortName: "KMFRI",
     },
+    navPalette: buildNavPalette(
+        cachedPlatformConfig?.themes?.find((t) => t.name === cachedPlatformConfig?.activeThemeName)?.primaryColor
+            || cachedPlatformConfig?.branding?.primaryColor || '#0A3D62',
+        cachedPlatformConfig?.themes?.find((t) => t.name === cachedPlatformConfig?.activeThemeName)?.secondaryColor
+            || cachedPlatformConfig?.branding?.secondaryColor || '#005B96',
+        cachedPlatformConfig?.themes?.find((t) => t.name === cachedPlatformConfig?.activeThemeName)?.accentColor
+            || cachedPlatformConfig?.branding?.accentColor || '#48C9B0',
+    ),
     notificationReminders: cachedPlatformConfig?.notificationReminders || {
         clockInReminderMinutes: 15,
         clockOutReminderMinutes: 15,
@@ -250,11 +322,16 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
             deepNavy: primary,
             oceanBlue: secondary,
             seafoamGreen: accent,
-            glassBg: `${primary}B8`,
-            glassBgElevated: `${secondary}7A`,
-            glassBorder: `${accent}47`,
-            glassBorderHover: `${accent}94`,
+            glassBg: hexToRgba(primary, 0.72),
+            glassBgElevated: hexToRgba(secondary, 0.48),
+            glassBorder: hexToRgba(accent, 0.28),
+            glassBorderHover: hexToRgba(accent, 0.58),
+            textPrimary: '#E6F4FA',
+            textSecondary: hexToRgba(accent, 0.85),
+            textMuted: hexToRgba(accent, 0.55),
         });
+
+        coreDataDetails.navPalette = buildNavPalette(primary, secondary, accent);
     }
 
     if (config.notificationReminders) {
@@ -277,6 +354,14 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
             allowClockOutsideStation: config.attendancePolicy.allowClockOutsideStation ?? coreDataDetails.attendancePolicy.allowClockOutsideStation,
             requireBiometricVerification: config.attendancePolicy.requireBiometricVerification ?? coreDataDetails.attendancePolicy.requireBiometricVerification,
         };
+    }
+
+    if (typeof window !== 'undefined') {
+        try {
+            window.dispatchEvent(new CustomEvent('kmfri_platform_config_updated', { detail: config }));
+        } catch (e) {
+            /* no-op */
+        }
     }
 };
 
