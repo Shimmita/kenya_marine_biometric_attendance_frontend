@@ -132,18 +132,41 @@ const BatchRegistration = ({ readOnly = false }) => {
             try {
                 setConfigLoading(true);
                 setConfigError('');
+
                 const config = await SuperadminAPI.getPlatformConfig();
-                applyPlatformConfigToCoreData(config);
 
                 if (!mounted) return;
-                setDepartments(uniqueOptions(config?.departments || coreDataDetails.availableDepartments));
-                setStations(uniqueOptions((config?.stations || coreDataDetails.AvailableStations).map(normalizeStationOption)));
+
+                setDepartments(
+                    uniqueOptions(
+                        config?.departments || coreDataDetails.availableDepartments
+                    )
+                );
+
+                setStations(
+                    uniqueOptions(
+                        (config?.stations || coreDataDetails.AvailableStations)
+                            .map(normalizeStationOption)
+                    )
+                );
             } catch (err) {
                 if (!mounted) return;
-                console.error('Failed to load platform configuration', err);
-                setConfigError('Using saved platform options because live configuration could not be loaded.');
-                setDepartments(uniqueOptions(coreDataDetails.availableDepartments));
-                setStations(uniqueOptions(coreDataDetails.AvailableStations.map(normalizeStationOption)));
+
+                console.error(err);
+
+                setConfigError(
+                    'Using saved platform options because live configuration could not be loaded.'
+                );
+
+                setDepartments(
+                    uniqueOptions(coreDataDetails.availableDepartments)
+                );
+
+                setStations(
+                    uniqueOptions(
+                        coreDataDetails.AvailableStations.map(normalizeStationOption)
+                    )
+                );
             } finally {
                 if (mounted) setConfigLoading(false);
             }
@@ -521,7 +544,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                         size="large"
                         startIcon={singleLoading ? <CircularProgress size={20} color="inherit" /> : <PersonAdd />}
                         onClick={handleSingleRegister}
-                        disabled={singleLoading || readOnly   }
+                        disabled={singleLoading || readOnly}
                         sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 800, boxShadow: '0 12px 28px rgba(10,61,98,0.22)', bgcolor: colorPalette.deepNavy }}
                     >
                         {singleLoading ? 'Registering...' : 'Register Staff'}

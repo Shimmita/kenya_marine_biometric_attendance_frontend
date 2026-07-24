@@ -1,4 +1,18 @@
-import { Download, LocationOn } from "@mui/icons-material";
+import {
+  AssignmentRounded,
+  BarChartRounded,
+  BeachAccessRounded,
+  Download,
+  GroupsRounded,
+  LocationOn,
+  LoginRounded,
+  PersonRounded,
+  PlaceRounded,
+  ScheduleRounded,
+  TravelExploreRounded,
+  VerifiedRounded,
+  WarningAmberRounded
+} from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -89,8 +103,20 @@ const ChartCard = ({ title, icon, children, sx = {} }) => (
   >
     <Box sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
       <Box display="flex" alignItems="center" gap={1}>
-        <Typography sx={{ fontSize: 18 }}>{icon}</Typography>
-        <Typography sx={{ fontWeight: 700, fontSize: 15, color: T.deepNavy }}>
+        <Box
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: `${T.oceanBlue}15`,
+            color: T.oceanBlue,
+          }}
+        >
+          {icon}
+        </Box>        <Typography sx={{ fontWeight: 700, fontSize: 15, color: T.deepNavy }}>
           {title}
         </Typography>
       </Box>
@@ -452,14 +478,46 @@ const SupervisorDeptStats = () => {
 
   // ─── KPI data for banner ──────────────────────────────
   const kpiItems = [
-    { label: "Total Staff", value: stats.totalStaff, icon: "👥" },
-    { label: "Active Staff", value: stats.activeStaffThisMonth || 0, icon: "📌" },
-    { label: "Hours Worked", value: stats.totalHours, icon: "⏱" },
-    { label: "Clocked In Now", value: stats.clockedInNow || 0, icon: "🟢" },
-    { label: "Outside Clockings", value: stats.outsideClockingCount || 0, icon: "📍" },
-    { label: "High Burnout", value: burnoutCounts.High || 0, icon: "🔴" },
-    { label: "On Leave", value: stats.onLeaveCount || 0, icon: "🏖️" },
-    { label: "Outside Authorized", value: stats.outsideAuthorizedCount || 0, icon: "✅" },
+    {
+      label: "Total Staff",
+      value: stats.totalStaff,
+      icon: <GroupsRounded fontSize="small" />
+    },
+    {
+      label: "Active Staff",
+      value: stats.activeStaffThisMonth || 0,
+      icon: <PersonRounded fontSize="small" />
+    },
+    {
+      label: "Hours Worked",
+      value: stats.totalHours,
+      icon: <ScheduleRounded fontSize="small" />
+    },
+    {
+      label: "Clocked In Now",
+      value: stats.clockedInNow || 0,
+      icon: <LoginRounded fontSize="small" />
+    },
+    {
+      label: "Outside Clockings",
+      value: stats.outsideClockingCount || 0,
+      icon: <PlaceRounded fontSize="small" />
+    },
+    {
+      label: "High Burnout",
+      value: burnoutCounts.High || 0,
+      icon: <WarningAmberRounded fontSize="small" />
+    },
+    {
+      label: "On Leave",
+      value: stats.onLeaveCount || 0,
+      icon: <BeachAccessRounded fontSize="small" />
+    },
+    {
+      label: "Outside Authorized",
+      value: stats.outsideAuthorizedCount || 0,
+      icon: <VerifiedRounded fontSize="small" />
+    },
   ];
 
   // ─── render ────────────────────────────────────────────
@@ -533,8 +591,21 @@ const SupervisorDeptStats = () => {
                 "&:hover": { background: "rgba(255,255,255,0.22)" },
               }}
             >
-              <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{kpi.icon}</Typography>
-              <Box>
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "rgba(255,255,255,0.18)",
+                  color: T.white,
+                  flexShrink: 0,
+                }}
+              >
+                {kpi.icon}
+              </Box>              <Box>
                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: T.white, lineHeight: 1.2 }}>
                   {kpi.value}
                 </Typography>
@@ -553,9 +624,24 @@ const SupervisorDeptStats = () => {
         {/* ─── Top Performers Table ─── */}
         {topPerformers.length > 0 && (
           <Box mb={4}>
-            <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy, mb: 2 }}>
-              🏆 Top {topPerformers.length} Performers
-            </Typography>
+            <Box display="flex" alignItems="center" gap={1.2} mb={2}>
+              <BarChartRounded
+                sx={{
+                  color: T.seafoamGreen,
+                  fontSize: 24,
+                }}
+              />
+
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: 16,
+                  color: T.deepNavy,
+                }}
+              >
+                Top {topPerformers.length} Performers
+              </Typography>
+            </Box>
             <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
               <TableContainer>
                 <Table>
@@ -584,7 +670,7 @@ const SupervisorDeptStats = () => {
                         <TableCell align="center">
                           <Chip
                             label={emp.burnoutLevel}
-                            size="small"
+                            sFize="small"
                             sx={{
                               background: emp.burnoutLevel === 'High' ? T.coralSunset + '30' : emp.burnoutLevel === 'Moderate' ? T.warmSand + '30' : T.seafoamGreen + '30',
                               color: emp.burnoutLevel === 'High' ? T.coralSunset : emp.burnoutLevel === 'Moderate' ? T.warmSand : T.seafoamGreen,
@@ -607,9 +693,24 @@ const SupervisorDeptStats = () => {
           <Card elevation={0} sx={{ border: `1px solid ${T.softGray}`, borderRadius: "14px", overflow: "hidden" }}>
             <Box sx={{ px: 3, pt: 2.5, pb: 1.5, background: T.white }}>
               <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: T.deepNavy }}>
-                  📋 Clocking Records
-                </Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <AssignmentRounded
+                    sx={{
+                      color: T.oceanBlue,
+                      fontSize: 22,
+                    }}
+                  />
+
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: T.deepNavy,
+                    }}
+                  >
+                    Clocking Records
+                  </Typography>
+                </Box>
                 <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
                   <TextField
                     size="small"
@@ -724,7 +825,8 @@ const SupervisorDeptStats = () => {
         {outsideClockingData.length > 0 && (
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12}>
-              <ChartCard title="Outside Clocking Usage" icon="📍">
+              <ChartCard title="Outside Clocking Usage" icon={<TravelExploreRounded fontSize="small" />}
+              >
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={outsideClockingData} barCategoryGap="35%">
                     <CartesianGrid strokeDasharray="3 3" stroke={T.softGray} vertical={false} />
