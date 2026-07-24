@@ -8,9 +8,7 @@ import {
     InsightsRounded,
     LockResetRounded,
     Logout,
-    Menu as MenuIcon,
     PeopleRounded,
-    PersonAdd,
     PhoneLocked,
     QueryStats,
     SchoolRounded,
@@ -22,23 +20,22 @@ import Settings from '@mui/icons-material/Settings';
 import {
     Avatar, Box, Button, Chip, CircularProgress,
     Dialog, DialogActions, DialogContent, DialogTitle,
-    Drawer, IconButton,
+    Drawer,
     List, ListItem, ListItemIcon, ListItemText, Stack,
-    Tooltip, Typography, useMediaQuery, useTheme,
+    Tooltip, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import KMFRILogo from '../assets/kmfri.png';
 import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import SuperadminAPI from '../service/SuperadminService';
 import { updateUserProfile, userSignOut } from '../service/UserProfile';
-import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
-import GuideDialog from './GuideDialog';
+import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
+import GuideDialog from './GuideDialog';
 import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
 const PlatformConfigPanel = lazy(() => import('./dashboard/ConfigPanel'));
@@ -89,51 +86,51 @@ const RANK_META = {
 
 /* ─── Shared admin items — HR-specific items split out ─────────────────── */
 const ADMIN_SHARED_ITEMS = [
-    { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
-    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
+    { text: 'User Management', icon: <SupervisorAccount /> },
+    { text: 'Feedback Statistics', icon: <InsightsRounded /> },
 ];
 
 const ADMIN_ONLY_ITEMS = [
-    { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
-    { text: 'Password Requests', icon: <LockResetRounded />, color: '#f97316' },
+    { text: 'Lost Device Requests', icon: <DevicesOther /> },
+    { text: 'Password Requests', icon: <LockResetRounded /> },
 ];
 
 const SUPERADMIN_GENERAL_ITEMS = [
-    { text: 'Platform Administration', icon: <Settings />, color: '#93c5fd' },
-    { text: 'User Management', icon: <SupervisorAccount />, color: '#38bdf8' },
-    { text: 'Feedback Statistics', icon: <InsightsRounded />, color: '#e2e8f0' },
-    { text: 'Lost Device Requests', icon: <DevicesOther />, color: '#a78bfa' },
-    { text: 'Password Requests', icon: <LockResetRounded />, color: '#f97316' },
+    { text: 'Platform Administration', icon: <Settings /> },
+    { text: 'User Management', icon: <SupervisorAccount /> },
+    { text: 'Feedback Statistics', icon: <InsightsRounded /> },
+    { text: 'Lost Device Requests', icon: <DevicesOther /> },
+    { text: 'Password Requests', icon: <LockResetRounded /> },
 ];
 
 const SUPERADMIN_HR_ITEMS = [
-    { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: '#10b981' },
-    { text: 'Staff Registration', icon: <PeopleRounded />, color: '#8b5cf6' },
+    { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
+    { text: 'Staff Registration', icon: <PeopleRounded /> },
 ];
 
 const SUPERADMIN_AUDITOR_ITEMS = [
-    { text: 'Audit Logs', icon: <History />, color: '#8b5cf6' },
+    { text: 'Audit Logs', icon: <History /> },
 ];
 
 const SUPERADMIN_SUPERVISOR_ITEMS = [
-    { text: 'Departmental Statistics', icon: <QueryStats />, color: '#22d3ee' },
-    { text: 'Manage Your Members', icon: <SupervisorAccount />, color: '#0ea5e9' },
-    { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: '#06b6d4' },
+    { text: 'Departmental Statistics', icon: <QueryStats /> },
+    { text: 'Manage Your Members', icon: <SupervisorAccount /> },
+    { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
 ];
 
 const SUPERADMIN_CEO_ITEMS = [
-    { text: 'Organisations Stats', icon: <QueryStats />, color: '#22d3ee' },
+    { text: 'Organisations Stats', icon: <QueryStats /> },
 ];
 
 const HR_EXTRA_ITEMS = [
-    { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: '#10b981' },
-    { text: 'Staff Registration', icon: <PeopleRounded />, color: '#8b5cf6' },
-    { text: 'Organisations Stats', icon: <QueryStats />, color: '#34d399' },
-    // { text: 'Leave Management', icon: <SensorOccupiedRounded />, color: '#38bdf8' },
+    { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
+    { text: 'Staff Registration', icon: <PeopleRounded /> },
+    { text: 'Organisations Stats', icon: <QueryStats /> },
+    // { text: 'Leave Management', icon: <SensorOccupiedRounded /> },
 ];
 
 const AUDITOR_ITEMS = [
-    { text: 'Audit Logs', icon: <History />, color: '#8b5cf6' },
+    { text: 'Audit Logs', icon: <History /> },
 ];
 
 /* ─── Glass tokens (CSS variable based) ───────────────────────────────────── */
@@ -441,40 +438,40 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const isSuperadmin = user?.rank === 'superadmin';
 
     const baseItems = useMemo(() => [
-        { text: 'Clocking Dashboard', icon: <DashIcon />, color: coreDataDetails.navPalette?.clocking || colorPalette.aquaVibrant },
-        { text: 'Attendance History', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+        { text: 'Clocking Dashboard', icon: <DashIcon /> },
+        { text: 'Attendance History', icon: <History /> },
     ], [platformConfigVersion]);
 
     const techItems = useMemo(() => [
-        { text: 'Lost Device', icon: <PhoneLocked />, color: coreDataDetails.navPalette?.lost || '#fb923c' },
-        { text: 'Add Device', icon: <AddCircle />, color: coreDataDetails.navPalette?.add || '#fbbf24' },
-        { text: 'Help & Support', icon: <SupportAgentRounded />, color: coreDataDetails.navPalette?.help || '#22d3ee' },
+        { text: 'Lost Device', icon: <PhoneLocked /> },
+        { text: 'Add Device', icon: <AddCircle /> },
+        { text: 'Help & Support', icon: <SupportAgentRounded /> },
     ], [platformConfigVersion]);
 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
     const adminItems = useMemo(() => {
         const items = [
-            { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
-            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
-            { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
-            { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
+            { text: 'User Management', icon: <SupervisorAccount /> },
+            { text: 'Feedback Statistics', icon: <InsightsRounded /> },
+            { text: 'Lost Device Requests', icon: <DevicesOther /> },
+            { text: 'Password Requests', icon: <LockResetRounded /> },
         ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
     }, [isAuditor, platformConfigVersion]);
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
     const hrItems = useMemo(() => [
-        { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
-        { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
-        { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
-        { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
-        { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
+        { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
+        { text: 'Staff Registration', icon: <PeopleRounded /> },
+        { text: 'Organisations Stats', icon: <QueryStats /> },
+        { text: 'User Management', icon: <SupervisorAccount /> },
+        { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     ], [platformConfigVersion]);
 
     const supervisorItems = useMemo(() => [
-        { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
-        { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
-        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
+        { text: 'Departmental Statistics', icon: <QueryStats /> },
+        { text: 'Manage Your Members', icon: <SupervisorAccount />, },
+        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
     ], [platformConfigVersion]);
 
     const ceoItems = useMemo(() => [
@@ -483,18 +480,18 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
     const superadminItems = useMemo(() => {
         const items = [
-            { text: 'Platform Administration', icon: <Settings />, color: coreDataDetails.navPalette?.platform || '#93c5fd' },
-            { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
-            { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
-            { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
-            { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
-            { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
-            { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
-            { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
-            { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
-            { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
-            { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
-            { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+            { text: 'Platform Administration', icon: <Settings /> },
+            { text: 'User Management', icon: <SupervisorAccount /> },
+            { text: 'Feedback Statistics', icon: <InsightsRounded /> },
+            { text: 'Lost Device Requests', icon: <DevicesOther /> },
+            { text: 'Password Requests', icon: <LockResetRounded /> },
+            { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
+            { text: 'Staff Registration', icon: <PeopleRounded /> },
+            { text: 'Audit Logs', icon: <History /> },
+            { text: 'Departmental Statistics', icon: <QueryStats /> },
+            { text: 'Manage Your Members', icon: <SupervisorAccount /> },
+            { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
+            { text: 'Organisations Stats', icon: <QueryStats /> },
         ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
     }, [isAuditor, platformConfigVersion]);
