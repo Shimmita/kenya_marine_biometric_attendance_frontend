@@ -8,7 +8,7 @@ import {
     TableCell, TableContainer, TableHead, TablePagination, TableRow,
     TextField, Typography,
 } from '@mui/material';
-import { useInView,motion } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -16,11 +16,13 @@ import {
     Area, AreaChart, Bar, BarChart, CartesianGrid,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis
 } from 'recharts';
+import KMFRILogo from "../../images/kmfri_logo.png";
 import { trackClientAuditEvent } from '../../service/AuditorService.jsx';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { createVerification } from '../../service/VerificationService';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime } from '../util/DateTimeFormater';
+
 
 
 const { colorPalette } = coreDataDetails;
@@ -397,63 +399,154 @@ export default function AttendanceHistoryContent() {
 
     const handleExportPDF = async () => {
         setExporting(true);
-        try {
-            const { default: jsPDF } = await import('jspdf');
-            const { default: autoTable } = await import('jspdf-autotable');
 
-            // 1. Get the Verification Token & hash
+        try {
+            const { default: jsPDF } = await import("jspdf");
+            const { default: autoTable } = await import("jspdf-autotable");
+
+            // Generate verification token
             const { token, dataHash } = await createVerification(filteredRows);
             const verifyUrl = `${window.location.origin}/verify/${token}?hash=${encodeURIComponent(dataHash)}`;
 
-            // 2. Generate QR Data URL
-            // Explicitly set error correction level to 'H' (High) for better print reliability
+            // Generate QR Code
             const qrImage = await QRCode.toDataURL(verifyUrl, {
                 margin: 1,
                 width: 300,
-                errorCorrectionLevel: 'H'
+                errorCorrectionLevel: "H",
+            });
+
+            // Load KMFRI logo to preserve aspect ratio
+            const logo = new Image();
+            logo.src = KMFRILogo;
+
+            await new Promise((resolve, reject) => {
+                logo.onload = resolve;
+                logo.onerror = reject;
             });
 
             const doc = new jsPDF({
-                orientation: 'landscape',
-                unit: 'mm',
-                format: 'a4'
+                orientation: "landscape",
+                unit: "mm",
+                format: "a4",
             });
 
             const pw = doc.internal.pageSize.getWidth();
+
+            // =====================================================
             // Header Background
+            // =====================================================
             doc.setFillColor(10, 61, 98);
-            doc.rect(0, 0, pw, 40, 'F'); // Increased height to 40mm to house QR safely
+            doc.rect(0, 0, pw, 40, "F");
 
-            // Header text Styling
-            doc.setTextColor(255, 255, 255);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(18);
-            doc.text('KMFRI ATTENDANCE REPORT', pw / 2, 12, { align: 'center' });
-            doc.setFontSize(9);
-            doc.text(`${user?.station || 'ALL STATIONS'} | ${user?.department || 'ALL DEPARTMENTS'}`.toUpperCase(), pw / 2, 18, { align: 'center' });
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.text(`${new Date().toLocaleString()}`.toUpperCase(), pw / 2, 24, { align: 'center' });
-            doc.text(`${user?.name?.toUpperCase() || 'AUTHORIZED PERSONNEL'}`, pw / 2, 29, { align: 'center' });
-            doc.text(`${user?.role?.toUpperCase() || 'AUTHORIZED PERSONNEL'}`, pw / 2, 34, { align: 'center' });
+            // =====================================================
+            // KMFRI Logo (LEFT)
+            // =====================================================
+            const logoHeight = 20;
+            const logoWidth = (logo.width / logo.height) * logoHeight;
 
-            // 3. Render QR Code (Positioned Right-Aligned)
-            // Ensure format is 'PNG' or 'JPEG' match
+            const logoX = 3;
+            const logoY = 8;
+
+            doc.addImage(
+                KMFRILogo,
+                "PNG",
+                logoX,
+                logoY,
+                logoWidth,
+                logoHeight,
+                undefined,
+                "FAST"
+            );
+
+            // =====================================================
+            // QR Code (RIGHT)
+            // =====================================================
             const qrSize = 30;
-            const qrX = pw - qrSize - 15; // 15mm margin from right
+            const qrX = pw - qrSize - 10;
             const qrY = 5;
 
-            doc.addImage(qrImage, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST');
+            doc.addImage(
+                qrImage,
+                "PNG",
+                qrX,
+                qrY,
+                qrSize,
+                qrSize,
+                undefined,
+                "FAST"
+            );
 
-            // Add "Scan to verify" label below QR
-            doc.setFontSize(8);
+            // =====================================================
+            // Header Text
+            // =====================================================
             doc.setTextColor(255, 255, 255);
-            doc.text('VERIFICATION QR', qrX + (qrSize / 2), qrY + qrSize + 3, { align: 'center' });
 
-            // Table
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("KMFRI ATTENDANCE REPORT", pw / 2, 10, {
+                align: "center",
+            });
+
+            doc.setFontSize(9);
+            doc.text(
+                `${user?.station || "ALL STATIONS"} | ${user?.department || "ALL DEPARTMENTS"
+                    }`.toUpperCase(),
+                pw / 2,
+                16,
+                { align: "center" }
+            );
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+
+            doc.text(
+                `${new Date().toLocaleString()}`.toUpperCase(),
+                pw / 2,
+                22,
+                { align: "center" }
+            );
+
+            doc.text(
+                `${user?.name?.toUpperCase() || "AUTHORIZED PERSONNEL"}`,
+                pw / 2,
+                28,
+                { align: "center" }
+            );
+
+            doc.text(
+                `${user?.role?.toUpperCase() || "AUTHORIZED PERSONNEL"}`,
+                pw / 2,
+                34,
+                { align: "center" }
+            );
+
+            // QR Label
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.text(
+                "VERIFICATION QR",
+                qrX + qrSize / 2,
+                qrY + qrSize + 3,
+                {
+                    align: "center",
+                }
+            );
+
+            // =====================================================
+            // Attendance Table
+            // =====================================================
             autoTable(doc, {
-                head: [['DATE', 'CLOCK IN', 'CLOCK OUT', 'IN LOCATION', 'OUT LOCATION', 'WHY OUT']],
-                body: filteredRows.map(r => [
+                head: [
+                    [
+                        "DATE",
+                        "CLOCK IN",
+                        "CLOCK OUT",
+                        "IN LOCATION",
+                        "OUT LOCATION",
+                        "WHY OUT",
+                    ],
+                ],
+                body: filteredRows.map((r) => [
                     normalizeExportValue(r.date),
                     normalizeExportValue(r.clockIn),
                     normalizeExportValue(r.clockOut),
@@ -462,24 +555,77 @@ export default function AttendanceHistoryContent() {
                     normalizeExportTextValue(r.whyOut),
                 ]),
                 startY: 45,
-                theme: 'striped',
-                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: 'center' },
-                styles: { fontSize: 9, halign: 'center' }
+                theme: "striped",
+                headStyles: {
+                    fillColor: [10, 61, 98],
+                    textColor: 255,
+                    halign: "center",
+                    fontStyle: "bold",
+                },
+                styles: {
+                    fontSize: 9,
+                    halign: "center",
+                    cellPadding: 2,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+                margin: {
+                    left: 10,
+                    right: 10,
+                },
             });
 
-            doc.save(`Attendance_Report_${new Date().getTime()}.pdf`);
+            // =====================================================
+            // Footer
+            // =====================================================
+            const totalPages = doc.internal.getNumberOfPages();
 
-            await trackClientAuditEvent('attendance.history_exported', {
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+
+                doc.setDrawColor(10, 61, 98);
+                doc.line(
+                    10,
+                    doc.internal.pageSize.height - 12,
+                    pw - 10,
+                    doc.internal.pageSize.height - 12
+                );
+
+                doc.setFontSize(8);
+                doc.setTextColor(80);
+
+                doc.text(
+                    "Kenya Marine and Fisheries Research Institute (KMFRI)",
+                    10,
+                    doc.internal.pageSize.height - 7
+                );
+
+                doc.text(
+                    `Page ${i} of ${totalPages}`,
+                    pw - 10,
+                    doc.internal.pageSize.height - 7,
+                    {
+                        align: "right",
+                    }
+                );
+            }
+
+            // =====================================================
+            // Save PDF
+            // =====================================================
+            doc.save(`Attendance_Report_${Date.now()}.pdf`);
+
+            await trackClientAuditEvent("attendance.history_exported", {
                 rowsExported: filteredRows.length,
-                monthFilter: filterMonth || 'all',
-                timingFilter: filterTiming || 'All',
+                monthFilter: filterMonth || "all",
+                timingFilter: filterTiming || "All",
             });
 
-            notify('Report exported with QR verification!');
-
+            notify("Report exported successfully with QR verification!");
         } catch (err) {
             console.error("PDF Export Error:", err);
-            notify('Export failed. Check console for details.', 'error');
+            notify("Export failed. Check console for details.", "error");
         } finally {
             setExporting(false);
         }
