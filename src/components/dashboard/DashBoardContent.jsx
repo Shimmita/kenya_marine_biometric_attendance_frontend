@@ -23,7 +23,6 @@ import {
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
-import reverseGeocode from '../util/GeoLocationPlace';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
@@ -32,6 +31,7 @@ import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime } from '../util/DateTimeFormater';
 import { calculateDistanceMeters } from '../util/DistanceMeasure';
+import reverseGeocode from '../util/GeoLocationPlace';
 import LiveClock from '../util/LiveClock';
 import { detectCurrentDevice } from './AddDevice';
 

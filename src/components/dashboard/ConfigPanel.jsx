@@ -681,7 +681,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                       ...prev,
                       notificationReminders: { ...(prev.notificationReminders || {}), clockInReminderMinutes: Number(e.target.value) }
                     }))}
-                    InputProps={{ endAdornment: <InputAdornment position="end">mins prior</InputAdornment> }}
+                    InputProps={{ endAdornment: <InputAdornment position="end">mins</InputAdornment> }}
                     fullWidth
                     sx={{ mb: 2 }}
                   />
@@ -701,14 +701,14 @@ const ConfigPanel = ({ onConfigLoaded }) => {
 
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Clock-Out Reminder Threshold"
+                    label="Clock-Out grace period"
                     type="number"
                     value={config.notificationReminders?.clockOutReminderMinutes ?? 15}
                     onChange={(e) => setConfig(prev => ({
                       ...prev,
                       notificationReminders: { ...(prev.notificationReminders || {}), clockOutReminderMinutes: Number(e.target.value) }
                     }))}
-                    InputProps={{ endAdornment: <InputAdornment position="end">mins prior</InputAdornment> }}
+                    InputProps={{ endAdornment: <InputAdornment position="end">mins</InputAdornment> }}
                     fullWidth
                     sx={{ mb: 2 }}
                   />
@@ -723,7 +723,22 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                     }))}
                     helperText="Dynamic variables: {firstName}"
                     fullWidth
+                    sx={{ mb: 2 }}
                   />
+
+                  {/* clock outside message */}
+                  {/* <TextField
+                    label="Authorise clocking outside message"
+                    multiline
+                    minRows={3}
+                    value={config.notificationReminders?.authorisedClockOut || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      notificationReminders: { ...(prev.notificationReminders || {}), authorisedClockOut: e.target.value }
+                    }))}
+                    helperText="Dynamic variables: {firstName}"
+                    fullWidth
+                  /> */}
                 </Grid>
               </Grid>
             </Paper>

@@ -12,6 +12,7 @@ import {
     PhoneLocked,
     QueryStats,
     SchoolRounded,
+    SelfImprovementRounded,
     SensorOccupiedRounded,
     SupervisorAccount,
     SupportAgentRounded
@@ -440,6 +441,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon /> },
         { text: 'Attendance History', icon: <History /> },
+        { text: 'Request for Leave', icon: <SelfImprovementRounded /> },
     ], [platformConfigVersion]);
 
     const techItems = useMemo(() => [
