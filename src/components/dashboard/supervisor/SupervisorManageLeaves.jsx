@@ -279,6 +279,7 @@ function SupervisorLeaveCard({ req, calculateDays, onViewFile, onConfirm }) {
                             textTransform: "none",
                             fontWeight: 700,
                             fontSize: "0.78rem",
+                            display:req.attachment ? "block":"none",
                             borderColor: "#e2e8f0",
                             color: "#64748b",
                             "&:hover": { borderColor: colorPalette.oceanBlue, color: colorPalette.oceanBlue, bgcolor: `${colorPalette.oceanBlue}08` },
@@ -475,10 +476,10 @@ export default function SupervisorLeaveManager() {
                         </Box>
                     ) : (
                         <Grid container spacing={2.5}>
-                            {filteredLeaves.map((req) => (
-                                <Grid item xs={12} md={6} lg={4} key={req._id}>
+                            {filteredLeaves.map((leave) => (
+                                <Grid item xs={12} md={6} lg={4} key={leave._id}>
                                     <SupervisorLeaveCard
-                                        req={req}
+                                        req={leave}
                                         calculateDays={calculateDays}
                                         onViewFile={handleViewFile}
                                         onConfirm={(id, action) => setConfirmation({ open: true, leaveId: id, action })}

@@ -179,10 +179,7 @@ export default function LeaveManagementContent() {
             return;
         }
 
-        if (formData.attachment === "") {
-            alert("Please upload a proof of leave document");
-            return;
-        }
+      
 
         try {
             setLoading(true)
@@ -577,7 +574,7 @@ export default function LeaveManagementContent() {
                         >
                             {relievers.map((person) => (
                                 <MenuItem key={person._id} value={person.name}>
-                                    <Typography variant="body2">{person.name} ({person.email})</Typography>
+                                    <Typography variant="body2">{person.name}</Typography>
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -585,13 +582,13 @@ export default function LeaveManagementContent() {
                         <TextField
                             required={relievers.length > 0}
                             disabled={loading || (relievers.length > 0 && !formData.reliever)}
-                            label="Remarks / Reason" name="remarks" multiline rows={3}
+                            label="Reason*" name="remarks" multiline rows={3}
                             fullWidth sx={textFieldSx} value={formData.remarks} onChange={handleChange}
                         />
 
                         <Box>
                             <Button
-                                disabled={loading || !formData.remarks}
+                                disabled={loading}
                                 component="label" variant="outlined" fullWidth
                                 startIcon={<CloudUploadRounded />}
                                 sx={{
@@ -600,14 +597,14 @@ export default function LeaveManagementContent() {
                                     borderRadius: "10px", py: 1.5
                                 }}
                             >
-                                {formData.attachment ? "File Loaded" : "Upload Proof *"}
-                                <input disabled={loading || !formData.remarks} type="file" name="attachment" hidden onChange={handleChange} accept=".pdf,.jpg,.jpeg,.png" />
+                                {formData.attachment ? "File Loaded" : "upload attachement"}
+                                <input disabled={loading} type="file" name="attachment" hidden onChange={handleChange} accept=".pdf,.jpg,.jpeg,.png" />
                             </Button>
                         </Box>
 
                         <Button
                             fullWidth variant="contained" onClick={handleSubmit}
-                            disabled={loading || !formData.type || !formData.startDate}
+                            disabled={loading || !formData.type || !formData.startDate || !formData.remarks}
                             sx={{
                                 bgcolor: C.oceanBlue,
                                 color: "#fff",

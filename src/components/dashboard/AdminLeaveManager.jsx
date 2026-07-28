@@ -102,7 +102,7 @@ function LeaveCard({ req, calculateDays, onViewFile, onConfirm, readOnly = false
                 borderRadius: 3,
                 border: "1px solid",
                 height: "100%",
-                borderColor:'divider',
+                borderColor: 'divider',
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -262,12 +262,13 @@ function LeaveCard({ req, calculateDays, onViewFile, onConfirm, readOnly = false
                             fontWeight: 700,
                             fontSize: "0.78rem",
                             borderColor: "#e2e8f0",
+                            display: req.attachment ? "block" : "none",
                             color: "#64748b",
                             "&:hover": { borderColor: colorPalette.oceanBlue, color: colorPalette.oceanBlue, bgcolor: `${colorPalette.oceanBlue}08` },
                             "&.Mui-disabled": { bgcolor: "#f8fafc" },
                         }}
                     >
-                        {req.attachment ? "Review Documentation" : "No Document Attached"}
+                        {req.attachment ? "View Attachment" : "No Document Attached"}
                     </Button>
 
                     {req.status === "pending" && !readOnly && (

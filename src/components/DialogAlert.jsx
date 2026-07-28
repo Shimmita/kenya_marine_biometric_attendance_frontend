@@ -31,158 +31,144 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 export default function DialogAlert() {
     const [open, setOpen] = React.useState(true);
     const [processing, setProcessing] = React.useState(false);
-    const [isHelp, setIsHelp] = React.useState(false);
-
     const dispatch = useDispatch();
 
-    // Get current user safely from redux
     const currentUser = useSelector((state) => state?.currentUser?.user);
 
-    const department = currentUser?.department || "Not Assigned";
-    const supervisor = currentUser?.supervisor || "Not Assigned";
+    // If user is neither deactivated nor on leave, render nothing
+    if (!currentUser) return null;
+    if (currentUser.isAccountActive !== false && currentUser.isOnLeave !== true) {
+        return null;
+    }
 
-    const handleClose = async () => {
+    // Determine which scenario we're in
+    const isDeactivated = currentUser.isAccountActive === false;
+    const isOnLeave = currentUser.isOnLeave === true;
+
+    // Dialog content based on scenario
+    const getContent = () => {
+        if (isDeactivated) {
+            return {
+                title: 'Account Deactivated',
+                icon: <LockPersonRounded />,
+                message: `Your account has been deactivated and is no longer active. Please contact your Human Resource (HR) department at ${currentUser?.station || 'your HR team'} for assistance. To continue, you will be signed out.`,
+                buttonText: processing ? 'Signing out...' : 'Sign Out & Close',
+                showSignOut: true,
+            };
+        }
+        if (isOnLeave) {
+            return {
+                title: 'On Leave',
+                icon: <Business />,
+                message: 'You are currently on leave. Clocking services are temporarily disabled. If you need to clock in or out, please contact your supervisor. You may close this message and continue browsing.',
+                buttonText: 'Close',
+                showSignOut: false,
+            };
+        }
+        return null;
+    };
+
+    const content = getContent();
+    if (!content) return null;
+
+    const handleClose = () => {
+        // For on‑leave, just close the dialog
+        setOpen(false);
+    };
+
+    const handleSignOut = async () => {
         try {
             setProcessing(true);
             await userSignOut();
             dispatch(resetClearCurrentUserRedux());
             setOpen(false);
         } catch (error) {
-            console.log(error);
+            console.error('Sign out error:', error);
         } finally {
             setProcessing(false);
         }
     };
 
-    const handleHelp = () => {
-        setIsHelp(prev => !prev);
-    };
+    // Decide which action to take when the button is clicked
+    const handleAction = content.showSignOut ? handleSignOut : handleClose;
 
     return (
-        <>
-            <Dialog
-                open={open}
-                TransitionComponent={Transition}
-                keepMounted
-                fullWidth
-                maxWidth="sm"
-                aria-describedby="account-deactivated-description"
-                PaperProps={{
-                    sx: {
-                        borderRadius: 4,
-                        p: 1
-                    }
+        <Dialog
+            open={open}
+            TransitionComponent={Transition}
+            keepMounted
+            fullWidth
+            maxWidth="sm"
+            aria-describedby="account-status-description"
+            // For deactivated: prevent dismissing by backdrop click or Escape key
+            disableEscapeKeyDown={isDeactivated}
+            disableBackdropClick={isDeactivated}
+            PaperProps={{
+                sx: {
+                    borderRadius: 4,
+                    p: 1
+                }
+            }}
+        >
+            {/* HEADER */}
+            <DialogTitle
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    fontWeight: 600,
+                    color: '#0A3D62'
                 }}
             >
-                {/* HEADER */}
-                <DialogTitle
+                <Avatar
                     sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        fontWeight: 600,
+                        bgcolor: '#E3F2FD',
                         color: '#0A3D62'
                     }}
                 >
-                    <Avatar
-                        sx={{
-                            bgcolor: '#E3F2FD',
-                            color: '#0A3D62'
-                        }}
-                    >
-                        <LockPersonRounded />
-                    </Avatar>
-                    Account Deactivated
-                </DialogTitle>
+                    {content.icon}
+                </Avatar>
+                {content.title}
+            </DialogTitle>
 
-                <Divider />
+            <Divider />
 
-                {/* CONTENT */}
-                <DialogContent dividers>
-                    <DialogContentText
-                        id="account-deactivated-description"
-                        sx={{ mb: 2 }}
-                    >
-                        Your account has not yet been activated for clocking services.
-                        Please contact your Human Resource (HR) department at {currentUser?.station} to activate your account.
-                    </DialogContentText>
+            {/* CONTENT */}
+            <DialogContent dividers>
+                <DialogContentText
+                    id="account-status-description"
+                    sx={{ mb: 2 }}
+                >
+                    {content.message}
+                </DialogContentText>
+                {isDeactivated && currentUser?.station && (
+                    <Typography variant="body2" color="text.secondary">
+                        Station: <strong>{currentUser.station}</strong>
+                    </Typography>
+                )}
+            </DialogContent>
 
-                    {isHelp && (
-                        <Box
-                            sx={{
-                                mt: 2,
-                                p: 2,
-                                borderRadius: 3,
-                                bgcolor: '#F5F9FF',
-                                border: '1px solid #E3F2FD'
-                            }}
-                        >
-                            <Typography
-                                variant="subtitle1"
-                                fontWeight={600}
-                                gutterBottom
-                                color="#0A3D62"
-                            >
-                                Your Assignment Details
-                            </Typography>
+            <Divider />
 
-                            <Stack spacing={2}>
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <Business fontSize="small" color="primary" />
-                                    <Chip
-                                        label={`Department: ${department}`}
-                                        variant="outlined"
-                                        sx={{ fontWeight: 500 }}
-                                    />
-                                </Stack>
-
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <SupervisorAccount fontSize="small" color="primary" />
-                                    <Chip
-                                        label={`Supervisor: ${supervisor}`}
-                                        variant="outlined"
-                                        sx={{ fontWeight: 500 }}
-                                    />
-                                </Stack>
-                            </Stack>
-                        </Box>
-                    )}
-                </DialogContent>
-
-                <Divider />
-
-                {/* ACTIONS */}
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button
-                        variant="outlined"
-                        onClick={handleHelp}
-                        sx={{
-                            borderRadius: 3,
-                            textTransform: 'none'
-                        }}
-                        disabled={processing}
-                    >
-                        Help
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        onClick={handleClose}
-                        disabled={processing}
-                        sx={{
-                            borderRadius: 3,
-                            textTransform: 'none'
-                        }}
-                        startIcon={
-                            processing ? (
-                                <CircularProgress size={18} color="inherit" />
-                            ) : null
-                        }
-                    >
-                        {processing ? "Signing out..." : "Close"}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </>
+            {/* ACTIONS */}
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button
+                    variant="contained"
+                    onClick={handleAction}
+                    disabled={processing}
+                    sx={{
+                        borderRadius: 3,
+                        textTransform: 'none'
+                    }}
+                    startIcon={
+                        processing ? (
+                            <CircularProgress size={18} color="inherit" />
+                        ) : null
+                    }
+                >
+                    {content.buttonText}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 }

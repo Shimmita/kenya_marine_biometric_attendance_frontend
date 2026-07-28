@@ -942,53 +942,56 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 </Alert>
             </Snackbar>
 
-            {/* ══ HOW-TO BANNER ════════════════════════════════════════════ */}
-            <Reveal>
-                <Box sx={{ ...G.tinted(colorPalette.oceanBlue), borderRadius: '20px', p: 2.5, mb: 3, position: 'relative', zIndex: 1 }}>
-                    <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
-                        <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}14`, border: `1px solid ${colorPalette.oceanBlue}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <InfoOutlined sx={{ color: colorPalette.oceanBlue, fontSize: '1.1rem' }} />
-                        </Box>
-                        <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy} sx={{ letterSpacing: 0.5 }}>
-                            How to Clock In / Out
-                        </Typography>
-                    </Stack>
-                    <Grid container spacing={1.5}>
-                        {[
-                            { num: '01', text: 'Select your assigned station from the dropdown.' },
-                            { num: '02', text: "Click 'Verify Location' to confirm you're within KMFRI premises." },
-                            { num: '03', text: 'Register your fingerprint once (first time only).' },
-                            { num: '04', text: 'Scan your fingerprint to clock in or out.' },
-                        ].map(({ num, text }) => (
-                            <Grid item xs={12} sm={6} md={3} key={num}>
-                                <Stack direction="row" spacing={1.2} alignItems="flex-start">
-                                    <Box sx={{ px: 0.9, py: 0.3, borderRadius: '7px', bgcolor: colorPalette.oceanBlue, flexShrink: 0 }}>
-                                        <Typography variant="caption" fontWeight={900} sx={{ color: '#fff', fontSize: '0.66rem', lineHeight: 1.6 }}>{num}</Typography>
-                                    </Box>
-                                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55, fontSize: '0.79rem' }}>{text}</Typography>
+            {/* ══ HOW-TO BANNER IF USER ACTIVE  ════════════════════════════════════════════ */}
+            {!user?.isOnLeave || user?.isAccountActive && (
+                <Reveal>
+                    <Box sx={{ ...G.tinted(colorPalette.oceanBlue), borderRadius: '20px', p: 2.5, mb: 3, position: 'relative', zIndex: 1 }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
+                            <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: `${colorPalette.oceanBlue}14`, border: `1px solid ${colorPalette.oceanBlue}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <InfoOutlined sx={{ color: colorPalette.oceanBlue, fontSize: '1.1rem' }} />
+                            </Box>
+                            <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy} sx={{ letterSpacing: 0.5 }}>
+                                How to Clock In / Out
+                            </Typography>
+                        </Stack>
+                        <Grid container spacing={1.5}>
+                            {[
+                                { num: '01', text: 'Select your assigned station from the dropdown.' },
+                                { num: '02', text: "Click 'Verify Location' to confirm you're within KMFRI premises." },
+                                { num: '03', text: 'Register your fingerprint once (first time only).' },
+                                { num: '04', text: 'Scan your fingerprint to clock in or out.' },
+                            ].map(({ num, text }) => (
+                                <Grid item xs={12} sm={6} md={3} key={num}>
+                                    <Stack direction="row" spacing={1.2} alignItems="flex-start">
+                                        <Box sx={{ px: 0.9, py: 0.3, borderRadius: '7px', bgcolor: colorPalette.oceanBlue, flexShrink: 0 }}>
+                                            <Typography variant="caption" fontWeight={900} sx={{ color: '#fff', fontSize: '0.66rem', lineHeight: 1.6 }}>{num}</Typography>
+                                        </Box>
+                                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55, fontSize: '0.79rem' }}>{text}</Typography>
+                                    </Stack>
+                                </Grid>
+                            ))}
+                        </Grid>
+                        <Stack direction="row" spacing={1} mt={2} alignItems="center" flexWrap="wrap" gap={0.5}>
+                            <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.63rem' }}>YOUR PROGRESS:</Typography>
+                            {['Location', 'Fingerprint', 'Ready'].map((step, i) => (
+                                <Stack key={step} direction="row" alignItems="center" spacing={0.5}>
+                                    <Box sx={{
+                                        width: i <= clockStepIndex ? 26 : 7, height: 7, borderRadius: 99,
+                                        bgcolor: i < clockStepIndex ? colorPalette.seafoamGreen : i === clockStepIndex ? colorPalette.oceanBlue : `${colorPalette.oceanBlue}20`,
+                                        transition: 'all 0.4s ease'
+                                    }} />
+                                    {i <= clockStepIndex && (
+                                        <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.63rem', color: i === clockStepIndex ? colorPalette.oceanBlue : colorPalette.seafoamGreen }}>
+                                            {step}
+                                        </Typography>
+                                    )}
                                 </Stack>
-                            </Grid>
-                        ))}
-                    </Grid>
-                    <Stack direction="row" spacing={1} mt={2} alignItems="center" flexWrap="wrap" gap={0.5}>
-                        <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.63rem' }}>YOUR PROGRESS:</Typography>
-                        {['Location', 'Fingerprint', 'Ready'].map((step, i) => (
-                            <Stack key={step} direction="row" alignItems="center" spacing={0.5}>
-                                <Box sx={{
-                                    width: i <= clockStepIndex ? 26 : 7, height: 7, borderRadius: 99,
-                                    bgcolor: i < clockStepIndex ? colorPalette.seafoamGreen : i === clockStepIndex ? colorPalette.oceanBlue : `${colorPalette.oceanBlue}20`,
-                                    transition: 'all 0.4s ease'
-                                }} />
-                                {i <= clockStepIndex && (
-                                    <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.63rem', color: i === clockStepIndex ? colorPalette.oceanBlue : colorPalette.seafoamGreen }}>
-                                        {step}
-                                    </Typography>
-                                )}
-                            </Stack>
-                        ))}
-                    </Stack>
-                </Box>
-            </Reveal>
+                            ))}
+                        </Stack>
+                    </Box>
+                </Reveal>
+            )}
+
 
             {/* ══ MAIN GRID ════════════════════════════════════════════════ */}
             <Grid container spacing={3} alignItems="flex-start" sx={{ position: 'relative', zIndex: 1 }}>
@@ -998,300 +1001,304 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                     <Stack spacing={3}>
 
                         {/* ── DARK CLOCK CARD ── */}
-                        <Reveal>
-                            <Box sx={{
-                                borderRadius: '24px',
-                                background: G.clockBg,
-                                position: 'relative', overflow: 'hidden',
-                                p: { xs: 3, md: 4 },
-                                boxShadow: '0 20px 56px rgba(10,61,98,0.30)',
-                            }}>
-                                <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-                                <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
-                                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'center', md: 'center' }} spacing={{ xs: 4, md: 5 }} sx={{ position: 'relative', zIndex: 1 }}>
+                        {!user?.isOnLeave || user?.isAccountActive && (
+                            <Reveal>
+                                <Box sx={{
+                                    borderRadius: '24px',
+                                    background: G.clockBg,
+                                    position: 'relative', overflow: 'hidden',
+                                    p: { xs: 3, md: 4 },
+                                    boxShadow: '0 20px 56px rgba(10,61,98,0.30)',
+                                }}>
+                                    <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
+                                    <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
-                                    {/* Clock face */}
-                                    <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flexShrink: 0 }}>
-                                        <LiveClock />
-                                        <Stack direction="row" spacing={1} mt={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" gap={1}>
-                                            <Chip
-                                                icon={<LocationOn sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
-                                                // label={locationLabel} size="small"
-                                                label={handleUserLocationLable()} size="small"
-                                                sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.22)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.22)' : 'rgba(138,138,138,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.38)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.35)' : 'rgba(138,138,138,0.35)'}`, backdropFilter: 'blur(8px)' }}
-                                            />
-                                            {isClockedIn && isToClockOut && (
-                                                <Chip icon={<CheckCircle sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />} label="Session Active" size="small"
-                                                    sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.24)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.24)' : 'rgba(138,138,138,0.24)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: isWithinGeofence && !outsideClockingAuthorized ? '1px solid rgba(34,197,94,0.40)' : outsideClockingAuthorized ? '1px solid rgba(154, 211, 21, 0.40)' : '1px solid rgba(138,138,138,0.40)' }} />
-                                            )}
+                                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'center', md: 'center' }} spacing={{ xs: 4, md: 5 }} sx={{ position: 'relative', zIndex: 1 }}>
 
-                                            {/* If authorized outside, show a special badge */}
-                                            {outsideClockingAuthorized && (
+                                        {/* Clock face */}
+                                        <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flexShrink: 0 }}>
+                                            <LiveClock />
+                                            <Stack direction="row" spacing={1} mt={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" gap={1}>
                                                 <Chip
-                                                    label={user.outsideClockingDetails.reason}
-                                                    size="small"
-                                                    sx={{ bgcolor: colorPalette.warmSand, color: colorPalette.deepNavy, fontWeight: 900, fontSize: '0.65rem' }}
+                                                    icon={<LocationOn sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
+                                                    // label={locationLabel} size="small"
+                                                    label={handleUserLocationLable()} size="small"
+                                                    sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.22)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.22)' : 'rgba(138,138,138,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: `1px solid ${isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.38)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.35)' : 'rgba(138,138,138,0.35)'}`, backdropFilter: 'blur(8px)' }}
                                                 />
-                                            )}
-                                        </Stack>
-                                    </Box>
+                                                {isClockedIn && isToClockOut && (
+                                                    <Chip icon={<CheckCircle sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />} label="Session Active" size="small"
+                                                        sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.24)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.24)' : 'rgba(138,138,138,0.24)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: isWithinGeofence && !outsideClockingAuthorized ? '1px solid rgba(34,197,94,0.40)' : outsideClockingAuthorized ? '1px solid rgba(154, 211, 21, 0.40)' : '1px solid rgba(138,138,138,0.40)' }} />
+                                                )}
 
-                                    {/* Controls */}
-                                    <Stack spacing={2} sx={{ width: { xs: '100%', sm: '300px', md: '300px' } }}>
-                                        {outsideClockingAuthorized && (
-                                            <Alert
-                                                severity="info"
-                                                sx={{
-                                                    borderRadius: '14px',
-                                                    bgcolor: 'rgba(255,255,255,0.10)',
-                                                    color: '#fff',
-                                                    border: '1px solid rgba(154,211,21,0.35)',
-                                                    '& .MuiAlert-icon': { color: colorPalette.aquaVibrant },
-                                                }}
-                                            >
-                                                Granted to clock outside
-                                            </Alert>
-                                        )}
+                                                {/* If authorized outside, show a special badge */}
+                                                {outsideClockingAuthorized && (
+                                                    <Chip
+                                                        label={user.outsideClockingDetails.reason}
+                                                        size="small"
+                                                        sx={{ bgcolor: colorPalette.warmSand, color: colorPalette.deepNavy, fontWeight: 900, fontSize: '0.65rem' }}
+                                                    />
+                                                )}
+                                            </Stack>
+                                        </Box>
 
-                                        <TextField select fullWidth label="Clocking Station"
-                                            value={selectedStation.name}
-                                            disabled={isClockedIn && isToClockOut}
-                                            onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value))}
-                                            InputProps={{ startAdornment: <InputAdornment position="start"><BusinessCenter sx={{ color: 'rgba(255,255,255,0.60)', fontSize: '1.05rem' }} /></InputAdornment> }}
-                                            sx={G.glassInput}>
-                                            {AvailableStations.map(o => <MenuItem key={o.name} value={o.name} >{o.name}</MenuItem>)}
-                                        </TextField>
-
-                                        <AnimatePresence mode="wait">
-                                            {/* Step 0: verify location */}
-                                            {clockStepIndex === 0 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="loc"
-                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                                                    transition={{ duration: 0.28 }}>
-                                                    <Box sx={{
-                                                        p: 1.5,
+                                        {/* Controls */}
+                                        <Stack spacing={2} sx={{ width: { xs: '100%', sm: '300px', md: '300px' } }}>
+                                            {outsideClockingAuthorized && (
+                                                <Alert
+                                                    severity="info"
+                                                    sx={{
                                                         borderRadius: '14px',
-                                                        bgcolor: 'rgba(255,255,255,0.08)',
-                                                        border: '1px solid rgba(255,255,255,0.18)',
-                                                        backdropFilter: 'blur(8px)'
-                                                    }}>
-                                                        <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="space-between">
-                                                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.78)', fontSize: '0.76rem', lineHeight: 1.4 }}>
-                                                                {locationStatus === 'denied'
-                                                                    ? 'Allow location access to continue clocking.'
-                                                                    : locationStatus === 'checking'
-                                                                        ? 'Checking your location...'
-                                                                        : 'Location access is required before clocking.'}
-                                                            </Typography>
-                                                            <Button
-                                                                variant="outlined"
-                                                                size="small"
-                                                                startIcon={locationStatus === 'checking'
-                                                                    ? <CircularProgress size={12} sx={{ color: '#fff' }} />
-                                                                    : <LocationOn sx={{ fontSize: '0.9rem !important' }} />}
-                                                                onClick={requestLocation}
-                                                                disabled={locationStatus === 'checking'}
-                                                                sx={{
-                                                                    color: '#fff',
-                                                                    borderColor: 'rgba(255,255,255,0.35)',
-                                                                    minWidth: 92,
-                                                                    px: 1.2,
-                                                                    py: 0.7,
-                                                                    borderRadius: '10px',
-                                                                    fontSize: '0.68rem',
-                                                                    fontWeight: 900,
-                                                                    letterSpacing: 0.25,
-                                                                    bgcolor: 'rgba(255,255,255,0.07)',
-                                                                    '& .MuiButton-startIcon': { mr: 0.45 },
-                                                                    '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' },
-                                                                    '&.Mui-disabled': { color: 'rgba(255,255,255,0.45)', borderColor: 'rgba(255,255,255,0.18)' }
-                                                                }}
-                                                            >
-                                                                {locationStatus === 'checking' ? 'Checking' : 'Allow'}
-                                                            </Button>
-                                                        </Stack>
-                                                    </Box>
-                                                </motion.div>
+                                                        bgcolor: 'rgba(255,255,255,0.10)',
+                                                        color: '#fff',
+                                                        border: '1px solid rgba(154,211,21,0.35)',
+                                                        '& .MuiAlert-icon': { color: colorPalette.aquaVibrant },
+                                                    }}
+                                                >
+                                                    Granted to clock outside
+                                                </Alert>
                                             )}
 
-                                            {/* Step 1: register fingerprint — ANIMATED GLOW */}
-                                            {clockStepIndex === 1 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="fp"
-                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                                                    transition={{ duration: 0.28 }}>
-                                                    <Box sx={{
-                                                        p: 2.5, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)',
-                                                        border: '1px dashed rgba(255,255,255,0.30)', backdropFilter: 'blur(8px)'
-                                                    }}>
-                                                        <Stack spacing={1.5} alignItems="center" textAlign="center">
-                                                            {/* Animated fingerprint icon */}
-                                                            <Box sx={{
-                                                                width: 56, height: 56, borderRadius: '16px',
-                                                                bgcolor: 'rgba(255,255,255,0.10)',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                border: '1px solid rgba(255,255,255,0.18)',
-                                                                position: 'relative',
-                                                                animation: 'fpIconPulse 2.4s ease-in-out infinite',
-                                                                '@keyframes fpIconPulse': {
-                                                                    '0%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}55` },
-                                                                    '50%': { boxShadow: `0 0 0 10px ${colorPalette.seafoamGreen}00` },
-                                                                    '100%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}00` },
-                                                                },
-                                                            }}>
-                                                                <Fingerprint sx={{ fontSize: '1.8rem', color: 'rgba(255,255,255,0.90)' }} />
-                                                            </Box>
-                                                            <Box>
-                                                                <Typography fontWeight={900} sx={{ fontSize: '0.92rem', color: '#fff', mb: 0.4 }}>Fingerprint Required</Typography>
-                                                                <Typography variant="body2" sx={{ opacity: 0.65, fontSize: '0.76rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.75)' }}>
-                                                                    {user?.doneBiometric && enrolledDevices.length > 0
-                                                                        ? 'Enroll this browser to continue clocking.'
-                                                                        : 'Register once to enable secure clocking.'}
+                                            <TextField select fullWidth label="Clocking Station"
+                                                value={selectedStation.name}
+                                                disabled={isClockedIn && isToClockOut}
+                                                onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value))}
+                                                InputProps={{ startAdornment: <InputAdornment position="start"><BusinessCenter sx={{ color: 'rgba(255,255,255,0.60)', fontSize: '1.05rem' }} /></InputAdornment> }}
+                                                sx={G.glassInput}>
+                                                {AvailableStations.map(o => <MenuItem key={o.name} value={o.name} >{o.name}</MenuItem>)}
+                                            </TextField>
+
+                                            <AnimatePresence mode="wait">
+                                                {/* Step 0: verify location */}
+                                                {clockStepIndex === 0 && (
+                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="loc"
+                                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                        transition={{ duration: 0.28 }}>
+                                                        <Box sx={{
+                                                            p: 1.5,
+                                                            borderRadius: '14px',
+                                                            bgcolor: 'rgba(255,255,255,0.08)',
+                                                            border: '1px solid rgba(255,255,255,0.18)',
+                                                            backdropFilter: 'blur(8px)'
+                                                        }}>
+                                                            <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="space-between">
+                                                                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.78)', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                                                                    {locationStatus === 'denied'
+                                                                        ? 'Allow location access to continue clocking.'
+                                                                        : locationStatus === 'checking'
+                                                                            ? 'Checking your location...'
+                                                                            : 'Location access is required before clocking.'}
                                                                 </Typography>
-                                                            </Box>
-
-                                                            {/* GLOWING REGISTER BUTTON */}
-                                                            <Box sx={{ width: '100%', position: 'relative' }}>
-                                                                {/* Glow halo layer */}
-                                                                {!biometricLoading && (
-                                                                    <Box sx={{
-                                                                        position: 'absolute', inset: -3, borderRadius: '15px', zIndex: 0,
-                                                                        background: `${colorPalette.seafoamGreen}40`,
-                                                                        filter: 'blur(8px)',
-                                                                        animation: 'registerGlow 2s ease-in-out infinite',
-                                                                        '@keyframes registerGlow': {
-                                                                            '0%': { opacity: 0.5, transform: 'scale(0.97)' },
-                                                                            '50%': { opacity: 1, transform: 'scale(1.01)' },
-                                                                            '100%': { opacity: 0.5, transform: 'scale(0.97)' },
-                                                                        },
-                                                                    }} />
-                                                                )}
                                                                 <Button
-                                                                    variant="contained"
-                                                                    fullWidth
-                                                                    disabled={biometricLoading}
-                                                                    onClick={handleRegisterFingerprint}
-                                                                    startIcon={biometricLoading
-                                                                        ? <CircularProgress size={14} sx={{ color: '#fff' }} />
-                                                                        : <Fingerprint sx={{
-                                                                            animation: biometricLoading ? 'none' : 'fpSpin 3s linear infinite',
-                                                                            '@keyframes fpSpin': {
-                                                                                '0%': { transform: 'scale(1)' },
-                                                                                '50%': { transform: 'scale(1.18)' },
-                                                                                '100%': { transform: 'scale(1)' },
-                                                                            }
-                                                                        }} />
-                                                                    }
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    startIcon={locationStatus === 'checking'
+                                                                        ? <CircularProgress size={12} sx={{ color: '#fff' }} />
+                                                                        : <LocationOn sx={{ fontSize: '0.9rem !important' }} />}
+                                                                    onClick={requestLocation}
+                                                                    disabled={locationStatus === 'checking'}
                                                                     sx={{
-                                                                        position: 'relative', zIndex: 1,
-                                                                        bgcolor: colorPalette.seafoamGreen, color: '#fff',
-                                                                        fontWeight: 900, borderRadius: '12px', py: 1.35,
-                                                                        letterSpacing: 0.5,
-                                                                        boxShadow: `0 6px 22px ${colorPalette.seafoamGreen}55`,
-                                                                        transition: 'all 0.22s ease',
-                                                                        '&:hover': {
-                                                                            bgcolor: '#1ea876',
-                                                                            boxShadow: `0 10px 32px ${colorPalette.seafoamGreen}77`,
-                                                                            transform: 'translateY(-2px)',
-                                                                        },
-                                                                        '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.38)' }
-                                                                    }}>
-                                                                    {biometricLoading ? 'Registering…' : 'Register Fingerprint'}
+                                                                        color: '#fff',
+                                                                        borderColor: 'rgba(255,255,255,0.35)',
+                                                                        minWidth: 92,
+                                                                        px: 1.2,
+                                                                        py: 0.7,
+                                                                        borderRadius: '10px',
+                                                                        fontSize: '0.68rem',
+                                                                        fontWeight: 900,
+                                                                        letterSpacing: 0.25,
+                                                                        bgcolor: 'rgba(255,255,255,0.07)',
+                                                                        '& .MuiButton-startIcon': { mr: 0.45 },
+                                                                        '&:hover': { borderColor: 'rgba(255,255,255,0.70)', bgcolor: 'rgba(255,255,255,0.13)' },
+                                                                        '&.Mui-disabled': { color: 'rgba(255,255,255,0.45)', borderColor: 'rgba(255,255,255,0.18)' }
+                                                                    }}
+                                                                >
+                                                                    {locationStatus === 'checking' ? 'Checking' : 'Allow'}
                                                                 </Button>
-                                                            </Box>
-                                                        </Stack>
-                                                    </Box>
-                                                </motion.div>
-                                            )}
+                                                            </Stack>
+                                                        </Box>
+                                                    </motion.div>
+                                                )}
 
-                                            {/* Step 2: clock in/out — ANIMATED GLOW */}
-                                            {clockStepIndex === 2 && (
-                                                <motion.div style={{ willChange: 'transform, opacity' }} key="clock"
-                                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                                                    transition={{ duration: 0.28 }}>
+                                                {/* Step 1: register fingerprint — ANIMATED GLOW */}
+                                                {clockStepIndex === 1 && (
+                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="fp"
+                                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                        transition={{ duration: 0.28 }}>
+                                                        <Box sx={{
+                                                            p: 2.5, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)',
+                                                            border: '1px dashed rgba(255,255,255,0.30)', backdropFilter: 'blur(8px)'
+                                                        }}>
+                                                            <Stack spacing={1.5} alignItems="center" textAlign="center">
+                                                                {/* Animated fingerprint icon */}
+                                                                <Box sx={{
+                                                                    width: 56, height: 56, borderRadius: '16px',
+                                                                    bgcolor: 'rgba(255,255,255,0.10)',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    border: '1px solid rgba(255,255,255,0.18)',
+                                                                    position: 'relative',
+                                                                    animation: 'fpIconPulse 2.4s ease-in-out infinite',
+                                                                    '@keyframes fpIconPulse': {
+                                                                        '0%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}55` },
+                                                                        '50%': { boxShadow: `0 0 0 10px ${colorPalette.seafoamGreen}00` },
+                                                                        '100%': { boxShadow: `0 0 0 0 ${colorPalette.seafoamGreen}00` },
+                                                                    },
+                                                                }}>
+                                                                    <Fingerprint sx={{ fontSize: '1.8rem', color: 'rgba(255,255,255,0.90)' }} />
+                                                                </Box>
+                                                                <Box>
+                                                                    <Typography fontWeight={900} sx={{ fontSize: '0.92rem', color: '#fff', mb: 0.4 }}>Fingerprint Required</Typography>
+                                                                    <Typography variant="body2" sx={{ opacity: 0.65, fontSize: '0.76rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.75)' }}>
+                                                                        {user?.doneBiometric && enrolledDevices.length > 0
+                                                                            ? 'Enroll this browser to continue clocking.'
+                                                                            : 'Register once to enable secure clocking.'}
+                                                                    </Typography>
+                                                                </Box>
 
-                                                    <Box sx={{ position: 'relative', width: '100%' }}>
-                                                        {/* Animated glow aura */}
-                                                        {!biometricLoading && (
-                                                            <Box sx={{
-                                                                position: 'absolute', inset: -4, borderRadius: '18px', zIndex: 0,
-                                                                background: isClockedIn && isToClockOut
-                                                                    ? `${colorPalette.seafoamGreen}45`
-                                                                    : `${colorPalette.aquaVibrant}45`,
-                                                                filter: 'blur(10px)',
-                                                                animation: 'clockGlow 2.2s ease-in-out infinite',
-                                                                '@keyframes clockGlow': {
-                                                                    '0%': { opacity: 0.55, transform: 'scale(0.96)' },
-                                                                    '50%': { opacity: 1, transform: 'scale(1.02)' },
-                                                                    '100%': { opacity: 0.55, transform: 'scale(0.96)' },
-                                                                },
-                                                            }} />
-                                                        )}
+                                                                {/* GLOWING REGISTER BUTTON */}
+                                                                <Box sx={{ width: '100%', position: 'relative' }}>
+                                                                    {/* Glow halo layer */}
+                                                                    {!biometricLoading && (
+                                                                        <Box sx={{
+                                                                            position: 'absolute', inset: -3, borderRadius: '15px', zIndex: 0,
+                                                                            background: `${colorPalette.seafoamGreen}40`,
+                                                                            filter: 'blur(8px)',
+                                                                            animation: 'registerGlow 2s ease-in-out infinite',
+                                                                            '@keyframes registerGlow': {
+                                                                                '0%': { opacity: 0.5, transform: 'scale(0.97)' },
+                                                                                '50%': { opacity: 1, transform: 'scale(1.01)' },
+                                                                                '100%': { opacity: 0.5, transform: 'scale(0.97)' },
+                                                                            },
+                                                                        }} />
+                                                                    )}
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        fullWidth
+                                                                        disabled={biometricLoading}
+                                                                        onClick={handleRegisterFingerprint}
+                                                                        startIcon={biometricLoading
+                                                                            ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                                                            : <Fingerprint sx={{
+                                                                                animation: biometricLoading ? 'none' : 'fpSpin 3s linear infinite',
+                                                                                '@keyframes fpSpin': {
+                                                                                    '0%': { transform: 'scale(1)' },
+                                                                                    '50%': { transform: 'scale(1.18)' },
+                                                                                    '100%': { transform: 'scale(1)' },
+                                                                                }
+                                                                            }} />
+                                                                        }
+                                                                        sx={{
+                                                                            position: 'relative', zIndex: 1,
+                                                                            bgcolor: colorPalette.seafoamGreen, color: '#fff',
+                                                                            fontWeight: 900, borderRadius: '12px', py: 1.35,
+                                                                            letterSpacing: 0.5,
+                                                                            boxShadow: `0 6px 22px ${colorPalette.seafoamGreen}55`,
+                                                                            transition: 'all 0.22s ease',
+                                                                            '&:hover': {
+                                                                                bgcolor: '#1ea876',
+                                                                                boxShadow: `0 10px 32px ${colorPalette.seafoamGreen}77`,
+                                                                                transform: 'translateY(-2px)',
+                                                                            },
+                                                                            '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.38)' }
+                                                                        }}>
+                                                                        {biometricLoading ? 'Registering…' : 'Register Fingerprint'}
+                                                                    </Button>
+                                                                </Box>
+                                                            </Stack>
+                                                        </Box>
+                                                    </motion.div>
+                                                )}
 
-                                                        {/* Secondary shimmer ring */}
-                                                        {!biometricLoading && (
-                                                            <Box sx={{
-                                                                position: 'absolute', inset: -8, borderRadius: '22px', zIndex: 0,
-                                                                background: isClockedIn && isToClockOut
-                                                                    ? `${colorPalette.seafoamGreen}20`
-                                                                    : `${colorPalette.aquaVibrant}20`,
-                                                                filter: 'blur(16px)',
-                                                                animation: 'clockGlow2 2.2s ease-in-out infinite 0.4s',
-                                                                '@keyframes clockGlow2': {
-                                                                    '0%': { opacity: 0.3, transform: 'scale(0.94)' },
-                                                                    '50%': { opacity: 0.85, transform: 'scale(1.04)' },
-                                                                    '100%': { opacity: 0.3, transform: 'scale(0.94)' },
-                                                                },
-                                                            }} />
-                                                        )}
+                                                {/* Step 2: clock in/out — ANIMATED GLOW */}
+                                                {clockStepIndex === 2 && (
+                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="clock"
+                                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                                        transition={{ duration: 0.28 }}>
 
-                                                        <Button
-                                                            variant="contained"
-                                                            fullWidth
-                                                            onClick={handleClockInClockOut}
-                                                            disabled={biometricLoading}
-                                                            startIcon={biometricLoading
-                                                                ? <CircularProgress size={15} sx={{ color: colorPalette.deepNavy }} />
-                                                                : <Fingerprint sx={{
-                                                                    fontSize: '1.3rem !important',
-                                                                    animation: biometricLoading ? 'none' : 'scanPulse 1.8s ease-in-out infinite',
-                                                                    '@keyframes scanPulse': {
-                                                                        '0%': { transform: 'scale(1)', opacity: 1 },
-                                                                        '50%': { transform: 'scale(1.2)', opacity: 0.85 },
-                                                                        '100%': { transform: 'scale(1)', opacity: 1 },
-                                                                    }
+                                                        <Box sx={{ position: 'relative', width: '100%' }}>
+                                                            {/* Animated glow aura */}
+                                                            {!biometricLoading && (
+                                                                <Box sx={{
+                                                                    position: 'absolute', inset: -4, borderRadius: '18px', zIndex: 0,
+                                                                    background: isClockedIn && isToClockOut
+                                                                        ? `${colorPalette.seafoamGreen}45`
+                                                                        : `${colorPalette.aquaVibrant}45`,
+                                                                    filter: 'blur(10px)',
+                                                                    animation: 'clockGlow 2.2s ease-in-out infinite',
+                                                                    '@keyframes clockGlow': {
+                                                                        '0%': { opacity: 0.55, transform: 'scale(0.96)' },
+                                                                        '50%': { opacity: 1, transform: 'scale(1.02)' },
+                                                                        '100%': { opacity: 0.55, transform: 'scale(0.96)' },
+                                                                    },
                                                                 }} />
-                                                            }
-                                                            sx={{
-                                                                position: 'relative', zIndex: 1,
-                                                                bgcolor: colorPalette.aquaVibrant,
-                                                                color: '#fff',
-                                                                py: 1.8, borderRadius: '14px',
-                                                                fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
-                                                                boxShadow: isClockedIn && isToClockOut
-                                                                    ? `0 8px 28px ${colorPalette.seafoamGreen}55`
-                                                                    : `0 8px 28px ${colorPalette.aquaVibrant}55`,
-                                                                transition: 'all 0.22s ease',
-                                                                '&:hover': {
-                                                                    transform: 'translateY(-2px)',
+                                                            )}
+
+                                                            {/* Secondary shimmer ring */}
+                                                            {!biometricLoading && (
+                                                                <Box sx={{
+                                                                    position: 'absolute', inset: -8, borderRadius: '22px', zIndex: 0,
+                                                                    background: isClockedIn && isToClockOut
+                                                                        ? `${colorPalette.seafoamGreen}20`
+                                                                        : `${colorPalette.aquaVibrant}20`,
+                                                                    filter: 'blur(16px)',
+                                                                    animation: 'clockGlow2 2.2s ease-in-out infinite 0.4s',
+                                                                    '@keyframes clockGlow2': {
+                                                                        '0%': { opacity: 0.3, transform: 'scale(0.94)' },
+                                                                        '50%': { opacity: 0.85, transform: 'scale(1.04)' },
+                                                                        '100%': { opacity: 0.3, transform: 'scale(0.94)' },
+                                                                    },
+                                                                }} />
+                                                            )}
+
+                                                            <Button
+                                                                variant="contained"
+                                                                fullWidth
+                                                                onClick={handleClockInClockOut}
+                                                                disabled={biometricLoading}
+                                                                startIcon={biometricLoading
+                                                                    ? <CircularProgress size={15} sx={{ color: colorPalette.deepNavy }} />
+                                                                    : <Fingerprint sx={{
+                                                                        fontSize: '1.3rem !important',
+                                                                        animation: biometricLoading ? 'none' : 'scanPulse 1.8s ease-in-out infinite',
+                                                                        '@keyframes scanPulse': {
+                                                                            '0%': { transform: 'scale(1)', opacity: 1 },
+                                                                            '50%': { transform: 'scale(1.2)', opacity: 0.85 },
+                                                                            '100%': { transform: 'scale(1)', opacity: 1 },
+                                                                        }
+                                                                    }} />
+                                                                }
+                                                                sx={{
+                                                                    position: 'relative', zIndex: 1,
+                                                                    bgcolor: colorPalette.aquaVibrant,
+                                                                    color: '#fff',
+                                                                    py: 1.8, borderRadius: '14px',
+                                                                    fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
                                                                     boxShadow: isClockedIn && isToClockOut
-                                                                        ? `0 14px 40px ${colorPalette.seafoamGreen}77`
-                                                                        : `0 14px 40px ${colorPalette.aquaVibrant}77`,
-                                                                },
-                                                                '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.38)' },
-                                                            }}>
-                                                            {biometricLoading
-                                                                ? (isClockedIn && isToClockOut ? 'Clocking Out…' : 'Clocking In…')
-                                                                : (isClockedIn && isToClockOut ? 'SCAN TO CLOCK OUT' : 'SCAN TO CLOCK IN')}
-                                                        </Button>
-                                                    </Box>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                                        ? `0 8px 28px ${colorPalette.seafoamGreen}55`
+                                                                        : `0 8px 28px ${colorPalette.aquaVibrant}55`,
+                                                                    transition: 'all 0.22s ease',
+                                                                    '&:hover': {
+                                                                        transform: 'translateY(-2px)',
+                                                                        boxShadow: isClockedIn && isToClockOut
+                                                                            ? `0 14px 40px ${colorPalette.seafoamGreen}77`
+                                                                            : `0 14px 40px ${colorPalette.aquaVibrant}77`,
+                                                                    },
+                                                                    '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.38)' },
+                                                                }}>
+                                                                {biometricLoading
+                                                                    ? (isClockedIn && isToClockOut ? 'Clocking Out…' : 'Clocking In…')
+                                                                    : (isClockedIn && isToClockOut ? 'SCAN TO CLOCK OUT' : 'SCAN TO CLOCK IN')}
+                                                            </Button>
+                                                        </Box>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </Stack>
                                     </Stack>
-                                </Stack>
-                            </Box>
-                        </Reveal>
+                                </Box>
+                            </Reveal>
+                        )}
+
 
                         {/* ── RECENT ATTENDANCE TABLE ── */}
                         <Reveal>
