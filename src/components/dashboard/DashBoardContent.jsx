@@ -943,7 +943,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             </Snackbar>
 
             {/* ══ HOW-TO BANNER IF USER ACTIVE  ════════════════════════════════════════════ */}
-            {!user?.isOnLeave || user?.isAccountActive && (
+            {!(user?.isOnLeave) && (user?.isAccountActive) && (
                 <Reveal>
                     <Box sx={{ ...G.tinted(colorPalette.oceanBlue), borderRadius: '20px', p: 2.5, mb: 3, position: 'relative', zIndex: 1 }}>
                         <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
@@ -1002,7 +1002,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
                         {/* ── DARK CLOCK CARD ── */}
 
-                        {!user?.isOnLeave || user?.isAccountActive && (
+                        {!(user?.isOnLeave) && (user?.isAccountActive) && (
                             <Reveal>
                                 <Box sx={{
                                     borderRadius: '24px',
