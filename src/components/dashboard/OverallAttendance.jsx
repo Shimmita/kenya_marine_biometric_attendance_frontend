@@ -23,11 +23,15 @@ import {
     Legend, Line, Pie, PieChart, RadialBar, RadialBarChart,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
+import KMFRILogo from "../../images/kmfri_logo.png";
+import QRCode from 'qrcode';
 import { fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import SuperadminAPI from '../../service/SuperadminService';
 import coreDataDetails, { applyPlatformConfigToCoreData } from '../CoreDataDetails';
 import getWorkingDaysCount from '../util/GetWorkingDays';
+import { createVerification } from '../../service/VerificationService';
+
 
 const { colorPalette } = coreDataDetails;
 
@@ -1053,6 +1057,9 @@ const ExecutiveOverviewTab = ({
     const [trendView, setTrendView] = useState('daily');
     const [detailDept, setDetailDept] = useState(null);
     const [detailTrend, setDetailTrend] = useState(null);
+    // Add or correct this line inside your OverallAttendance component
+    const [isExporting, setExporting] = useState(false);
+
 
     const analytics = useMemo(() => buildAttendanceAnalytics(data, records, leaves), [data, records, leaves]);
     const headline = analytics.headline;
@@ -1116,50 +1123,330 @@ const ExecutiveOverviewTab = ({
     }));
 
     const handleOverviewExportPDF = async () => {
-        const { default: jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-        const pw = doc.internal.pageSize.getWidth();
-        doc.setFillColor(10, 61, 98);
-        doc.rect(0, 0, pw, 34, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(15);
-        doc.text('KMFRI Attendance System Executive Overview', pw / 2, 12, { align: 'center' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        doc.text(`Generated ${new Date().toLocaleString()} · ${RANK_LABELS[user?.rank] || 'Executive View'} · Trend ${trendView}`, pw / 2, 21, { align: 'center' });
-        doc.text(`${selectedStation || 'All stations'} · ${selectedDept || 'All departments'}`, pw / 2, 28, { align: 'center' });
+        setExporting(true);
 
-        autoTable(doc, {
-            startY: 40,
-            head: [['Metric', 'Value']],
-            body: summaryRows.map((row) => [row.Metric, row.Value]),
-            headStyles: { fillColor: [10, 61, 98], textColor: 255 },
-            styles: { fontSize: 8, cellPadding: 2.2 },
-        });
-        autoTable(doc, {
-            startY: doc.lastAutoTable.finalY + 6,
-            head: [['Period', 'Present', 'Attendance %', 'Absent %', 'Avg In', 'Avg Out']],
-            body: exportTrendRows.map((row) => [row.Period, row.Present, row['Attendance Rate (%)'], row['Absent Rate (%)'], row['Avg Clock In'], row['Avg Clock Out']]),
-            headStyles: { fillColor: [0, 121, 140], textColor: 255 },
-            styles: { fontSize: 7.5, cellPadding: 1.8 },
-        });
-        autoTable(doc, {
-            startY: doc.lastAutoTable.finalY + 6,
-            head: [['Department', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
-            body: exportDeptRows.map((row) => [row.Department, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
-            headStyles: { fillColor: [7, 58, 82], textColor: 255 },
-            styles: { fontSize: 7.1, cellPadding: 1.6 },
-        });
-        autoTable(doc, {
-            startY: doc.lastAutoTable.finalY + 6,
-            head: [['Station', 'Headcount', 'Present', 'Absent', 'Clocked In', 'On Leave', 'Attendance %', 'Absent %']],
-            body: exportStationRows.map((row) => [row.Station, row.Headcount, row.Present, row.Absent, row['Clocked In'], row['On Leave'], row['Attendance Rate (%)'], row['Absent Rate (%)']]),
-            headStyles: { fillColor: [24, 110, 99], textColor: 255 },
-            styles: { fontSize: 7.1, cellPadding: 1.6 },
-        });
-        doc.save(`KMFRI_Attendance_Overview_${Date.now()}.pdf`);
+        try {
+            const { default: jsPDF } = await import("jspdf");
+            const { default: autoTable } = await import("jspdf-autotable");
+
+            //=========================================================
+            // Generate Verification Token
+            //=========================================================
+            const { token, dataHash } = await createVerification({
+                summary: summaryRows,
+                trends: exportTrendRows,
+                departments: exportDeptRows,
+                stations: exportStationRows,
+            });
+
+            const verifyUrl =
+                `${window.location.origin}/verify/${token}?hash=${encodeURIComponent(dataHash)}`;
+
+            //=========================================================
+            // Generate QR Code
+            //=========================================================
+            const qrImage = await QRCode.toDataURL(verifyUrl, {
+                margin: 1,
+                width: 300,
+                errorCorrectionLevel: "H",
+            });
+
+            //=========================================================
+            // Load KMFRI Logo
+            //=========================================================
+            const logo = new Image();
+            logo.src = KMFRILogo;
+
+            await new Promise((resolve, reject) => {
+                logo.onload = resolve;
+                logo.onerror = reject;
+            });
+
+            //=========================================================
+            // Create PDF
+            //=========================================================
+            const doc = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: "a4",
+            });
+
+            const pw = doc.internal.pageSize.getWidth();
+            const ph = doc.internal.pageSize.getHeight();
+
+            //=========================================================
+            // Header Background
+            //=========================================================
+            doc.setFillColor(10, 61, 98);
+            doc.rect(0, 0, pw, 40, "F");
+
+            //=========================================================
+            // KMFRI Logo (LEFT)
+            //=========================================================
+            const logoHeight = 20;
+            const logoWidth = (logo.width / logo.height) * logoHeight;
+
+            doc.addImage(
+                KMFRILogo,
+                "PNG",
+                3,
+                8,
+                logoWidth,
+                logoHeight,
+                undefined,
+                "FAST"
+            );
+
+            //=========================================================
+            // QR Code (RIGHT)
+            //=========================================================
+            const qrSize = 20;
+            const qrX = pw - qrSize - 10;
+            const qrY = 5;
+
+            doc.addImage(
+                qrImage,
+                "PNG",
+                qrX,
+                qrY,
+                qrSize,
+                qrSize,
+                undefined,
+                "FAST"
+            );
+
+            // QR Label
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.text(
+                "VERIFICATION QR",
+                qrX + qrSize / 2,
+                qrY + qrSize + 3,
+                { align: "center" }
+            );
+
+            //=========================================================
+            // Header Text
+            //=========================================================
+            doc.setTextColor(255, 255, 255);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text(
+                "KMFRI ATTENDANCE OVERVIEW",
+                pw / 2,
+                10,
+                { align: "center" }
+            );
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+
+            doc.text(
+                `${selectedStation || "ALL STATIONS"} | ${selectedDept || "ALL DEPARTMENTS"}`
+                    .toUpperCase(),
+                pw / 2,
+                17,
+                { align: "center" }
+            );
+
+            doc.text(
+                `${RANK_LABELS[user?.rank] || "EXECUTIVE VIEW"} | ${trendView}`.toUpperCase(),
+                pw / 2,
+                23,
+                { align: "center" }
+            );
+
+            doc.text(
+                new Date().toLocaleString().toUpperCase(),
+                pw / 2,
+                29,
+                { align: "center" }
+            );
+
+            doc.text(
+                `${user?.name?.toUpperCase() || "AUTHORIZED PERSONNEL"}`,
+                pw / 2,
+                35,
+                { align: "center" }
+            );
+
+            //=========================================================
+            // Summary Table
+            //=========================================================
+            autoTable(doc, {
+                startY: 45,
+                head: [["Metric", "Value"]],
+                body: summaryRows.map((r) => [r.Metric, r.Value]),
+                headStyles: {
+                    fillColor: [10, 61, 98],
+                    textColor: 255,
+                },
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+            });
+
+            //=========================================================
+            // Trend Table
+            //=========================================================
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [[
+                    "Period",
+                    "Present",
+                    "Attendance %",
+                    "Absent %",
+                    "Avg In",
+                    "Avg Out",
+                ]],
+                body: exportTrendRows.map((r) => [
+                    r.Period,
+                    r.Present,
+                    r["Attendance Rate (%)"],
+                    r["Absent Rate (%)"],
+                    r["Avg Clock In"],
+                    r["Avg Clock Out"],
+                ]),
+                headStyles: {
+                    fillColor: [0, 121, 140],
+                    textColor: 255,
+                },
+                styles: {
+                    fontSize: 7.5,
+                    cellPadding: 1.8,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+            });
+
+            //=========================================================
+            // Department Table
+            //=========================================================
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [[
+                    "Department",
+                    "Headcount",
+                    "Present",
+                    "Absent",
+                    "Clocked In",
+                    "On Leave",
+                    "Attendance %",
+                    "Absent %",
+                ]],
+                body: exportDeptRows.map((r) => [
+                    r.Department,
+                    r.Headcount,
+                    r.Present,
+                    r.Absent,
+                    r["Clocked In"],
+                    r["On Leave"],
+                    r["Attendance Rate (%)"],
+                    r["Absent Rate (%)"],
+                ]),
+                headStyles: {
+                    fillColor: [7, 58, 82],
+                    textColor: 255,
+                },
+                styles: {
+                    fontSize: 7.2,
+                    cellPadding: 1.6,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+            });
+
+            //=========================================================
+            // Station Table
+            //=========================================================
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [[
+                    "Station",
+                    "Headcount",
+                    "Present",
+                    "Absent",
+                    "Clocked In",
+                    "On Leave",
+                    "Attendance %",
+                    "Absent %",
+                ]],
+                body: exportStationRows.map((r) => [
+                    r.Station,
+                    r.Headcount,
+                    r.Present,
+                    r.Absent,
+                    r["Clocked In"],
+                    r["On Leave"],
+                    r["Attendance Rate (%)"],
+                    r["Absent Rate (%)"],
+                ]),
+                headStyles: {
+                    fillColor: [24, 110, 99],
+                    textColor: 255,
+                },
+                styles: {
+                    fontSize: 7.2,
+                    cellPadding: 1.6,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+            });
+
+            //=========================================================
+            // Footer
+            //=========================================================
+            const totalPages = doc.internal.getNumberOfPages();
+
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+
+                doc.setDrawColor(10, 61, 98);
+                doc.line(
+                    10,
+                    ph - 12,
+                    pw - 10,
+                    ph - 12
+                );
+
+                doc.setFontSize(8);
+                doc.setTextColor(80);
+
+                doc.text(
+                    "Kenya Marine and Fisheries Research Institute (KMFRI)",
+                    10,
+                    ph - 7
+                );
+
+                doc.text(
+                    `Page ${i} of ${totalPages}`,
+                    pw - 10,
+                    ph - 7,
+                    {
+                        align: "right",
+                    }
+                );
+            }
+
+            //=========================================================
+            // Save PDF
+            //=========================================================
+            doc.save(`KMFRI_Attendance_Overview_${Date.now()}.pdf`);
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setExporting(false);
+        }
     };
 
     return (
@@ -1595,6 +1882,33 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
         const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const pw = doc.internal.pageSize.getWidth();
+        // Load KMFRI logo to preserve aspect ratio
+        const logo = new Image();
+        logo.src = KMFRILogo;
+
+        await new Promise((resolve, reject) => {
+            logo.onload = resolve;
+            logo.onerror = reject;
+        });
+
+        // kmfri logo left
+        const logoHeight = 20;
+        const logoWidth = (logo.width / logo.height) * logoHeight;
+
+        const logoX = 3;
+        const logoY = 8;
+
+        doc.addImage(
+            KMFRILogo,
+            "PNG",
+            logoX,
+            logoY,
+            logoWidth,
+            logoHeight,
+            undefined,
+            "FAST"
+        );
+
         doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI — ATTENDANCE RECORDS', pw / 2, 12, { align: 'center' });
@@ -1970,6 +2284,34 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
         const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const pw = doc.internal.pageSize.getWidth();
+
+        // Load KMFRI logo to preserve aspect ratio
+        const logo = new Image();
+        logo.src = KMFRILogo;
+
+        await new Promise((resolve, reject) => {
+            logo.onload = resolve;
+            logo.onerror = reject;
+        });
+
+        // kmfri logo left
+        const logoHeight = 20;
+        const logoWidth = (logo.width / logo.height) * logoHeight;
+
+        const logoX = 3;
+        const logoY = 8;
+
+        doc.addImage(
+            KMFRILogo,
+            "PNG",
+            logoX,
+            logoY,
+            logoWidth,
+            logoHeight,
+            undefined,
+            "FAST"
+        );
+
         doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI ATTENDANCE SUMMARY REPORT', pw / 2, 12, { align: 'center' });
@@ -2576,6 +2918,34 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
         const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const pw = doc.internal.pageSize.getWidth();
+        // Load KMFRI logo to preserve aspect ratio
+        const logo = new Image();
+        logo.src = KMFRILogo;
+
+        await new Promise((resolve, reject) => {
+            logo.onload = resolve;
+            logo.onerror = reject;
+        });
+
+        // kmfri logo left
+        const logoHeight = 20;
+        const logoWidth = (logo.width / logo.height) * logoHeight;
+
+        const logoX = 3;
+        const logoY = 8;
+
+        doc.addImage(
+            KMFRILogo,
+            "PNG",
+            logoX,
+            logoY,
+            logoWidth,
+            logoHeight,
+            undefined,
+            "FAST"
+        );
+
+
         doc.setFillColor(10, 61, 98); doc.rect(0, 0, pw, 36, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
         doc.text('KMFRI — Staff Performance Report', pw / 2, 12, { align: 'center' });
