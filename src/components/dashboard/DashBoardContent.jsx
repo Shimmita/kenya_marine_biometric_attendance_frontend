@@ -643,6 +643,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const { user } = useSelector(s => s.currentUser);
     const { snack, notify, close } = useNotification();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const canUseClocking = user?.isAccountActive === true && user?.isOnLeave !== true;
 
     const [selectedStation, setSelectedStation] = useState(() => {
         if (user?.station) {
@@ -668,6 +669,13 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     useEffect(() => {
         let alive = true;
         const loadCurrentDevice = async () => {
+            if (!canUseClocking) {
+                setBiometricRegistered(false);
+                setCurrentDeviceFingerprint('');
+                setEnrolledDevices([]);
+                return;
+            }
+
             try {
                 const [fp, devices] = await Promise.all([
                     getDeviceFingerprint(),
@@ -689,11 +697,13 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         };
         loadCurrentDevice();
         return () => { alive = false; };
-    }, [dispatch, user?.doneBiometric]);
+    }, [canUseClocking, dispatch, user?.doneBiometric]);
 
     // check user update can clock outside
     useEffect(() => {
         const checkAuthorizationValidity = async () => {
+            if (!canUseClocking) return;
+
             if (user?.canClockOutside && user?.outsideClockingDetails?.endDate) {
                 const today = new Date();
                 const expiryDate = new Date(user.outsideClockingDetails.endDate);
@@ -713,7 +723,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             }
         };
         checkAuthorizationValidity();
-    }, [user, dispatch]);
+    }, [canUseClocking, user, dispatch]);
 
     // 2. Logic to determine if user is allowed to proceed
     const isDateAuthorized = useCallback(() => {
@@ -758,6 +768,8 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     }, []);
 
     useEffect(() => {
+        if (!canUseClocking) return undefined;
+
         const sendReminder = () => {
             const now = new Date();
             const hour = now.getHours();
@@ -782,14 +794,15 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         sendReminder();
         const reminderInterval = setInterval(sendReminder, 9 * 60 * 1000);
         return () => clearInterval(reminderInterval);
-    }, [isClockedIn, isToClockOut, notify, user]);
+    }, [canUseClocking, isClockedIn, isToClockOut, notify, user]);
 
     useEffect(() => {
+        if (!canUseClocking) return;
         if (!outsideClockingAuthorized) return;
 
         const reason = user?.outsideClockingDetails?.reason || 'authorized duty';
         notify(`Clocking outside granted for ${reason}`.toLowerCase(), 'info');
-    }, [outsideClockingAuthorized, user?.outsideClockingDetails?.reason, notify]);
+    }, [canUseClocking, outsideClockingAuthorized, user?.outsideClockingDetails?.reason, notify]);
 
     const getCurrentLocation = useCallback(() => new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -833,7 +846,10 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         }
     }, [getCurrentLocation, notify]);
 
-    useEffect(() => { requestLocation(); }, [selectedStation.name]);
+    useEffect(() => {
+        if (!canUseClocking) return;
+        requestLocation();
+    }, [canUseClocking, requestLocation, selectedStation.name]);
     // eslint-disable-line
 
     // 3. Location is mandatory for every clock action. Outside authorization
@@ -857,6 +873,11 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
 
     const handleRegisterFingerprint = async () => {
+        if (!canUseClocking) {
+            notify('Clocking services are unavailable for your account status.', 'warning');
+            return;
+        }
+
         try {
 
             setBiometricLoading(true);
@@ -884,6 +905,11 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     };
 
     const handleClockInClockOut = async () => {
+        if (!canUseClocking) {
+            notify('Clocking services are unavailable for your account status.', 'warning');
+            return;
+        }
+
         try {
             setBiometricLoading(true);
             const fp = currentDeviceFingerprint || await getDeviceFingerprint();
@@ -927,6 +953,19 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
     const m = userStats?.monthly;
     const w = userStats?.weekly;
+    const accountStatus = user?.isAccountActive === false
+        ? {
+            severity: 'error',
+            label: 'Account Disabled',
+            message: 'Clocking services are disabled for your account. Recent attendance history remains available.',
+        }
+        : user?.isOnLeave === true
+            ? {
+                severity: 'info',
+                label: 'On Leave',
+                message: 'You are currently marked as on leave. Clocking instructions and clocking actions are hidden until leave ends.',
+            }
+            : null;
 
     /* ═══════════════════════════════════════════════════════════════════════
        RENDER
@@ -943,7 +982,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             </Snackbar>
 
             {/* ══ HOW-TO BANNER IF USER ACTIVE  ════════════════════════════════════════════ */}
-            {!(user?.isOnLeave) && (user?.isAccountActive) && (
+            {canUseClocking && (
                 <Reveal>
                     <Box sx={{ ...G.tinted(colorPalette.oceanBlue), borderRadius: '20px', p: 2.5, mb: 3, position: 'relative', zIndex: 1 }}>
                         <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
@@ -992,17 +1031,67 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 </Reveal>
             )}
 
+            {accountStatus && (
+                <Reveal>
+                    <Alert
+                        severity={accountStatus.severity}
+                        icon={false}
+                        sx={{
+                            ...G.tinted(accountStatus.severity === 'error' ? colorPalette.coralSunset : colorPalette.oceanBlue),
+                            borderRadius: '18px',
+                            mb: 3,
+                            alignItems: 'center',
+                            '& .MuiAlert-message': { width: '100%' },
+                        }}
+                    >
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1.5}
+                            alignItems={{ xs: 'flex-start', sm: 'center' }}
+                            justifyContent="space-between"
+                        >
+                            <Box>
+                                <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy}>
+                                    {accountStatus.label}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                                    {accountStatus.message}
+                                </Typography>
+                            </Box>
+                            <Chip
+                                label={accountStatus.label}
+                                size="small"
+                                sx={{
+                                    fontWeight: 900,
+                                    bgcolor: accountStatus.severity === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(10,61,98,0.10)',
+                                    color: accountStatus.severity === 'error' ? '#dc2626' : colorPalette.oceanBlue,
+                                    border: `1px solid ${accountStatus.severity === 'error' ? 'rgba(239,68,68,0.24)' : 'rgba(10,61,98,0.18)'}`,
+                                }}
+                            />
+                        </Stack>
+                    </Alert>
+                </Reveal>
+            )}
+
 
             {/* ══ MAIN GRID ════════════════════════════════════════════════ */}
             <Grid container spacing={3} alignItems="flex-start" sx={{ position: 'relative', zIndex: 1 }}>
 
                 {/* ── LEFT COLUMN ─────────────────────────────────────────── */}
-                <Grid item xs={12} lg={7}>
+                <Grid
+                    item
+                    xs={12}
+                    sx={{
+                        flexBasis: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                    }}
+                >
                     <Stack spacing={3}>
 
                         {/* ── DARK CLOCK CARD ── */}
 
-                        {!(user?.isOnLeave) && (user?.isAccountActive) && (
+                        {canUseClocking && (
                             <Reveal>
                                 <Box sx={{
                                     borderRadius: '24px',
@@ -1062,7 +1151,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                             <TextField select fullWidth label="Clocking Station"
                                                 value={selectedStation.name}
                                                 disabled={isClockedIn && isToClockOut}
-                                                onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value))}
+                                                onChange={e => setSelectedStation(AvailableStations.find(s => s.name === e.target.value) || AvailableStations[0])}
                                                 InputProps={{ startAdornment: <InputAdornment position="start"><BusinessCenter sx={{ color: 'rgba(255,255,255,0.60)', fontSize: '1.05rem' }} /></InputAdornment> }}
                                                 sx={G.glassInput}>
                                                 {AvailableStations.map(o => <MenuItem key={o.name} value={o.name} >{o.name}</MenuItem>)}

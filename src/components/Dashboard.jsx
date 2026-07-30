@@ -1195,7 +1195,7 @@ const EnhancedDashboard = () => {
             </Box>
 
             {/* Account not active */}
-            {!user?.isAccountActive && <DialogAlert />}
+            {(user?.isAccountActive === false || user?.isOnLeave === true) && <DialogAlert />}
 
             {/* Profile dialog */}
             <UserProfileDialog open={profileOpen} onClose={closeProfile} user={user} onSave={handleProfileSave} />

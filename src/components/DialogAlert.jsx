@@ -28,7 +28,7 @@ const Transition = React.forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export default function DialogAlert() {
+export default function DialogAlertDashBoard() {
     const [open, setOpen] = React.useState(true);
     const [processing, setProcessing] = React.useState(false);
     const dispatch = useDispatch();
