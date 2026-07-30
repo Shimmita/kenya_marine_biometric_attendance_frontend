@@ -409,6 +409,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                             {/* Phone */}
                             <TextField
                                 label="Phone Number"
+                                placeholder='254XXXX'
                                 value={phone}
                                 onChange={(e) => { setPhone(e.target.value); setErrors(p => ({ ...p, phone: undefined })); }}
                                 fullWidth

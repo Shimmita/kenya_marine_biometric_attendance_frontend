@@ -578,7 +578,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                         <Stack spacing={2.5}>
                             {selectedRole === 'staff' ? (
                                 <>
-                                    <TextField fullWidth label="User ID" placeholder="Enter User ID"
+                                    <TextField fullWidth label="Staff Number" placeholder="Staff Number"
                                         value={formData.userId} onChange={handle('userId')} error={!!errors.userId} helperText={errors.userId}
                                         InputProps={{ startAdornment: <InputAdornment position="start"><Lock sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment> }}
                                         sx={G.lightInput} />
@@ -602,7 +602,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                                 </>
                             ) : (
                                 <>
-                                    <TextField fullWidth label="Email Address" placeholder="example@kmfri.go.ke"
+                                    <TextField fullWidth label="Email Address" placeholder="johndoe@gmail.com"
                                         value={formData.email} onChange={handle('email')} error={!!errors.email} helperText={errors.email}
                                         InputProps={{ startAdornment: <InputAdornment position="start"><Email sx={{ color: 'var(--kmfri-secondary)' }} /></InputAdornment> }}
                                         sx={G.lightInput} />

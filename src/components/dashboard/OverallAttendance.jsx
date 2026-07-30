@@ -2892,7 +2892,7 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
     const currentPerformers = useMemo(() => {
         if (scope === 'overall') return allOverall;
         if (scope === 'station' && perfStation) {
-            const s = stationList.find(st => st.name === perfStation);
+            const s = stationList.find(st => st === perfStation);
             return enrichPerformers(s?.topPerformers || []);
         }
         if (scope === 'department' && perfDept) {
@@ -2996,10 +2996,9 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
                         ))}
                         {scope === 'station' && (
                             <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Select Station</InputLabel>
                                 <Select value={perfStation} label="Select Station" displayEmpty renderValue={selected => selected || 'Choose a station…'} onChange={e => setPerfStation(e.target.value)} sx={{ borderRadius: '12px', fontWeight: 700, fontSize: '0.82rem', bgcolor: 'rgba(255,255,255,0.7)' }}>
                                     <MenuItem value=""><em>Choose a station…</em></MenuItem>
-                                    {stationList.map(s => <MenuItem key={s.name} value={s.name}><Stack direction="row" alignItems="center" spacing={1}><LocationOn sx={{ fontSize: '0.85rem', color: colorPalette.oceanBlue }} /><span>{s.name}</span></Stack></MenuItem>)}
+                                    {stationList.map(s => <MenuItem key={s} value={name}><Stack direction="row" alignItems="center" spacing={1}><LocationOn sx={{ fontSize: '0.85rem', color: colorPalette.oceanBlue }} /><span>{s}</span></Stack></MenuItem>)}
                                 </Select>
                             </FormControl>
                         )}
@@ -3188,7 +3187,7 @@ export default function OverallAttendanceStats() {
         loadData();
     }, [selectedStation, selectedDepartment]);
 
-    const stationList = data?.stationList || [];
+    const stationList = platformOptions.departments.length ? platformOptions.stations : (data?.stations || []);
     const allDeptNames = platformOptions.departments.length ? platformOptions.departments : (data?.allDeptNames || []);
 
     return (
