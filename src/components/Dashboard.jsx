@@ -49,7 +49,6 @@ const SupervisorManageMembers = lazy(() => import('./dashboard/supervisor/Superv
 const UserManagementContent = lazy(() => import('./dashboard/UserManagementContent'));
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
-const AnalyticsReportsContent = lazy(() => import('./dashboard/AnalyticsReport'));
 const AttendanceHistoryContent = lazy(() => import('./dashboard/AttendanceHistory'));
 const DepartmentStructureContent = lazy(() => import('./dashboard/DepartmentStructure'));
 const LeaveManagementContent = lazy(() => import('./dashboard/LeaveManagement'));
@@ -472,6 +471,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats /> },
+        { text: 'Analytics Dashboard', icon: <InsightsRounded /> },
         { text: 'Manage Your Members', icon: <SupervisorAccount />, },
         { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
     ], [platformConfigVersion]);
@@ -741,6 +741,13 @@ const SuspenseFallback = (
 const PAGE_TITLES = {
     'Clocking Dashboard': null, // set dynamically
     'Attendance History': 'My Attendance History',
+    'Analytics Dashboard': 'Analytics Dashboard',
+    'Workforce Analytics': 'Workforce Analytics',
+    'Performance Analytics': 'Performance Analytics',
+    'Compliance Analytics': 'Compliance Analytics',
+    'Analytics Reports': 'Analytics Reports',
+    'Team Performance': 'Team Performance',
+    'Reports': 'Reports',
     'Organisations Stats': 'Organisation Overview',
     'Tasks & Activities': 'Tasks & Activities',
     'Analytics & Reports': 'Analytics & Reports',
@@ -1032,7 +1039,15 @@ const EnhancedDashboard = () => {
             case 'Clocking Dashboard': return <DashboardContent key={`clocking-${platformConfigVersion}`} {...sharedProps} />;
             case 'Tasks & Activities': return <TasksActivitiesContent {...sharedProps} />;
             case 'Attendance History': return <AttendanceHistoryContent {...sharedProps} />;
-            case 'Analytics & Reports': return <AnalyticsReportsContent {...sharedProps} />;
+            case 'Analytics & Reports':
+            case 'Analytics Dashboard':
+            case 'Workforce Analytics':
+            case 'Performance Analytics':
+            case 'Compliance Analytics':
+            case 'Analytics Reports':
+            case 'Team Performance':
+            case 'Reports':
+                return <OverallAttendanceStats />;
             case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
             case 'Request for Leave': return <LeaveManagementContent key={`leave-${platformConfigVersion}`} {...sharedProps} />;
             case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager key={`admin-leave-${platformConfigVersion}`} {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;

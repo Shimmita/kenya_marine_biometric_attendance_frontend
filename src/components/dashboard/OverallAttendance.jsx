@@ -25,7 +25,7 @@ import {
 } from 'recharts';
 import KMFRILogo from "../../images/kmfri_logo.png";
 import QRCode from 'qrcode';
-import { fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats } from '../../service/ClockingService';
+import { fetchAnalyticsKPIs, fetchComplianceAnalytics, fetchOverallAttendanceRecords, fetchOverallAttendanceSummary, fetchOverallOrgStats, fetchProductivityAnalytics, fetchWorkforceAnalytics } from '../../service/ClockingService';
 import { fetchAllLeavesAdmin } from '../../service/LeaveService';
 import SuperadminAPI from '../../service/SuperadminService';
 import coreDataDetails, { applyPlatformConfigToCoreData } from '../CoreDataDetails';
@@ -573,6 +573,42 @@ const SectionLabel = ({ children, accent, chip, chipColor, icon }) => (
         {chip && <Chip label={chip} size="small" sx={{ bgcolor: `${chipColor || accent}14`, color: chipColor || accent, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />}
     </Stack>
 );
+
+const AnalyticsKpiStrip = ({ data, loading, kpis, compliance, workforce, productivity }) => {
+    const ov = data?.overview;
+    const items = [
+        { label: 'Staff', value: kpis?.totalStaff ?? ov?.totalStaff ?? '—', accent: colorPalette.oceanBlue, icon: <Person sx={{ fontSize: '1rem' }} /> },
+        { label: 'Active', value: kpis?.presentToday ?? ov?.activeStaffThisMonth ?? '—', accent: colorPalette.seafoamGreen, icon: <Shield sx={{ fontSize: '1rem' }} /> },
+        { label: 'Attendance', value: kpis?.attendanceRate != null ? `${Number(kpis.attendanceRate).toFixed(1)}%` : ov?.averageStaffEfficiency != null ? `${Number(ov.averageStaffEfficiency).toFixed(1)}%` : '—', accent: colorPalette.aquaVibrant, icon: <InsertChart sx={{ fontSize: '1rem' }} /> },
+        { label: 'Absent', value: kpis?.absentToday ?? '—', accent: colorPalette.coralSunset, icon: <Warning sx={{ fontSize: '1rem' }} /> },
+        { label: 'Late Arrivals', value: workforce?.lateArrivals?.length ?? 0, accent: colorPalette.cyanFresh, icon: <History sx={{ fontSize: '1rem' }} /> },
+        { label: 'Compliance Alerts', value: (compliance?.missingClockIns?.length ?? 0) + (compliance?.missingClockOuts?.length ?? 0) + (compliance?.missingBiometrics?.length ?? 0), accent: '#f59e0b', icon: <Shield sx={{ fontSize: '1rem' }} /> },
+        { label: 'Open Sessions', value: compliance?.openSessions?.length ?? 0, accent: '#8b5cf6', icon: <QueryStats sx={{ fontSize: '1rem' }} /> },
+        { label: 'Productivity', value: productivity?.averageProductivity != null ? `${Number(productivity.averageProductivity).toFixed(1)}%` : '—', accent: '#22c55e', icon: <TrendingUp sx={{ fontSize: '1rem' }} /> },
+    ];
+
+    return (
+        <Box sx={{ ...G.filterBg, borderRadius: '18px', p: 2, mb: 3 }}>
+            <Stack direction="row" alignItems="center" spacing={1} mb={1.8}>
+                <InsertChart sx={{ color: colorPalette.deepNavy, fontSize: '1rem' }} />
+                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Broader analytics KPI strip</Typography>
+            </Stack>
+            <Grid container spacing={1.6}>
+                {items.map((item, idx) => (
+                    <Grid item xs={6} sm={3} md={1.5} key={item.label}>
+                        <Box sx={{ p: 1.4, borderRadius: '14px', background: 'rgba(255,255,255,0.7)', border: `1px solid ${item.accent}20`, height: '100%' }}>
+                            <Stack direction="row" alignItems="center" spacing={0.8} mb={0.8}>
+                                <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: `${item.accent}16`, color: item.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</Box>
+                                <Typography variant="caption" fontWeight={700} color={colorPalette.deepNavy}>{item.label}</Typography>
+                            </Stack>
+                            <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy} sx={{ fontVariantNumeric: 'tabular-nums' }}>{loading ? '…' : item.value ?? '—'}</Typography>
+                        </Box>
+                    </Grid>
+                ))}
+            </Grid>
+        </Box>
+    );
+};
 
 /* ══════════════════════════════════════════════════════════════════════════
    HERO BANNER
@@ -3056,7 +3092,6 @@ const PerformanceTab = ({ data, stationList, allDeptNames, user }) => {
                         </Reveal>
                     </Grid>
 
-                    {/* Bottom Performers */}
 
                     {/* Summary table */}
                     {currentPerformers.length > 3 && (
@@ -3133,6 +3168,10 @@ export default function OverallAttendanceStats() {
         ranks: uniqueOptionValues(coreDataDetails.RANK_OPTIONS),
     }));
     const [loading, setLoading] = useState(true);
+    const [analyticsKpis, setAnalyticsKpis] = useState(null);
+    const [analyticsCompliance, setAnalyticsCompliance] = useState(null);
+    const [analyticsWorkforce, setAnalyticsWorkforce] = useState(null);
+    const [analyticsProductivity, setAnalyticsProductivity] = useState(null);
     const [selectedStation, setSelectedStation] = useState("");
     const [selectedDepartment, setSelectedDepartment] = useState("");
 
@@ -3147,7 +3186,7 @@ export default function OverallAttendanceStats() {
         try {
             const startDate = dateKey(getPeriodStart(5));
             const endDate = dateKey(new Date());
-            const [statsRes, recordsRes, leavesRes, configRes] = await Promise.allSettled([
+            const [statsRes, recordsRes, leavesRes, configRes, kpisRes, complianceRes, workforceRes, productivityRes] = await Promise.allSettled([
                 fetchOverallOrgStats({
                     station,
                     department,
@@ -3155,6 +3194,10 @@ export default function OverallAttendanceStats() {
                 fetchOverallAttendanceRecords({ startDate, endDate }),
                 fetchAllLeavesAdmin(),
                 SuperadminAPI.getPlatformConfig(),
+                fetchAnalyticsKPIs({ station, department }),
+                fetchComplianceAnalytics({ station, department }),
+                fetchWorkforceAnalytics({ station, department }),
+                fetchProductivityAnalytics({ station, department }),
             ]);
 
             if (configRes.status === 'fulfilled') {
@@ -3176,6 +3219,10 @@ export default function OverallAttendanceStats() {
 
             setOverviewRecords(recordsRes.status === 'fulfilled' ? (recordsRes.value || []) : []);
             setOverviewLeaves(leavesRes.status === 'fulfilled' ? (leavesRes.value || []) : null);
+            setAnalyticsKpis(kpisRes.status === 'fulfilled' ? kpisRes.value : null);
+            setAnalyticsCompliance(complianceRes.status === 'fulfilled' ? complianceRes.value : null);
+            setAnalyticsWorkforce(workforceRes.status === 'fulfilled' ? workforceRes.value : null);
+            setAnalyticsProductivity(productivityRes.status === 'fulfilled' ? productivityRes.value : null);
         } catch {
             notify('Failed to load organisation data.', 'error');
         } finally {
@@ -3202,6 +3249,8 @@ export default function OverallAttendanceStats() {
             <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 <OrgHeroBanner data={data} loading={loading} rank={user?.rank} activeTab={activeTab} />
             </Motion.div>
+
+            {/* <AnalyticsKpiStrip data={data} loading={loading} kpis={analyticsKpis} compliance={analyticsCompliance} workforce={analyticsWorkforce} productivity={analyticsProductivity} /> */}
 
             {/* Toolbar */}
             <Reveal>

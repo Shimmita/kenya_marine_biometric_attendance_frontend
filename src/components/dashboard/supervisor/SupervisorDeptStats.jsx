@@ -44,7 +44,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { fetchDepartmentStats, fetchOverallAttendanceRecords } from "../../../service/ClockingService";
+import { fetchAnalyticsKPIs, fetchComplianceAnalytics, fetchDepartmentStats, fetchOverallAttendanceRecords, fetchProductivityAnalytics, fetchWorkforceAnalytics } from "../../../service/ClockingService";
 import { createVerification } from "../../../service/VerificationService";
 import coreDataDetails from "../../CoreDataDetails";
 
@@ -130,6 +130,7 @@ const ChartCard = ({ title, icon, children, sx = {} }) => (
 // ─── Main component ────────────────────────────────────
 const SupervisorDeptStats = () => {
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState({ kpis: null, compliance: null, workforce: null, productivity: null });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -154,6 +155,24 @@ const SupervisorDeptStats = () => {
         setLoading(true);
         const data = await fetchDepartmentStats();
         setStats(data);
+
+        const params = {};
+        if (data?.station) params.station = data.station;
+        if (data?.department) params.department = data.department;
+
+        const [kpisRes, complianceRes, workforceRes, productivityRes] = await Promise.allSettled([
+          fetchAnalyticsKPIs(params),
+          fetchComplianceAnalytics(params),
+          fetchWorkforceAnalytics(params),
+          fetchProductivityAnalytics(params),
+        ]);
+
+        setAnalytics({
+          kpis: kpisRes.status === 'fulfilled' ? kpisRes.value : null,
+          compliance: complianceRes.status === 'fulfilled' ? complianceRes.value : null,
+          workforce: workforceRes.status === 'fulfilled' ? workforceRes.value : null,
+          productivity: productivityRes.status === 'fulfilled' ? productivityRes.value : null,
+        });
       } catch (err) {
         console.error(err);
       } finally {
@@ -223,6 +242,10 @@ const SupervisorDeptStats = () => {
   // ─── derived data ─────────────────────────────────────
   const employees = useMemo(() => stats?.employeeMetrics || [], [stats?.employeeMetrics]);
   const topPerformers = useMemo(() => stats?.topPerformers || [], [stats?.topPerformers]);
+  const analyticsKpis = analytics?.kpis || {};
+  const analyticsCompliance = analytics?.compliance || {};
+  const analyticsWorkforce = analytics?.workforce || {};
+  const analyticsProductivity = analytics?.productivity || {};
 
   const sortedEmployees = useMemo(() => {
     let sorted = [...employees];
@@ -517,6 +540,26 @@ const SupervisorDeptStats = () => {
       label: "Outside Authorized",
       value: stats.outsideAuthorizedCount || 0,
       icon: <VerifiedRounded fontSize="small" />
+    },
+    {
+      label: "Attendance Rate",
+      value: analyticsKpis?.attendanceRate != null ? `${Number(analyticsKpis.attendanceRate).toFixed(1)}%` : "—",
+      icon: <ScheduleRounded fontSize="small" />
+    },
+    {
+      label: "Late Arrivals",
+      value: analyticsWorkforce?.lateArrivals?.length ?? 0,
+      icon: <WarningAmberRounded fontSize="small" />
+    },
+    {
+      label: "Compliance Alerts",
+      value: (analyticsCompliance?.missingClockIns?.length ?? 0) + (analyticsCompliance?.missingClockOuts?.length ?? 0) + (analyticsCompliance?.missingBiometrics?.length ?? 0),
+      icon: <VerifiedRounded fontSize="small" />
+    },
+    {
+      label: "Productivity",
+      value: analyticsProductivity?.averageProductivity != null ? `${Number(analyticsProductivity.averageProductivity).toFixed(1)}%` : "—",
+      icon: <BarChartRounded fontSize="small" />
     },
   ];
 

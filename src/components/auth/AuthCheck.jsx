@@ -26,12 +26,19 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
       "mousedown",
       "touchstart",
       "scroll",
+      "wheel",
     ];
     const ACTIVITY_HEARTBEAT_MS = 5 * 60 * 1000; // send auth probe at most every 5 minutes on activity
 
     let refreshTimeout = null;
     let active = true;
     const lastHeartbeatAt = { current: 0 };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        handleUserActivity();
+      }
+    };
 
     const clearClientSession = () => {
       clearSessionStarted();
@@ -84,12 +91,16 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
       ACTIVITY_EVENTS.forEach((eventName) =>
         document.addEventListener(eventName, handleUserActivity, { passive: true })
       );
+      window.addEventListener("focus", handleUserActivity);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
     };
 
     const removeActivityListeners = () => {
       ACTIVITY_EVENTS.forEach((eventName) =>
         document.removeEventListener(eventName, handleUserActivity)
       );
+      window.removeEventListener("focus", handleUserActivity);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
 
     checkAuth().then((valid) => {

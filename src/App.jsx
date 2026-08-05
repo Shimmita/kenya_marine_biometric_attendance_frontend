@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import api from "./service/Api";
 const HomeLanding = lazy(() => import("./components/BodyLanding"));
 const DashboardHome = lazy(() => import("./components/Dashboard"));
 const AuthCheck = lazy(() => import("./components/auth/AuthCheck"));
@@ -12,11 +13,43 @@ const RouteFallback = () => (
   </div>
 );
 
+function ReminderTrigger() {
+  useEffect(() => {
+    const storageKey = "kmfri_reminder_triggered";
+    if (typeof window === "undefined") return;
+    if (window.sessionStorage.getItem(storageKey) === "1") return;
+
+    const triggerReminder = async () => {
+      try {
+        const secret = import.meta.env.VITE_REMINDER_TRIGGER_SECRET || (import.meta.env.DEV ? "kmfri-reminder-trigger-dev" : "");
+        const response = await api.post(
+          "/notifications/trigger-reminders",
+          {},
+          {
+            headers: secret ? { "x-reminder-trigger-secret": secret } : {},
+          }
+        );
+
+        if (response?.status < 400) {
+          window.sessionStorage.setItem(storageKey, "1");
+        }
+      } catch (error) {
+        console.error("Reminder trigger failed:", error?.response?.data || error?.message || error);
+      }
+    };
+
+    triggerReminder();
+  }, []);
+
+  return null;
+}
+
 function App() {
 
   return (
 
     <BrowserRouter>
+      <ReminderTrigger />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
 

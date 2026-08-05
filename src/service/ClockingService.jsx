@@ -105,3 +105,212 @@ export const fetchOverallAttendanceSummary = async (params = {}) => {
 
   }
 };
+
+
+// EXTENDED ANALYTICS
+
+// ============================================================================
+// HR & CEO ANALYTICS
+// ============================================================================
+
+// Dashboard KPIs
+export const fetchAnalyticsKPIs = async (params = {}) => {
+  try {
+    const res = await api.get("/overall/attendance/analytics/kpis", {
+      params,
+    });
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch dashboard KPIs"
+    );
+  }
+};
+
+// Attendance Trends
+export const fetchAttendanceTrends = async (params = {}) => {
+  try {
+    const res = await api.get("/overall/attendance/analytics/trends", {
+      params,
+    });
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch attendance trends"
+    );
+  }
+};
+
+// Department Analytics
+export const fetchDepartmentAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/departments",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch department analytics"
+    );
+  }
+};
+
+// Station Analytics
+export const fetchStationAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/stations",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch station analytics"
+    );
+  }
+};
+
+// Late Arrival Analytics
+export const fetchLateArrivalAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/late-arrivals",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch late arrival analytics"
+    );
+  }
+};
+
+// Early Departure Analytics
+export const fetchEarlyDepartureAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/early-departures",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch early departure analytics"
+    );
+  }
+};
+
+// Absenteeism Analytics
+export const fetchAbsenteeismAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/absenteeism",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch absenteeism analytics"
+    );
+  }
+};
+
+// Compliance Monitoring
+export const fetchComplianceAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/compliance",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch compliance analytics"
+    );
+  }
+};
+
+// Outside Clocking Analytics
+export const fetchOutsideClockingAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/outside-clocking",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch outside clocking analytics"
+    );
+  }
+};
+
+// Workforce Analytics
+export const fetchWorkforceAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/workforce",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch workforce analytics"
+    );
+  }
+};
+
+// Productivity Analytics
+export const fetchProductivityAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/productivity",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch productivity analytics"
+    );
+  }
+};
+
+// Executive Dashboard
+export const fetchExecutiveAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/executive",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch executive analytics"
+    );
+  }
+};
