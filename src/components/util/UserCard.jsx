@@ -1,4 +1,4 @@
-import { Close, DeleteRounded, LocationOnRounded, ShieldRounded, WorkRounded } from "@mui/icons-material";
+import { Close, DeleteRounded, LocationOnRounded, SelfImprovementRounded, ShieldRounded, WorkRounded } from "@mui/icons-material";
 import {
     Alert,
     Avatar,
@@ -165,7 +165,7 @@ const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormD
                             letterSpacing: "0.12em", textTransform: "uppercase",
                             fontFamily: "'Exo 2', sans-serif", mb: 0.3,
                         }}>
-                            Clock Outside Authorization
+                            clock outside accessuthorization
                         </Typography>
                         <Typography sx={{ color: C.textMuted, fontSize: "0.72rem" }}>
                             Grant temporary outside-station clocking access
@@ -321,11 +321,16 @@ const UserCard = ({
         }
     };
 
+
+
+
     const handleClose = () => {
         setOpenModal(false);
         setClockOutside("no");
         setError("");
     };
+
+
 
     const handleSubmit = async () => {
         if (new Date(formData.endDate) <= new Date(formData.startDate)) {
@@ -560,6 +565,25 @@ const UserCard = ({
                             </FormControl>
                         </ControlField>
 
+
+
+                        {/*allow users account to request password reset */}
+                        {currentUser?.rank === 'admin' && !readOnly && (
+                            <Button
+                                sx={{
+                                    borderRadius: 2
+                                }}
+                                size="small"
+                                color="info"
+                                variant="contained"
+                                disabled={isUpdating || isDeleting}
+                                onClick={() => onResetBiometrics(user?._id)}
+                                disableElevation
+                            >
+                                Reset Password
+                            </Button>
+                        )}
+
                         {/* hard reset user biometrics for admin only */}
                         {currentUser?.rank === 'admin' && !readOnly && (
                             <Button
@@ -703,6 +727,26 @@ const UserCard = ({
                             </Stack>
                         </Box>
                     )}
+
+                    {/* on leave banner */}
+                    {user.isOnLeave && (
+                        <Box sx={{
+                            mt: 2.5, p: 1.5, borderRadius: "12px",
+                            background: "rgba(72,201,176,0.07)",
+                            border: `1px solid ${C.seafoamGreen}38`,
+                            borderLeft: `3px solid ${C.seafoamGreen}`,
+                        }}>
+                            <Stack direction="row" spacing={1} alignItems="flex-start">
+                                <SelfImprovementRounded sx={{ color: C.coralSunset, fontSize: "0.95rem", mt: 0.15, flexShrink: 0 }} />
+                                <Box>
+                                    <Typography sx={{ color: C.coralSunset, fontWeight: 800, fontSize: "0.7rem", letterSpacing: "0.04em", mb: 0.4 }}>
+                                        USER ON LEAVE
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </Box>
+                    )}
+
                 </Box>
             </Box>
 

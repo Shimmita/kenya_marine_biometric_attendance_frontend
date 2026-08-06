@@ -2,10 +2,7 @@ import {
     ArrowBack,
     CheckCircle,
     Email,
-    Lock,
-    Security,
-    Visibility,
-    VisibilityOff,
+    Security
 } from '@mui/icons-material';
 import {
     Alert,
@@ -114,9 +111,9 @@ export default function ResetPasswordPage() {
         setSubmitting(true);
         try {
             const response = await requestPasswordReset(email.trim());
-            setSuccess(response?.message || 'Your password reset request has been submitted. The administrator will reset your password shortly.');
-            // Redirect to login after 2 seconds instead of showing password form
-            setTimeout(() => navigate('/'), 2000);
+            setSuccess(response?.message || 'Your password reset request has been submitted');
+            // Redirect to login after 10 seconds instead of showing password form
+            setTimeout(() => navigate('/'), 10000);
         } catch (err) {
             setError(String(err || 'Failed to send password reset code'));
         } finally {
@@ -152,8 +149,8 @@ export default function ResetPasswordPage() {
         setSubmitting(true);
         try {
             await resetPassword(email.trim(), code.trim(), newPassword);
-            setSuccess('Password reset successful. You can now sign in with your new password.');
-            setTimeout(() => navigate('/'), 1400);
+            setSuccess('Password reset successful! Redirecting to login');
+            setTimeout(() => navigate('/'), 10000);
         } catch (err) {
             setError(String(err || 'Failed to reset password'));
         } finally {
@@ -165,11 +162,11 @@ export default function ResetPasswordPage() {
         <Box sx={{
             minHeight: '100vh', position: 'relative', overflow: 'hidden', background: G.meshBg,
             display: 'flex',
-            alignItems: 'center',     
+            alignItems: 'center',
             justifyContent: 'center',
         }}>
             <AmbientOrbs />
-            <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1,  }}>
+            <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1, }}>
                 <Motion.div
                     initial={{ opacity: 0, y: 28, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -191,7 +188,7 @@ export default function ResetPasswordPage() {
                                 Reset Password
                             </Typography>
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                                Submit your email to request a password reset from the administrator.
+                                Enter your registered email address. A temporary password will be sent via SMS to your registered phone number.
                             </Typography>
                         </Box>
 

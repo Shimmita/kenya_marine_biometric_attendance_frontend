@@ -150,6 +150,7 @@ export default function UserDetailsDialog({
     onToggleActive,
     onDeleteUser,
     onResetBiometrics,
+    onResetPassword,
     hideActionsTab = false,
     hideRoleRankManagement = false,
 }) {
@@ -981,6 +982,9 @@ export default function UserDetailsDialog({
                                     title="Security Actions"
                                 >
 
+
+                                    {/* reset user biometrics */}
+
                                     <Button
                                         sx={{
 
@@ -1016,6 +1020,47 @@ export default function UserDetailsDialog({
                                     >
 
                                         Reset User Biometrics
+
+                                    </Button>
+
+
+                                    {/* reset user password */}
+                                    <Button
+                                        sx={{
+                                            mt: 1.5,
+
+                                            justifyContent: "flex-start",
+
+                                            py: 1.6,
+
+                                            fontWeight: 700,
+
+                                            textTransform: "none",
+
+                                            borderRadius: 2,
+
+                                            background:
+                                                coreDataDetails.C.freshGradient,
+
+                                            "&:hover": {
+
+                                                filter: "brightness(1.08)",
+
+                                                boxShadow: `0 0 22px ${coreDataDetails.C.aquaVibrant}45`
+
+                                            }
+
+                                        }}
+                                        fullWidth
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() =>
+                                            onResetPassword(user._id)
+                                        }
+
+                                    >
+
+                                        Reset User Password
 
                                     </Button>
 

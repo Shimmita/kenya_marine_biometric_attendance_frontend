@@ -1,6 +1,5 @@
 import {
     ArrowBack,
-    AssessmentRounded,
     Call,
     CheckCircle, Close,
     Email,
@@ -8,8 +7,6 @@ import {
     Lock,
     MenuBookRounded,
     SendRounded,
-    ShieldRounded,
-    VerifiedUserRounded,
     Visibility, VisibilityOff
 } from '@mui/icons-material';
 import {
@@ -30,7 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
-import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
+import { requestPasswordReset } from '../service/ResetPasswordService';
 import { markSessionStarted } from '../service/SessionTimeout';
 import { getPlatformConfig } from '../service/SuperadminService';
 import ClockingImage from "./../images/clocking_image_1.png";
@@ -858,7 +855,7 @@ const EnhancedLandingPage = () => {
                                         <Typography sx={{ color: 'rgba(15, 23, 42, 0.78)', mb: 3.5, fontWeight: 500, lineHeight: 1.7, maxWidth: 520, fontSize: 'clamp(0.95rem, 1.6vw, 1.15rem)' }}>
                                             Digital platform for synchronized clocking and reporting for all our employees, interns, and attaches across research stations nationwide.
                                         </Typography>
-                                        
+
                                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                             <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
                                                 sx={{ background: 'var(--kmfri-gradient)', color: '#fff', fontWeight: 800, px: 4, py: 1.75, borderRadius: '14px', textTransform: 'none', fontSize: '1rem', boxShadow: '0 10px 30px var(--kmfri-secondary-soft)', transition: 'all 0.26s ease', '&:hover': { filter: 'brightness(1.08)', transform: 'translateY(-2px)', boxShadow: '0 14px 36px var(--kmfri-secondary-soft)' } }}>

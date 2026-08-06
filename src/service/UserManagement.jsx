@@ -128,6 +128,20 @@ export const revokeClockOutsideStatus = async (userId) => {
     }
 };
 
+
+export const revokeOnLeaveStatus = async (userId) => {
+    try {
+        // This sends the startDate, endDate, and reason to the backend
+        const res = await api.put(`/admin/user/${userId}/revoke-on-leave`, {
+            ...onLeaveData
+        });
+        return res.data;
+    } catch (err) {
+        console.error("Error revoking on-leave status:", err);
+        throw err.response?.data?.message || "Failed to revoke on-leave status";
+    }
+};
+
 export const deleteUser = async (userId) => {
     try {
         const res = await api.delete(`/admin/user/${userId}`);
@@ -145,5 +159,16 @@ export const resetUserBiometrics = async (userId) => {
     } catch (err) {
         console.error("Error resetting user biometrics:", err);
         throw err.response?.data?.message || "Failed to reset user biometrics";
+    }
+}
+
+
+export const resetUserPassword = async (userId) => {
+    try {
+        const res = await api.put(`/admin/user/${userId}/reset-password`);
+        return res.data;
+    } catch (err) {
+        console.error("Error resetting user password:", err);
+        throw err.response?.data?.message || "Failed to reset user password";
     }
 }

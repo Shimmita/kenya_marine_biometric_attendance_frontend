@@ -21,6 +21,7 @@ import {
     getAllSupervisors,
     getAllUsers,
     resetUserBiometrics,
+    resetUserPassword,
     toggleUserActive,
     updateUserDepartment,
     updateUserRank,
@@ -641,6 +642,25 @@ const UserManagementContent = ({ readOnly = false }) => {
         }
     };
 
+    const handleResetPassword = async (id) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+           const resetResponse= await resetUserPassword(id);
+
+            await refreshUsers(id);
+
+            alert(resetResponse?.message || "User password reset successfully ask the user to check their SMS.");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    }
+
 
 
     if (launchLoading) {
@@ -746,6 +766,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                     onToggleActive={handleToggleActive}
 
                     onDeleteUser={handleDeleteUser}
+                    onResetPassword={handleResetPassword}
 
                     onResetBiometrics={handleResetBiometrics}
                 />

@@ -6,7 +6,6 @@ import {
     EmojiPeopleRounded,
     History,
     InsightsRounded,
-    LockResetRounded,
     Logout,
     PeopleRounded,
     PhoneLocked,
@@ -61,7 +60,6 @@ const LostDeviceContent = lazy(() => import('./dashboard/LostDevice'));
 const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const InternAttacheRegistration = lazy(() => import('./dashboard/InternAttacheRegistration'));
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
-const PasswordResetRequests = lazy(() => import('./dashboard/PasswordResetRequests'));
 const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
 
 const { colorPalette } = coreDataDetails;
@@ -92,7 +90,6 @@ const ADMIN_SHARED_ITEMS = [
 
 const ADMIN_ONLY_ITEMS = [
     { text: 'Lost Device Requests', icon: <DevicesOther /> },
-    { text: 'Password Requests', icon: <LockResetRounded /> },
 ];
 
 const SUPERADMIN_GENERAL_ITEMS = [
@@ -100,7 +97,6 @@ const SUPERADMIN_GENERAL_ITEMS = [
     { text: 'User Management', icon: <SupervisorAccount /> },
     { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     { text: 'Lost Device Requests', icon: <DevicesOther /> },
-    { text: 'Password Requests', icon: <LockResetRounded /> },
 ];
 
 const SUPERADMIN_HR_ITEMS = [
@@ -455,7 +451,6 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
             { text: 'User Management', icon: <SupervisorAccount /> },
             { text: 'Feedback Statistics', icon: <InsightsRounded /> },
             { text: 'Lost Device Requests', icon: <DevicesOther /> },
-            { text: 'Password Requests', icon: <LockResetRounded /> },
         ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
     }, [isAuditor, platformConfigVersion]);
@@ -486,7 +481,6 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
             { text: 'User Management', icon: <SupervisorAccount /> },
             { text: 'Feedback Statistics', icon: <InsightsRounded /> },
             { text: 'Lost Device Requests', icon: <DevicesOther /> },
-            { text: 'Password Requests', icon: <LockResetRounded /> },
             { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
             { text: 'Staff Registration', icon: <PeopleRounded /> },
             { text: 'Audit Logs', icon: <History /> },
@@ -756,7 +750,6 @@ const PAGE_TITLES = {
     'Leave Management': 'Administration Leave Management',
     'Notification Panel': 'Notification Management',
     'Lost Device Requests': 'Lost Device Requests',
-    'Password Requests': 'User Password Reset Requests',
     'Lost Device': 'Lost Device Request',
     'Add Device': 'Add Clocking Device',
     'Our Mobile App': 'KMFRI Mobile Application',
@@ -976,7 +969,6 @@ const EnhancedDashboard = () => {
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
                 { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
-                { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
             ],
             /* HR: full set including Orgs Stats + Leave Management */
             hr: [
@@ -1002,7 +994,6 @@ const EnhancedDashboard = () => {
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
                 { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
-                { text: 'Password Requests', icon: <LockResetRounded />, color: coreDataDetails.navPalette?.password || '#f97316' },
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
                 { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
@@ -1060,7 +1051,6 @@ const EnhancedDashboard = () => {
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent key={`users-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return canViewAdminFeatures ? <InternAttacheRegistration key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Staff Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
-            case 'Password Requests': return canViewAdminFeatures ? <PasswordResetRequests readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers key={`supervisor-members-${platformConfigVersion}`} />;
