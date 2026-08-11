@@ -61,6 +61,7 @@ const FeedbackStatistics = lazy(() => import('./dashboard/AdminRatingFeeback'));
 const InternAttacheRegistration = lazy(() => import('./dashboard/InternAttacheRegistration'));
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
 const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
+const OrganisationStats = lazy(() => import('./dashboard/OrganisationStats'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -460,6 +461,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
         { text: 'Staff Registration', icon: <PeopleRounded /> },
         { text: 'Organisations Stats', icon: <QueryStats /> },
+        { text: 'Broader Statistics', icon: <QueryStats /> },
         { text: 'User Management', icon: <SupervisorAccount /> },
         { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     ], [platformConfigVersion]);
@@ -473,6 +475,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
     const ceoItems = useMemo(() => [
         { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+        { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
     ], [platformConfigVersion]);
 
     const superadminItems = useMemo(() => {
@@ -743,6 +746,7 @@ const PAGE_TITLES = {
     'Team Performance': 'Team Performance',
     'Reports': 'Reports',
     'Organisations Stats': 'Organisation Overview',
+    'Broader Statistics': 'Broader Organisation Statistics',
     'Tasks & Activities': 'Tasks & Activities',
     'Analytics & Reports': 'Analytics & Reports',
     'Department Structure': 'Department Structure',
@@ -778,6 +782,7 @@ const PAGE_SUBTITLES = {
     'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
     'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
     'Organisations Stats': 'Organisation-wide attendance insights for decision making',
+    'Broader Statistics': 'Organisation-wide and cross-organisation analytics',
     'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
     'Staff Registration': 'Register new staff members to the KMFRI Attendance System for seamless attendance tracking.',
     'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
@@ -975,6 +980,7 @@ const EnhancedDashboard = () => {
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
                 { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
             ],
@@ -985,6 +991,7 @@ const EnhancedDashboard = () => {
             ],
             ceo: [
                 { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
             ],
             auditor: [
                 { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
@@ -1045,6 +1052,7 @@ const EnhancedDashboard = () => {
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} currentUser={user} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
             case 'Organisations Stats': return canViewAdminFeatures ? <OverallAttendanceStats readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Broader Statistics': return canViewAdminFeatures ? <OrganisationStats user={user} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;

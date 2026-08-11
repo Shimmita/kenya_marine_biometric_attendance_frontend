@@ -25,10 +25,10 @@ import { formatDate, formatTime } from '../util/DateTimeFormater';
 
 
 
-const { colorPalette } = coreDataDetails;
+export const { colorPalette } = coreDataDetails;
 
 /* ══ GLASS TOKENS ══════════════════════════════════════════════════════════ */
-const G = {
+export const G = {
     card: { background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '1px solid rgba(255,255,255,0.60)', boxShadow: '0 4px 24px rgba(10,61,98,0.08), inset 0 1px 0 rgba(255,255,255,0.80)' },
     cardStrong: { background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)', border: '1px solid rgba(255,255,255,0.72)', boxShadow: '0 8px 32px rgba(10,61,98,0.12), inset 0 1px 0 rgba(255,255,255,0.90)' },
     tile: { background: 'rgba(255,255,255,0.13)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.22)' },
@@ -64,7 +64,7 @@ const normalizeExportTextValue = (value) => {
 
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
-const AmbientOrbs = () => (
+export const AmbientOrbs = () => (
     <>
         {[{ s: 420, t: -60, l: -100, c: 'rgba(10,100,180,0.07)', b: 70 }, { s: 350, t: '40%', r: -80, c: 'rgba(32,178,170,0.06)', b: 60 }, { s: 500, bot: -120, l: '30%', c: 'rgba(10,61,98,0.05)', b: 80 }]
             .map(({ s, t, l, r, bot, c, b }, i) => (
@@ -74,7 +74,7 @@ const AmbientOrbs = () => (
 );
 
 /* ══ SCROLL-TRIGGERED REVEAL ═══════════════════════════════════════════════ */
-const Reveal = ({ children, delay = 0, y = 22 }) => {
+export const Reveal = ({ children, delay = 0, y = 22 }) => {
     const ref = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-50px' });
     return (
@@ -86,7 +86,7 @@ const Reveal = ({ children, delay = 0, y = 22 }) => {
 };
 
 /* ══ GLASS TOOLTIP FOR RECHARTS ════════════════════════════════════════════ */
-const GlassTooltip = ({ active, payload, label }) => {
+export const GlassTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
         <Box sx={{ background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', border: '1px solid rgba(10,61,98,0.12)', borderRadius: '14px', px: 2, py: 1.5, boxShadow: '0 10px 36px rgba(10,61,98,0.16)', minWidth: 130 }}>
@@ -103,7 +103,7 @@ const GlassTooltip = ({ active, payload, label }) => {
 };
 
 /* ══ ANIMATED STAT CARD ════════════════════════════════════════════════════ */
-const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, progress }) => (
+export const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, progress }) => (
     <Box sx={{
         ...G.card, p: 2.5, height: '100%', borderRadius: '20px', position: 'relative', overflow: 'hidden',
         transition: 'all 0.26s ease',
@@ -137,7 +137,7 @@ const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, pro
 );
 
 /* ══ HERO BANNER ═══════════════════════════════════════════════════════════ */
-const HeroBanner = ({ stats, loading }) => (
+export const HeroBanner = ({ stats, loading }) => (
     <Box sx={{ borderRadius: '24px', background: G.heroBg, position: 'relative', overflow: 'hidden', mb: 3, p: { xs: 3, md: 4 } }}>
         <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
         <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
@@ -183,7 +183,7 @@ const HeroBanner = ({ stats, loading }) => (
     </Box>
 );
 
-const SectionLabel = ({ children, accent, chip }) => (
+export const SectionLabel = ({ children, accent, chip }) => (
     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
         <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: accent }} />
         <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{children}</Typography>

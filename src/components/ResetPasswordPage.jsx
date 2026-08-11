@@ -19,7 +19,7 @@ import {
 import { motion as Motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { requestPasswordReset, resetPassword } from '../service/ResetPasswordService';
+import { requestPasswordReset } from '../service/ResetPasswordService';
 import coreDataDetails from './CoreDataDetails';
 
 const { colorPalette } = coreDataDetails;
@@ -121,42 +121,7 @@ export default function ResetPasswordPage() {
         }
     };
 
-    const handleResetPassword = async () => {
-        setError('');
-        setSuccess('');
 
-        if (!email.trim() || !validateEmail(email)) {
-            setError('Enter the same registered email used to request the code');
-            return;
-        }
-        if (!code.trim()) {
-            setError('Reset code is required');
-            return;
-        }
-        if (!newPassword.trim()) {
-            setError('New password is required');
-            return;
-        }
-        if (newPassword.length < 6) {
-            setError('New password must be at least 6 characters');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            await resetPassword(email.trim(), code.trim(), newPassword);
-            setSuccess('Password reset successful! Redirecting to login');
-            setTimeout(() => navigate('/'), 10000);
-        } catch (err) {
-            setError(String(err || 'Failed to reset password'));
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     return (
         <Box sx={{

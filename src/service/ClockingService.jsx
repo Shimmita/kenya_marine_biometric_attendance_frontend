@@ -247,6 +247,24 @@ export const fetchComplianceAnalytics = async (params = {}) => {
   }
 };
 
+
+// biometric Attendance Analytics
+export const fetchBiometricAnalytics = async (params = {}) => {
+  try {
+    const res = await api.get(
+      "/overall/attendance/analytics/biometric",
+      { params }
+    );
+
+    return res.data;
+  } catch (err) {
+    throw (
+      err.response?.data?.message ||
+      "Failed to fetch biometric attendance analytics"
+    );
+  }
+};
+
 // Outside Clocking Analytics
 export const fetchOutsideClockingAnalytics = async (params = {}) => {
   try {
