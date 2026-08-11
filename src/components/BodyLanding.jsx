@@ -622,8 +622,9 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                                     </Button>
                                 </>
                             )}
-
-                            {selectedRole !== 'staff' && (
+                            
+                            {/* activate once AD */}
+                            {/* {selectedRole !== 'staff' && (
                                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                     <Typography variant="body2" color="text.secondary">Forgot password?</Typography>
                                     <Button variant="text" onClick={switchToResetPassword}
@@ -631,7 +632,16 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                                         Reset here
                                     </Button>
                                 </Box>
-                            )}
+                            )} */}
+
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2" color="text.secondary">Forgot password?</Typography>
+                                    <Button variant="text" onClick={switchToResetPassword}
+                                        sx={{ color: 'var(--kmfri-secondary)', fontWeight: 700, textTransform: 'none', p: 0, minWidth: 'auto', fontSize: '0.875rem', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}>
+                                        Reset here
+                                    </Button>
+                                </Box>
+                            
                         </Stack>
                     </>
                 ) : (
