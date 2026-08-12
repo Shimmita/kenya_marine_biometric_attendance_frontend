@@ -1,5 +1,5 @@
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import {
-    Avatar,
     Box,
     IconButton,
     Paper,
@@ -13,7 +13,6 @@ import {
     Tooltip,
     Typography
 } from "@mui/material";
-import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import React from "react";
 
 export default function UserTable({
@@ -39,8 +38,7 @@ export default function UserTable({
                         <TableRow>
                             {/* Set widths on header cells to distribute space */}
                             {/* <TableCell sx={{ width: 60 }}>Image</TableCell> */}
-                            <TableCell sx={{ width: "10%" }}>UserID</TableCell>
-                            {/* <TableCell sx={{ width: "10%" }}>StaffNo</TableCell> */}
+                            <TableCell sx={{ width: "10%" }}>Staff No</TableCell>
                             <TableCell sx={{ width: "22%" }}>Name</TableCell>
                             <TableCell sx={{ width: "12%" }}>Role</TableCell>
                             <TableCell sx={{ width: "16%" }}>Department</TableCell>
@@ -65,9 +63,7 @@ export default function UserTable({
                                     <Tooltip arrow title={user.employeeId}>
                                         <TableCell>{user.employeeId || "--"}</TableCell>
                                     </Tooltip>
-                                    {/* <Tooltip title={user.staffNo} arrow>
-                                        <TableCell>{user.staffNo || "--"}</TableCell>
-                                    </Tooltip> */}
+
                                     <TableCell>
                                         <Box>
                                             <Tooltip arrow title={user.name}>

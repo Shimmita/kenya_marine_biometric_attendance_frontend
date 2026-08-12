@@ -40,7 +40,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import SuperadminAPI from '../../service/SuperadminService';
 import { registerBatchUsers, registerStaff } from '../auth/Register';
-import coreDataDetails, { applyPlatformConfigToCoreData } from '../CoreDataDetails';
+import coreDataDetails from '../CoreDataDetails';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -80,8 +80,7 @@ const fieldSx = {
 };
 
 const helperText = {
-    employeeId: 'Enter Employee User ID.',
-    staffNo: 'Enter employe staff number i.e KMF001.',
+    employeeId: 'Enter Employee Staff Number.',
     fullName: 'Enter Employee official full name.',
     email: 'Enter a valid work email address.',
     phone: 'Enter phone number in the format 254...',
@@ -92,7 +91,6 @@ const helperText = {
 const initialSingleUser = {
     employeeId: '',
     type: '',
-    staffNo: '',
     fullName: '',
     email: '',
     phone: '',
@@ -180,7 +178,7 @@ const BatchRegistration = ({ readOnly = false }) => {
     }, []);
 
     // ─── Batch logic (unchanged) ────────────────────────────────────
-    const headersList = ['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department'];
+    const headersList = ['Staff No', 'Type', 'Full Name', 'Email', 'Phone', 'Station', 'Department'];
 
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
@@ -326,8 +324,7 @@ const BatchRegistration = ({ readOnly = false }) => {
 
         try {
             const mappedData = data.map((row) => ({
-                employeeId: row['User ID'],
-                staffNo: row['Staff No'],
+                employeeId: row['Staff No'],
                 role: 'employee',
                 name: row['Full Name'],
                 email: row['Email'],
@@ -356,8 +353,7 @@ const BatchRegistration = ({ readOnly = false }) => {
     const validateSingleField = (field, rawValue = '') => {
         const value = String(rawValue || '').trim();
 
-        if (field === 'employeeId' && !value) return 'User ID is required';
-        if (field === 'staffNo' && !value) return 'Staff No is required';
+        if (field === 'employeeId' && !value) return 'User Staff Number is required';
         if (field === 'fullName' && !value) return 'Full Name is required';
         if (field === 'email') {
             if (!value) return 'Email is required';
@@ -389,9 +385,9 @@ const BatchRegistration = ({ readOnly = false }) => {
 
     const validateSingleForm = () => {
         const errors = {};
-        const { employeeId, staffNo, fullName, email, phone, station, department } = singleUser;
+        const { employeeId, fullName, email, phone, station, department } = singleUser;
 
-        Object.entries({ employeeId, staffNo, fullName, email, phone, station, department }).forEach(([field, value]) => {
+        Object.entries({ employeeId, fullName, email, phone, station, department }).forEach(([field, value]) => {
             const errorMessage = validateSingleField(field, value);
             if (errorMessage) errors[field] = errorMessage;
         });
@@ -417,7 +413,6 @@ const BatchRegistration = ({ readOnly = false }) => {
                 department: singleUser.department,
                 station: singleUser.station,
                 employeeId: singleUser.employeeId,
-                staffNo: singleUser.staffNo,
             };
 
             const result = await registerStaff({ formData });
@@ -469,8 +464,7 @@ const BatchRegistration = ({ readOnly = false }) => {
 
                 <Grid container spacing={2}>
                     {[
-                        { label: 'User ID', field: 'employeeId', required: true },
-                        { label: 'Staff No', field: 'staffNo', required: true },
+                        { label: 'User Staff Number', field: 'employeeId', required: true },
                         { label: 'Full Name', field: 'fullName', required: true },
                         { label: 'Email', field: 'email', required: true, type: 'email' },
                         { label: 'Phone (254...)', field: 'phone', required: true },
@@ -673,7 +667,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 Your Table must include these header columns in the first row:
                             </Typography>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
-                                {['User ID', 'Type', 'Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department'].map((col) => (
+                                {['Staff No', 'Type', 'Full Name', 'Email', 'Phone', 'Station', 'Department'].map((col) => (
                                     <Box
                                         key={col}
                                         sx={{ px: 1.5, py: 0.6, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.06)', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
@@ -683,7 +677,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 ))}
                             </Stack>
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                For batch registration, only employee or staff accounts are accepted. <strong>User ID</strong> will be the one used to log in to the portal. In the <strong>Type</strong> column enter only <em>staff</em> or <em>employee</em>. The <strong>No.</strong> column will be automatically generated to count the number of employees, Therefore, do not include it in your table. <strong>Phone </strong>number must be in international format i.e 2547...
+                                For batch registration, only employee or staff accounts are accepted. <strong>Staff No</strong> will be the one used to log in to the portal. In the <strong>Type</strong> column enter only <em>staff</em> or <em>employee</em>. The <strong>No.</strong> column will be automatically generated to count the number of employees, Therefore, do not include it in your table. <strong>Phone </strong>number must be in international format i.e 2547...
                             </Typography>
                         </Grid>
                         <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
@@ -827,9 +821,8 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 </TableHead>
                                 <TableBody>
                                     {[
-                                        { col: 'User ID', desc: 'Staff assigned org User ID' },
+                                        { col: 'Staff No', desc: 'Organization-issued staff number i.e T001' },
                                         { col: 'Type', desc: 'Staff / Employee only' },
-                                        { col: 'Staff No', desc: 'Organization-issued staff number i.e KMF001' },
                                         { col: 'Full Name', desc: 'Employee or Staff Full Name' },
                                         { col: 'Email', desc: 'Valid email address' },
                                         { col: 'Phone', desc: 'Phone number in international format i.e 2547...' },

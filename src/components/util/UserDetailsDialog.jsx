@@ -561,14 +561,11 @@ export default function UserDetailsDialog({
                                 <GlassSection icon={<DashboardRoundedIcon />} title="Personal Information">
 
                                     <InfoRow
-                                        label="Employee ID"
+                                        label="Employee Staff Number"
                                         value={user.employeeId}
                                     />
 
-                                    <InfoRow
-                                        label="Staff Number"
-                                        value={user.staffNo}
-                                    />
+                                 
 
                                     <InfoRow
                                         label="Phone"

@@ -464,7 +464,6 @@ const UserManagementContent = ({ readOnly = false }) => {
                 user.name?.toLowerCase().includes(search) ||
                 user.email?.toLowerCase().includes(search) ||
                 user.employeeId?.toLowerCase().includes(search) ||
-                user.staffNo?.toLowerCase().includes(search) ||
                 user.department?.toLowerCase().includes(search) ||
                 user.station?.toLowerCase().includes(search) ||
                 user.supervisor?.toLowerCase().includes(search);

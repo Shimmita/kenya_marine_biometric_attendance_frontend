@@ -158,7 +158,7 @@ const DefaultPasswordNotice = () => (
                 Default Password: <Box component="span" sx={{
                     fontFamily: 'monospace', bgcolor: `${colorPalette.oceanBlue}12`,
                     px: 0.8, py: 0.2, borderRadius: '6px', color: colorPalette.oceanBlue,
-                }}>123456</Box>
+                }}>provided in the registration message</Box>
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.65, fontSize: '0.76rem' }}>
                 The registrant will be prompted to <strong>change this password immediately</strong> upon
@@ -488,7 +488,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
                         </Typography>
                         <Stack spacing={1.8}>
                             {[
-                                { step: '1', text: 'Account is created with default password 123456', color: colorPalette.oceanBlue },
+                                { step: '1', text: 'Account is created with default password provided in the registration message', color: colorPalette.oceanBlue },
                                 { step: '2', text: 'Registrant logs in and is prompted to change their password', color: colorPalette.seafoamGreen },
                                 { step: '3', text: 'HR or Admin activates the account within 1 business day', color: colorPalette.cyanFresh },
                                 { step: '4', text: 'Registrant can begin clocking in/out from their assigned station', color: colorPalette.aquaVibrant },
@@ -532,7 +532,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
                                 px: 0.7, py: 0.15, borderRadius: '5px',
                                 color: colorPalette.oceanBlue,
                             }}>
-                                123456
+                                sent in the registration message
                             </Box>
                             . They will be required to set a new, secure password before accessing the portal.
                         </Typography>
