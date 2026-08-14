@@ -1113,7 +1113,7 @@ export default function UserDetailsDialog({
 
                                         </Button>
 
-                                        {/* <Button
+                                        <Button
                                             sx={{
 
                                                 justifyContent: "flex-start",
@@ -1148,7 +1148,7 @@ export default function UserDetailsDialog({
 
                                             Delete User Permanently
 
-                                        </Button> */}
+                                        </Button>
 
                                     </Stack>
 
