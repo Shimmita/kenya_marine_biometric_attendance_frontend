@@ -1,5 +1,6 @@
 import {
     AddCircle,
+    BarChartRounded,
     ChevronLeft, ChevronRight,
     Dashboard as DashIcon,
     DevicesOther,
@@ -117,6 +118,7 @@ const SUPERADMIN_SUPERVISOR_ITEMS = [
 
 const SUPERADMIN_CEO_ITEMS = [
     { text: 'Organisations Stats', icon: <QueryStats /> },
+    { text: 'Broader Statistics', icon: <BarChartRounded /> },
 ];
 
 const HR_EXTRA_ITEMS = [
@@ -461,7 +463,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
         { text: 'Staff Registration', icon: <PeopleRounded /> },
         { text: 'Organisations Stats', icon: <QueryStats /> },
-        { text: 'Broader Statistics', icon: <QueryStats /> },
+        { text: 'Broader Statistics', icon: <BarChartRounded /> },
         { text: 'User Management', icon: <SupervisorAccount /> },
         { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     ], [platformConfigVersion]);
@@ -475,7 +477,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
     const ceoItems = useMemo(() => [
         { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
-        { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+        { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
     ], [platformConfigVersion]);
 
     const superadminItems = useMemo(() => {
@@ -491,6 +493,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
             { text: 'Manage Your Members', icon: <SupervisorAccount /> },
             { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
             { text: 'Organisations Stats', icon: <QueryStats /> },
+            { text: 'Broader Statistics', icon: <BarChartRounded /> },
         ];
         return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
     }, [isAuditor, platformConfigVersion]);
@@ -980,7 +983,7 @@ const EnhancedDashboard = () => {
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
                 { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
-                { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
             ],
@@ -991,7 +994,7 @@ const EnhancedDashboard = () => {
             ],
             ceo: [
                 { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
-                { text: 'Broader Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
             ],
             auditor: [
                 { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
@@ -1008,6 +1011,8 @@ const EnhancedDashboard = () => {
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
                 { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
                 { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+
             ],
         };
         return [...base, ...(roleMap[user?.rank] ?? []), ...tech];
