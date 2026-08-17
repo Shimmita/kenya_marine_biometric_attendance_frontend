@@ -20,13 +20,15 @@ function ReminderTrigger() {
     if (window.sessionStorage.getItem(storageKey) === "1") return;
 
     const triggerReminder = async () => {
+      const secret = import.meta.env.VITE_REMINDER_TRIGGER_SECRET;
+      if (!secret) return;
+
       try {
-        const secret = import.meta.env.VITE_REMINDER_TRIGGER_SECRET || (import.meta.env.DEV ? "kmfri-reminder-trigger-dev" : "");
         const response = await api.post(
           "/notifications/trigger-reminders",
           {},
           {
-            headers: secret ? { "x-reminder-trigger-secret": secret } : {},
+            headers: { "x-reminder-trigger-secret": secret },
           }
         );
 
