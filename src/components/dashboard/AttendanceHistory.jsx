@@ -21,7 +21,7 @@ import { trackClientAuditEvent } from '../../service/AuditorService.jsx';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { createVerification } from '../../service/VerificationService';
 import coreDataDetails from '../CoreDataDetails';
-import { formatDate, formatTime } from '../util/DateTimeFormater';
+import { formatDate, formatTime, safeNewDate } from '../util/DateTimeFormater';
 
 
 
@@ -372,17 +372,23 @@ export default function AttendanceHistoryContent() {
         try {
             const [statsData, historyData] = await Promise.all([fetchAttendanceStats(), fetchClockingHistory(90)]);
             setStats(statsData);
-            setRawHistory(historyData.map(rec => ({
-                date: formatDate(rec.clock_in),
-                rawDate: new Date(rec.clock_in),
-                clockIn: formatTime(rec.clock_in),
-                clockOut: rec.clock_out ? formatTime(rec.clock_out) : 'System',
-                inLocation: formatLocationLabel(rec, true),
-                outLocation: formatLocationLabel(rec, false),
-                whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",
-                duration: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
-                timing: rec.isLate ? 'Late' : 'Early',
-            })));
+            setRawHistory(historyData.map(rec => {
+                const rawClockIn = safeNewDate(rec.clock_in);
+                const rawClockOut = safeNewDate(rec.clock_out);
+                const createdDate = rawClockIn || rawClockOut;
+
+                return {
+                    date: createdDate ? formatDate(createdDate) : 'Invalid date',
+                    rawDate: createdDate,
+                    clockIn: rawClockIn ? formatTime(rawClockIn) : 'Invalid date',
+                    clockOut: rawClockOut ? formatTime(rawClockOut) : 'System',
+                    inLocation: formatLocationLabel(rec, true),
+                    outLocation: formatLocationLabel(rec, false),
+                    whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",
+                    duration: rawClockIn && rawClockOut ? ((rawClockOut - rawClockIn) / 3_600_000).toFixed(2) : '—',
+                    timing: rec.isLate ? 'Late' : 'Early',
+                };
+            }));
         } catch { notify('Failed to load data.', 'error'); }
         finally { setLoading(false); setHistoryLoading(false); }
     };
@@ -390,8 +396,12 @@ export default function AttendanceHistoryContent() {
     useEffect(() => { loadData(); }, []);// eslint-disable-line
 
     const filteredRows = useMemo(() => rawHistory.filter(row => {
+        if (!row?.rawDate) return false;
         if (filterTiming !== 'All' && row.timing !== filterTiming) return false;
-        if (filterMonth) { const rm = `${row.rawDate.getFullYear()}-${String(row.rawDate.getMonth() + 1).padStart(2, '0')}`; if (rm !== filterMonth) return false; }
+        if (filterMonth) {
+            const rm = `${row.rawDate.getFullYear()}-${String(row.rawDate.getMonth() + 1).padStart(2, '0')}`;
+            if (rm !== filterMonth) return false;
+        }
         return true;
     }), [rawHistory, filterTiming, filterMonth]);
 

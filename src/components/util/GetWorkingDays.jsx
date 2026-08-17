@@ -1,3 +1,5 @@
+import { safeParseDate } from './DateTimeFormater';
+
 /**
  * Calculates Easter Sunday for any given year using the Gauss Easter Algorithm.
  * Returns an object with { month: 1-indexed, day: 1-indexed }
@@ -32,10 +34,10 @@ const getEasterSunday = (year) => {
  */
 const getWorkingDaysCount = (startDateStr, endDateStr) => {
     if (!startDateStr || !endDateStr) return 0;
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    const start = safeParseDate(startDateStr);
+    const end = safeParseDate(endDateStr);
+
+    if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
 
     // 1. Fixed Annual Holidays (MM-DD format) - Works automatically forever
     const fixedHolidays = [

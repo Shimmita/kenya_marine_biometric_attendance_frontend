@@ -80,15 +80,23 @@ const G = {
 const RANK_LABELS = { admin: 'Administrator', hr: 'HR Manager', supervisor: 'Supervisor', ceo: 'Chief Executive Officer' };
 const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
 const parseNum = (v) => (typeof v === 'string' ? parseFloat(v) || 0 : Number(v) || 0);
-const fmtDate = (d) => new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
-const fmtTime = (d) => new Date(d).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
+const fmtDate = (d) => {
+    const parsed = safeNewDate(d);
+    return parsed ? parsed.toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+};
+const fmtTime = (d) => {
+    const parsed = safeNewDate(d);
+    return parsed ? parsed.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '—';
+};
 const pad2 = (n) => String(n).padStart(2, '0');
 const dateKey = (d) => {
-    const x = new Date(d);
+    const x = safeNewDate(d);
+    if (!x) return '';
     return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
 };
 const hourDecimal = (d) => {
-    const x = new Date(d);
+    const x = safeNewDate(d);
+    if (!x) return 0;
     return x.getHours() + (x.getMinutes() / 60);
 };
 const hourLabel = (value) => {
@@ -99,7 +107,10 @@ const hourLabel = (value) => {
 };
 const fmtDuration = (clockIn, clockOut) => {
     if (!clockOut) return 'System';
-    const h = (new Date(clockOut) - new Date(clockIn)) / 3600000;
+    const start = safeNewDate(clockIn);
+    const end = safeNewDate(clockOut);
+    if (!start || !end) return '—';
+    const h = (end - start) / 3600000;
     return h.toFixed(2);
 };
 const uniqueOptionValues = (values = []) => [...new Set((values || []).map((value) => String(value ?? '').trim()).filter(Boolean))];
@@ -187,9 +198,13 @@ const isApprovedLeave = (leave) => `${leave?.status || ''}`.toLowerCase() === 'a
 const leaveIdentity = (leave) => leave?.email || leave?.name || leave?._id;
 const withinLeaveRange = (target, leave) => {
     if (!leave?.startDate || !leave?.endDate) return false;
-    const current = new Date(target); current.setHours(12, 0, 0, 0);
-    const start = new Date(leave.startDate); start.setHours(0, 0, 0, 0);
-    const end = new Date(leave.endDate); end.setHours(23, 59, 59, 999);
+    const current = safeNewDate(target);
+    const start = safeNewDate(leave.startDate);
+    const end = safeNewDate(leave.endDate);
+    if (!current || !start || !end) return false;
+    current.setHours(12, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
     return current >= start && current <= end;
 };
 

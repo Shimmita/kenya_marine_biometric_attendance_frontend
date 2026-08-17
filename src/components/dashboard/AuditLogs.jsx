@@ -50,6 +50,7 @@ import autoTable from 'jspdf-autotable';
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchAuditLogs } from "../../service/AuditorService.jsx";
 import coreDataDetails from "../CoreDataDetails.jsx";
+import { safeNewDate } from "../util/DateTimeFormater";
 const { colorPalette } = coreDataDetails;
 /* ─── Glass Design Tokens ────────────────────────────────────────────────── */
 const G = {
@@ -192,7 +193,9 @@ const exportToPDF = (logs) => {
 
 const formatDateTime = (value) => {
     if (!value) return "Unknown time";
-    return new Date(value).toLocaleString();
+    const parsed = safeNewDate(value);
+    if (!parsed) return "Invalid date";
+    return parsed.toLocaleString();
 };
 
 const compactKey = (value = "") =>
