@@ -116,6 +116,12 @@ const fmtDuration = (clockIn, clockOut) => {
 };
 const uniqueOptionValues = (values = []) => [...new Set((values || []).map((value) => String(value ?? '').trim()).filter(Boolean))];
 const normalizeStationName = (station) => (typeof station === 'string' ? station : station?.name || '');
+const normalizeStationList = (stations = []) => (stations || []).map((station) => {
+    if (!station) return null;
+    if (typeof station === 'string') return { name: station, departments: [] };
+    if (typeof station === 'object') return { ...station, departments: station.departments || [] };
+    return null;
+}).filter(Boolean);
 const humanizeOption = (value) => {
     if (!value) return '—';
     if (value === 'employee') return 'Staff / Employee';
@@ -631,6 +637,11 @@ const AnalyticsKpiStrip = ({ data, loading, kpis, compliance, workforce, product
 ══════════════════════════════════════════════════════════════════════════ */
 const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
     const ov = data?.overview;
+    const stationCount = Array.isArray(data?.stationList)
+        ? data.stationList.length
+        : Array.isArray(data?.stations)
+            ? data.stations.length
+            : Object.keys(data?.stations || {}).length;
     const tabLabels = [
         "Overview",
         "Records",
@@ -677,7 +688,7 @@ const OrgHeroBanner = ({ data, loading, rank, activeTab }) => {
                             { label: 'Inactive', val: ov?.inactiveAccounts ?? '—' },
                             /*  { label: 'Org Hours', val: ov?.totalOrgHours ? `${ov.totalOrgHours}h` : '—' },
                              { label: 'Overtime', val: ov?.totalOrgOvertime ? `${ov.totalOrgOvertime}h` : '—' }, */
-                            { label: 'Stations', val: data?.stationList?.length ?? '—' },
+                            { label: 'Stations', val: stationCount || '—' },
                         ].map(({ label, val }, i) => (
                             <Grid item xs={6} sm={4} key={label}>
                                 <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
@@ -3250,8 +3261,8 @@ export default function OverallAttendanceStats() {
         loadData();
     }, [selectedStation, selectedDepartment]);
 
-    const stationList = platformOptions.departments.length ? platformOptions.stations : (data?.stations || []);
-    const allDeptNames = platformOptions.departments.length ? platformOptions.departments : (data?.allDeptNames || []);
+    const stationList = normalizeStationList(data?.stationList?.length ? data.stationList : (platformOptions.stations || []));
+    const allDeptNames = data?.allDeptNames?.length ? data.allDeptNames : (platformOptions.departments || []);
 
     return (
         <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', position: 'relative' }}>
