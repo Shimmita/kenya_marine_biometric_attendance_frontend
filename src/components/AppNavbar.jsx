@@ -1,17 +1,19 @@
 import {
-    AccessibilityNewRounded, ContrastRounded, HelpOutlineRounded,
+    AccessibilityNewRounded, CenterFocusStrongRounded, ContrastRounded, FontDownloadRounded,
+    FormatUnderlinedRounded, HelpOutlineRounded,
     InstallDesktop,
     Logout as LogoutIcon,
     MenuBookRounded, Menu as MenuIcon, MenuRounded,
-    Person,
-    RemoveRedEyeRounded, TextDecreaseRounded, TextIncreaseRounded
+    Person, RestartAltRounded,
+    RemoveRedEyeRounded, TextDecreaseRounded, TextIncreaseRounded,
+    TouchAppRounded
 } from '@mui/icons-material';
 import {
     AppBar, Avatar, Box, Button, Container, IconButton,
     Menu, MenuItem, Popover, Stack, Toolbar, Tooltip, Typography,
     useMediaQuery, useTheme
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import KenyaArmsLogo from "../images/gov_logo.png";
 import KMFRILogo from "../images/kmfri_logo.png";
@@ -23,26 +25,53 @@ const { colorPalette } = coreDataDetails;
 const A11Y_STORAGE_KEY = 'kmfri_a11y_prefs_v1';
 const FONT_SCALES = [0.9, 1, 1.1, 1.25];
 const BASE_ROOT_FONT_PX = 16;
+const DEFAULT_A11Y_PREFS = {
+    scaleIndex: 1,
+    highContrast: false,
+    reducedMotion: false,
+    readableFont: false,
+    largeControls: false,
+    focusAssist: false,
+    underlineActions: false,
+};
 
 export const loadA11yPrefs = () => {
     try {
         const raw = window.localStorage.getItem(A11Y_STORAGE_KEY);
-        if (!raw) return { scaleIndex: 1, highContrast: false, reducedMotion: false };
-        return { scaleIndex: 1, highContrast: false, reducedMotion: false, ...JSON.parse(raw) };
+        if (!raw) return DEFAULT_A11Y_PREFS;
+        return { ...DEFAULT_A11Y_PREFS, ...JSON.parse(raw) };
     } catch {
-        return { scaleIndex: 1, highContrast: false, reducedMotion: false };
+        return DEFAULT_A11Y_PREFS;
     }
 };
 
 export const useAccessibilityPrefs = () => {
     const [prefs, setPrefs] = useState(loadA11yPrefs);
+    const updatePrefs = useCallback((nextPrefs) => {
+        setPrefs((previousPrefs) => {
+            const resolvedPrefs =
+                typeof nextPrefs === 'function' ? nextPrefs(previousPrefs) : nextPrefs;
+            const normalizedPrefs = { ...DEFAULT_A11Y_PREFS, ...resolvedPrefs };
+
+            window.setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('kmfri_a11y_prefs_updated', {
+                    detail: normalizedPrefs,
+                }));
+            }, 0);
+
+            return normalizedPrefs;
+        });
+    }, []);
 
     useEffect(() => {
         document.documentElement.style.fontSize = `${BASE_ROOT_FONT_PX * FONT_SCALES[prefs.scaleIndex]}px`;
         document.documentElement.dataset.kmfriContrast = prefs.highContrast ? 'high' : 'normal';
         document.documentElement.dataset.kmfriMotion = prefs.reducedMotion ? 'reduced' : 'full';
+        document.documentElement.dataset.kmfriReadableFont = prefs.readableFont ? 'on' : 'off';
+        document.documentElement.dataset.kmfriControls = prefs.largeControls ? 'large' : 'normal';
+        document.documentElement.dataset.kmfriFocus = prefs.focusAssist ? 'strong' : 'normal';
+        document.documentElement.dataset.kmfriUnderlines = prefs.underlineActions ? 'on' : 'off';
         try { window.localStorage.setItem(A11Y_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* no-op */ }
-        return () => { document.documentElement.style.fontSize = `${BASE_ROOT_FONT_PX}px`; };
     }, [prefs]);
 
     // Sync with localStorage changes from other components
@@ -51,16 +80,25 @@ export const useAccessibilityPrefs = () => {
             if (e.key === A11Y_STORAGE_KEY && e.newValue) {
                 try {
                     const newPrefs = JSON.parse(e.newValue);
-                    setPrefs(newPrefs);
+                    setPrefs({ ...DEFAULT_A11Y_PREFS, ...newPrefs });
                 } catch { /* ignore parse errors */ }
+            }
+        };
+        const handlePrefsUpdate = (e) => {
+            if (e.detail) {
+                setPrefs({ ...DEFAULT_A11Y_PREFS, ...e.detail });
             }
         };
 
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        window.addEventListener('kmfri_a11y_prefs_updated', handlePrefsUpdate);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('kmfri_a11y_prefs_updated', handlePrefsUpdate);
+        };
     }, []);
 
-    return [prefs, setPrefs];
+    return [prefs, updatePrefs];
 };
 
 export const AccessibilityMenu = ({ prefs, setPrefs }) => {
@@ -73,6 +111,16 @@ export const AccessibilityMenu = ({ prefs, setPrefs }) => {
         ...p,
         scaleIndex: Math.min(FONT_SCALES.length - 1, Math.max(0, p.scaleIndex + dir)),
     }));
+    const togglePref = (key) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
+    const resetPrefs = () => setPrefs(DEFAULT_A11Y_PREFS);
+
+    const toggleButtonSx = {
+        textTransform: 'none',
+        fontWeight: 700,
+        mb: 1,
+        justifyContent: 'flex-start',
+        borderRadius: '10px'
+    };
 
     return (
         <>
@@ -108,7 +156,7 @@ export const AccessibilityMenu = ({ prefs, setPrefs }) => {
                     }
                 }}
             >
-                <Box sx={{ p: 2.5, width: 260 }}>
+                <Box sx={{ p: 2.5, width: 292 }}>
                     <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5, color: colorPalette?.deepNavy || '#0A3D62' }}>
                         Accessibility Options
                     </Typography>
@@ -130,9 +178,10 @@ export const AccessibilityMenu = ({ prefs, setPrefs }) => {
                         fullWidth
                         size="small"
                         variant={prefs.highContrast ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.highContrast}
                         startIcon={<ContrastRounded fontSize="small" />}
-                        onClick={() => setPrefs((p) => ({ ...p, highContrast: !p.highContrast }))}
-                        sx={{ textTransform: 'none', fontWeight: 700, mb: 1, justifyContent: 'flex-start', borderRadius: '10px' }}
+                        onClick={() => togglePref('highContrast')}
+                        sx={toggleButtonSx}
                     >
                         High Contrast Mode
                     </Button>
@@ -141,11 +190,71 @@ export const AccessibilityMenu = ({ prefs, setPrefs }) => {
                         fullWidth
                         size="small"
                         variant={prefs.reducedMotion ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.reducedMotion}
                         startIcon={<RemoveRedEyeRounded fontSize="small" />}
-                        onClick={() => setPrefs((p) => ({ ...p, reducedMotion: !p.reducedMotion }))}
-                        sx={{ textTransform: 'none', fontWeight: 700, justifyContent: 'flex-start', borderRadius: '10px' }}
+                        onClick={() => togglePref('reducedMotion')}
+                        sx={toggleButtonSx}
                     >
                         Reduce Motion
+                    </Button>
+
+                    <Button
+                        fullWidth
+                        size="small"
+                        variant={prefs.readableFont ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.readableFont}
+                        startIcon={<FontDownloadRounded fontSize="small" />}
+                        onClick={() => togglePref('readableFont')}
+                        sx={toggleButtonSx}
+                    >
+                        Readable Font
+                    </Button>
+
+                    <Button
+                        fullWidth
+                        size="small"
+                        variant={prefs.largeControls ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.largeControls}
+                        startIcon={<TouchAppRounded fontSize="small" />}
+                        onClick={() => togglePref('largeControls')}
+                        sx={toggleButtonSx}
+                    >
+                        Larger Controls
+                    </Button>
+
+                    <Button
+                        fullWidth
+                        size="small"
+                        variant={prefs.focusAssist ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.focusAssist}
+                        startIcon={<CenterFocusStrongRounded fontSize="small" />}
+                        onClick={() => togglePref('focusAssist')}
+                        sx={toggleButtonSx}
+                    >
+                        Strong Focus Outline
+                    </Button>
+
+                    <Button
+                        fullWidth
+                        size="small"
+                        variant={prefs.underlineActions ? 'contained' : 'outlined'}
+                        aria-pressed={prefs.underlineActions}
+                        startIcon={<FormatUnderlinedRounded fontSize="small" />}
+                        onClick={() => togglePref('underlineActions')}
+                        sx={{ ...toggleButtonSx, mb: 1.5 }}
+                    >
+                        Underline Links & Buttons
+                    </Button>
+
+                    <Button
+                        fullWidth
+                        size="small"
+                        variant="text"
+                        startIcon={<RestartAltRounded fontSize="small" />}
+                        onClick={resetPrefs}
+                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
+                    >
+                        Reset Accessibility
                     </Button>
                 </Box>
             </Popover>

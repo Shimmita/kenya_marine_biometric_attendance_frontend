@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
+import { useAccessibilityPrefs } from "./components/AppNavbar";
 import api from "./service/Api";
 const HomeLanding = lazy(() => import("./components/BodyLanding"));
 const DashboardHome = lazy(() => import("./components/Dashboard"));
@@ -47,46 +49,49 @@ function ReminderTrigger() {
 }
 
 function App() {
+  const [a11yPrefs] = useAccessibilityPrefs();
 
   return (
 
-    <BrowserRouter>
-      <ReminderTrigger />
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
+    <MotionConfig reducedMotion={a11yPrefs.reducedMotion ? "always" : "user"}>
+      <BrowserRouter>
+        <ReminderTrigger />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
 
-          {/* Homepage (Public but redirects if logged in) */}
-          <Route
-            path="/"
-            element={
-              <AuthCheck redirectIfAuth={true}>
-                <HomeLanding />
-              </AuthCheck>
-            }
-          />
+            {/* Homepage (Public but redirects if logged in) */}
+            <Route
+              path="/"
+              element={
+                <AuthCheck redirectIfAuth={true}>
+                  <HomeLanding />
+                </AuthCheck>
+              }
+            />
 
-          {/* Dashboard (Protected) */}
-          <Route
-            path="/dashboard"
-            element={
-              <AuthCheck>
-                <DashboardHome />
-              </AuthCheck>
-            }
-          />
+            {/* Dashboard (Protected) */}
+            <Route
+              path="/dashboard"
+              element={
+                <AuthCheck>
+                  <DashboardHome />
+                </AuthCheck>
+              }
+            />
 
-          {/* Document Verification (Public) */}
-          <Route
-            path="/verify/:token"
-            element={<VerifyDocument />}
-          />
-          <Route
-            path="/reset-password"
-            element={<ResetPasswordPage />}
-          />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+            {/* Document Verification (Public) */}
+            <Route
+              path="/verify/:token"
+              element={<VerifyDocument />}
+            />
+            <Route
+              path="/reset-password"
+              element={<ResetPasswordPage />}
+            />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </MotionConfig>
   );
 }
 

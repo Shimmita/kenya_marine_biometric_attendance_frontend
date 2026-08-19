@@ -1,34 +1,59 @@
-import api from "./Api";
+import api, { biometricRequestConfig } from "./Api";
 import {
   startAuthentication,
   startRegistration,
   browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
 } from "@simplewebauthn/browser";
 
 /**
  * Ensure browser/device supports WebAuthn
  */
-const ensureWebAuthnSupport = () => {
+const ensureWebAuthnSupport = async () => {
+  if (!window.isSecureContext) {
+    throw new Error(
+      "Biometric authentication requires HTTPS or localhost"
+    );
+  }
+
   if (!browserSupportsWebAuthn()) {
     throw new Error(
       "This device or browser does not support biometric authentication"
     );
   }
+
+  const platformAuthenticatorAvailable =
+    await platformAuthenticatorIsAvailable().catch(() => false);
+
+  if (!platformAuthenticatorAvailable) {
+    throw new Error(
+      "No device biometric or screen-lock authenticator is available in this browser"
+    );
+  }
+};
+
+const getBiometricErrorMessage = (err, fallback) => {
+  if (err?.code === "ERR_NETWORK" || err?.message === "Network Error") {
+    return "Network connection failed. Please refresh and try again.";
+  }
+
+  if (err?.code === "ECONNABORTED") {
+    return "Biometric request timed out. Please try again.";
+  }
+
+  return err?.response?.data?.message || err?.message || fallback;
 };
 
 export const fetchBiometricStatus = async (device_fingerprint) => {
   try {
     const { data } = await api.get("/biometric/status", {
       params: { device_fingerprint },
+      ...biometricRequestConfig,
     });
 
     return data;
   } catch (err) {
-    throw (
-      err?.response?.data?.message ||
-      err?.message ||
-      "Failed to check biometric status"
-    );
+    throw getBiometricErrorMessage(err, "Failed to check biometric status");
   }
 };
 
@@ -38,12 +63,15 @@ export const fetchBiometricStatus = async (device_fingerprint) => {
  */
 export const registerFingerprint = async (device = {}) => {
   try {
-    ensureWebAuthnSupport();
+    await ensureWebAuthnSupport();
 
     // fetch registration challenge/options
     const { data: options } = await api.get(
       "/biometric/register/challenge",
-      { params: { device_fingerprint: device.device_fingerprint } }
+      {
+        params: { device_fingerprint: device.device_fingerprint },
+        ...biometricRequestConfig,
+      }
     );
 
     if (options?.registered || options?.alreadyRegistered) {
@@ -59,7 +87,8 @@ export const registerFingerprint = async (device = {}) => {
       {
         credential,
         device,
-      }
+      },
+      biometricRequestConfig
     );
 
     return data;
@@ -96,11 +125,7 @@ export const registerFingerprint = async (device = {}) => {
     }
 
     // server error
-    throw (
-      err?.response?.data?.message ||
-      err?.message ||
-      "Fingerprint registration failed"
-    );
+    throw getBiometricErrorMessage(err, "Fingerprint registration failed");
   }
 };
 
@@ -115,12 +140,15 @@ export const verifyFingerprint = async (
   isWithinGeofence = null
 ) => {
   try {
-    ensureWebAuthnSupport();
+    await ensureWebAuthnSupport();
 
     // fetch authentication challenge/options
     const { data: options } = await api.get(
       "/biometric/auth/challenge",
-      { params: { device_fingerprint } }
+      {
+        params: { device_fingerprint },
+        ...biometricRequestConfig,
+      }
     );
 
     // trigger WebAuthn auth flow
@@ -136,7 +164,8 @@ export const verifyFingerprint = async (
         device_fingerprint,
         outsideLocation,
         isWithinGeofence,
-      }
+      },
+      biometricRequestConfig
     );
 
     return data;
@@ -164,10 +193,6 @@ export const verifyFingerprint = async (
     }
 
     // server-side error
-    throw (
-      err?.response?.data?.message ||
-      err?.message ||
-      "Clock-in / clock-out failed, try again"
-    );
+    throw getBiometricErrorMessage(err, "Clock-in / clock-out failed, try again");
   }
 };

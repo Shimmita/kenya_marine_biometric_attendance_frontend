@@ -571,7 +571,7 @@ export default function UserDetailsDialog({
                                         value={user.employeeId}
                                     />
 
-                                 
+
 
                                     <InfoRow
                                         label="Phone"

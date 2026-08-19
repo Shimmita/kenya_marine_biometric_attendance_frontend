@@ -84,6 +84,131 @@ canvas {
   }
 }
 
+html[data-kmfri-motion="reduced"] *,
+html[data-kmfri-motion="reduced"] *::before,
+html[data-kmfri-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-kmfri-contrast="high"] {
+  --kmfri-primary: #001b31;
+  --kmfri-secondary: #004b8d;
+  --kmfri-accent: #00ffd5;
+  --kmfri-surface: #ffffff;
+  --kmfri-text: #020617;
+  --kmfri-primary-soft: rgba(0, 27, 49, 0.18);
+  --kmfri-secondary-soft: rgba(0, 75, 141, 0.24);
+  --kmfri-accent-soft: rgba(0, 255, 213, 0.28);
+  --kmfri-accent-bright: #b6fff3;
+  --kmfri-gradient: linear-gradient(135deg, #001b31 0%, #004b8d 66%, #00ffd5 100%);
+  --kmfri-nav-gradient: linear-gradient(135deg, #00111f 0%, #00345f 70%, #007f72 100%);
+  --kmfri-shell-gradient: linear-gradient(180deg, #ffffff 0%, #eef7ff 100%);
+  --kmfri-body-gradient: linear-gradient(180deg, #ffffff 0%, #eef7ff 100%);
+  --kmfri-sidebar-bg: linear-gradient(180deg, #001b31 0%, #00345f 100%);
+  --kmfri-sidebar-border: rgba(0, 255, 213, 0.72);
+  --kmfri-sidebar-surface: rgba(0, 255, 213, 0.18);
+  --kmfri-sidebar-hover: rgba(0, 255, 213, 0.28);
+  --kmfri-sidebar-text: #ffffff;
+  --kmfri-sidebar-text-muted: rgba(255, 255, 255, 0.82);
+}
+
+html[data-kmfri-contrast="high"] body {
+  color: #020617;
+}
+
+html[data-kmfri-contrast="high"] .MuiPaper-root,
+html[data-kmfri-contrast="high"] .MuiCard-root,
+html[data-kmfri-contrast="high"] .MuiDialog-paper,
+html[data-kmfri-contrast="high"] .MuiPopover-paper,
+html[data-kmfri-contrast="high"] .MuiMenu-paper {
+  border: 2px solid rgba(0, 75, 141, 0.55) !important;
+  box-shadow: 0 0 0 1px rgba(0, 255, 213, 0.25), 0 12px 30px rgba(0, 27, 49, 0.18) !important;
+}
+
+html[data-kmfri-contrast="high"] .MuiAppBar-root,
+html[data-kmfri-contrast="high"] .MuiDrawer-paper,
+html[data-kmfri-contrast="high"] .MuiAppBar-root .MuiTypography-root,
+html[data-kmfri-contrast="high"] .MuiDrawer-paper .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+html[data-kmfri-contrast="high"] .MuiButton-root,
+html[data-kmfri-contrast="high"] .MuiIconButton-root,
+html[data-kmfri-contrast="high"] .MuiChip-root {
+  font-weight: 800 !important;
+}
+
+html[data-kmfri-contrast="high"] .MuiOutlinedInput-notchedOutline,
+html[data-kmfri-contrast="high"] .MuiTableCell-root {
+  border-color: rgba(0, 75, 141, 0.42) !important;
+}
+
+html[data-kmfri-readable-font="on"] body,
+html[data-kmfri-readable-font="on"] button,
+html[data-kmfri-readable-font="on"] input,
+html[data-kmfri-readable-font="on"] textarea,
+html[data-kmfri-readable-font="on"] select,
+html[data-kmfri-readable-font="on"] .MuiTypography-root,
+html[data-kmfri-readable-font="on"] .MuiButton-root,
+html[data-kmfri-readable-font="on"] .MuiInputBase-root,
+html[data-kmfri-readable-font="on"] .MuiMenuItem-root,
+html[data-kmfri-readable-font="on"] .MuiTableCell-root,
+html[data-kmfri-readable-font="on"] .MuiChip-root {
+  font-family: Arial, Verdana, Tahoma, system-ui, sans-serif !important;
+  letter-spacing: 0.01em;
+}
+
+html[data-kmfri-readable-font="on"] p,
+html[data-kmfri-readable-font="on"] .MuiTypography-body1,
+html[data-kmfri-readable-font="on"] .MuiTypography-body2,
+html[data-kmfri-readable-font="on"] .MuiTableCell-root {
+  line-height: 1.65;
+}
+
+html[data-kmfri-controls="large"] .MuiButton-root {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+
+html[data-kmfri-controls="large"] .MuiIconButton-root {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+html[data-kmfri-controls="large"] .MuiInputBase-root,
+html[data-kmfri-controls="large"] .MuiSelect-select {
+  min-height: 44px;
+}
+
+html[data-kmfri-controls="large"] .MuiMenuItem-root,
+html[data-kmfri-controls="large"] .MuiTab-root,
+html[data-kmfri-controls="large"] .MuiListItemButton-root {
+  min-height: 46px;
+}
+
+html[data-kmfri-focus="strong"] *:focus-visible,
+html[data-kmfri-focus="strong"] .Mui-focused {
+  outline: 3px solid #ffbf00 !important;
+  outline-offset: 3px !important;
+}
+
+html[data-kmfri-focus="strong"] .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #ffbf00 !important;
+  border-width: 3px !important;
+}
+
+html[data-kmfri-underlines="on"] a,
+html[data-kmfri-underlines="on"] .MuiLink-root,
+html[data-kmfri-underlines="on"] .MuiButton-root,
+html[data-kmfri-underlines="on"] .MuiMenuItem-root,
+html[data-kmfri-underlines="on"] .MuiListItemButton-root {
+  text-decoration: underline !important;
+  text-underline-offset: 0.18em;
+}
+
 .MuiAppBar-root {
   background: var(--kmfri-nav-gradient) !important;
 }
