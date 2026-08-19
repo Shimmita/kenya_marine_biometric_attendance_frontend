@@ -1,5 +1,22 @@
 import api from "./Api";
 
+const sanitizeQueryParams = (params = {}) => {
+  if (!params || typeof params !== "object") return {};
+
+  return Object.entries(params).reduce((cleaned, [key, value]) => {
+    if (value === undefined || value === null) return cleaned;
+
+    const normalized = String(value).trim();
+    if (!normalized) return cleaned;
+
+    const lowered = normalized.toLowerCase();
+    if (lowered === "undefined" || lowered === "null") return cleaned;
+
+    cleaned[key] = normalized;
+    return cleaned;
+  }, {});
+};
+
 
 // clocking in
 export const clockInUser = async () => {
@@ -49,7 +66,7 @@ export const fetchOverallOrgStats = async (params = {}) => {
     const res = await api.get(
       "/overall/attendance/stats",
       {
-        params,
+        params: sanitizeQueryParams(params),
       }
     );
 
@@ -75,7 +92,7 @@ export const fetchDepartmentStats = async (department) => {
 
 // added
 export const fetchOverallAttendanceRecords = async (params = {}) => {
-  const res = await api.get("/overall/attendance/records", { params });
+  const res = await api.get("/overall/attendance/records", { params: sanitizeQueryParams(params) });
   return res.data;
 };
 
@@ -90,7 +107,7 @@ export const fetchOverallAttendanceSummary = async (params = {}) => {
     const res = await api.get(
       "/overall/attendance/summary",
       {
-        params,
+        params: sanitizeQueryParams(params),
       }
     );
 
@@ -117,7 +134,7 @@ export const fetchOverallAttendanceSummary = async (params = {}) => {
 export const fetchAnalyticsKPIs = async (params = {}) => {
   try {
     const res = await api.get("/overall/attendance/analytics/kpis", {
-      params,
+      params: sanitizeQueryParams(params),
     });
 
     return res.data;
@@ -133,7 +150,7 @@ export const fetchAnalyticsKPIs = async (params = {}) => {
 export const fetchAttendanceTrends = async (params = {}) => {
   try {
     const res = await api.get("/overall/attendance/analytics/trends", {
-      params,
+      params: sanitizeQueryParams(params),
     });
 
     return res.data;
@@ -150,7 +167,7 @@ export const fetchDepartmentAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/departments",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -167,7 +184,7 @@ export const fetchStationAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/stations",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -184,7 +201,7 @@ export const fetchLateArrivalAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/late-arrivals",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -201,7 +218,7 @@ export const fetchEarlyDepartureAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/early-departures",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -218,7 +235,7 @@ export const fetchAbsenteeismAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/absenteeism",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -235,7 +252,7 @@ export const fetchComplianceAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/compliance",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -253,7 +270,7 @@ export const fetchBiometricAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/biometric",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -270,7 +287,7 @@ export const fetchOutsideClockingAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/outside-clocking",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -287,7 +304,7 @@ export const fetchWorkforceAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/workforce",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -304,7 +321,7 @@ export const fetchProductivityAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/productivity",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;
@@ -321,7 +338,7 @@ export const fetchExecutiveAnalytics = async (params = {}) => {
   try {
     const res = await api.get(
       "/overall/attendance/analytics/executive",
-      { params }
+      { params: sanitizeQueryParams(params) }
     );
 
     return res.data;

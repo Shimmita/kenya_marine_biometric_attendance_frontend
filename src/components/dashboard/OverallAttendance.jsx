@@ -601,7 +601,7 @@ const AnalyticsKpiStrip = ({ data, loading, kpis, compliance, workforce, product
     const items = [
         { label: 'Staff', value: kpis?.totalStaff ?? ov?.totalStaff ?? '—', accent: colorPalette.oceanBlue, icon: <Person sx={{ fontSize: '1rem' }} /> },
         { label: 'Active', value: kpis?.presentToday ?? ov?.activeStaffThisMonth ?? '—', accent: colorPalette.seafoamGreen, icon: <Shield sx={{ fontSize: '1rem' }} /> },
-        { label: 'Attendance', value: kpis?.attendanceRate != null ? `${Number(kpis.attendanceRate).toFixed(1)}%` : ov?.averageStaffEfficiency != null ? `${Number(ov.averageStaffEfficiency).toFixed(1)}%` : '—', accent: colorPalette.aquaVibrant, icon: <InsertChart sx={{ fontSize: '1rem' }} /> },
+        { label: 'Attendance', value: kpis?.attendanceRate != null ? `${parseNum(kpis.attendanceRate).toFixed(1)}%` : ov?.averageStaffEfficiency != null ? `${parseNum(ov.averageStaffEfficiency).toFixed(1)}%` : '—', accent: colorPalette.aquaVibrant, icon: <InsertChart sx={{ fontSize: '1rem' }} /> },
         { label: 'Absent', value: kpis?.absentToday ?? '—', accent: colorPalette.coralSunset, icon: <Warning sx={{ fontSize: '1rem' }} /> },
         { label: 'Late Arrivals', value: workforce?.lateArrivals?.length ?? 0, accent: colorPalette.cyanFresh, icon: <History sx={{ fontSize: '1rem' }} /> },
         { label: 'Compliance Alerts', value: (compliance?.missingClockIns?.length ?? 0) + (compliance?.missingClockOuts?.length ?? 0) + (compliance?.missingBiometrics?.length ?? 0), accent: '#f59e0b', icon: <Shield sx={{ fontSize: '1rem' }} /> },
