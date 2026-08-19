@@ -23,7 +23,7 @@ import {
     Dialog, DialogActions, DialogContent, DialogTitle,
     Drawer,
     List, ListItem, ListItemIcon, ListItemText, Stack,
-    Tooltip, Typography, useMediaQuery, useTheme
+    Tooltip, Typography
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
@@ -37,7 +37,6 @@ import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
 import GuideDialog from './GuideDialog';
-import UserRequestsContent, { UserRequestsBadge } from './dashboard/UserRequest';
 const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
 const PlatformConfigPanel = lazy(() => import('./dashboard/ConfigPanel'));
 const SuperadminPanel = lazy(() => import('./dashboard/SuperadminPanel'));
@@ -49,6 +48,7 @@ const SupervisorManageMembers = lazy(() => import('./dashboard/supervisor/Superv
 const UserManagementContent = lazy(() => import('./dashboard/UserManagementContent'));
 const DashboardContent = lazy(() => import('./dashboard/DashBoardContent'));
 const DownloadMobileAppSection = lazy(() => import('./dashboard/DownloadMobileApp'));
+const UserRequestsContent = lazy(() => import('./dashboard/UserRequest'));
 const AttendanceHistoryContent = lazy(() => import('./dashboard/AttendanceHistory'));
 const DepartmentStructureContent = lazy(() => import('./dashboard/DepartmentStructure'));
 const LeaveManagementContent = lazy(() => import('./dashboard/LeaveManagement'));
@@ -180,6 +180,26 @@ const SidebarOrbs = React.memo(() => (
         ))}
     </>
 ));
+
+const UserRequestsBadge = React.memo(({ count }) =>
+    count > 0 ? (
+        <Chip
+            label={count > 99 ? '99+' : count}
+            size="small"
+            sx={{
+                height: 18,
+                minWidth: 18,
+                fontSize: '0.6rem',
+                fontWeight: 900,
+                bgcolor: colorPalette.coralSunset,
+                color: '#fff',
+                borderRadius: '9px',
+                px: 0.6,
+                ml: 0.5,
+            }}
+        />
+    ) : null
+);
 
 /* ─── Section divider label ─────────────────────────────────────────────── */
 const SectionLabel = React.memo(({ children }) => (
@@ -343,7 +363,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
 ));
 
 /* ─── Collapsed drawer ──────────────────────────────────────────────────── */
-const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems, platformConfigVersion }) => (
+const CollapsedDrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, onLogout, onExpand, allItems }) => (
     <Box sx={{
         height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
         position: 'relative', overflow: 'hidden', ...G.sidebarBg, pt: 1.5, pb: 2,
@@ -479,24 +499,6 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
         { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
     ], [platformConfigVersion]);
-
-    const superadminItems = useMemo(() => {
-        const items = [
-            { text: 'Platform Administration', icon: <Settings /> },
-            { text: 'User Management', icon: <SupervisorAccount /> },
-            { text: 'Feedback Statistics', icon: <InsightsRounded /> },
-            { text: 'Lost Device Requests', icon: <DevicesOther /> },
-            { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
-            { text: 'Staff Registration', icon: <PeopleRounded /> },
-            { text: 'Audit Logs', icon: <History /> },
-            { text: 'Departmental Statistics', icon: <QueryStats /> },
-            { text: 'Manage Your Members', icon: <SupervisorAccount /> },
-            { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
-            { text: 'Organisations Stats', icon: <QueryStats /> },
-            { text: 'Broader Statistics', icon: <BarChartRounded /> },
-        ];
-        return isAuditor ? items.map(item => ({ ...item, readOnly: true })) : items;
-    }, [isAuditor, platformConfigVersion]);
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', ...G.sidebarBg }}>
@@ -804,10 +806,6 @@ const PAGE_SUBTITLES = {
    MAIN COMPONENT
 ════════════════════════════════════════════════════════════════════════════ */
 const EnhancedDashboard = () => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-
     const { user } = useSelector(s => s.currentUser);
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -839,19 +837,23 @@ const EnhancedDashboard = () => {
     useEffect(() => {
         if (!PRIVILEGED_RANKS.includes(user?.rank)) return;
         let active = true;
+        let inFlight = false;
 
         const load = async () => {
+            if (inFlight || activeTab === 'Lost Device Requests' || document.hidden) return;
+            inFlight = true;
             try {
                 const data = await fetchAllLostDevices();
                 const list = Array.isArray(data) ? data : (data.requests ?? []);
                 if (active) setPendingCount(list.filter(r => r.status === 'pending').length);
             } catch { /* silent */ }
+            finally { inFlight = false; }
         };
 
         load();
         const id = setInterval(load, 60_000);
         return () => { active = false; clearInterval(id); };
-    }, [user?.rank]);
+    }, [activeTab, user?.rank]);
 
     /* Stable callbacks */
     const handleTabChange = useCallback((tab) => {
@@ -952,7 +954,6 @@ const EnhancedDashboard = () => {
 
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
     const isAuditor = useMemo(() => user?.rank === 'auditor', [user?.rank]);
-    const isSuperadmin = useMemo(() => user?.rank === 'superadmin', [user?.rank]);
     const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
     const rankMeta = useMemo(() => {
@@ -1074,7 +1075,7 @@ const EnhancedDashboard = () => {
             case 'Platform Administration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
         }
-    }, [activeTab, isElevated, platformConfigVersion, refreshPlatformConfig, sharedProps, user?.department, user?.rank]);
+    }, [activeTab, canViewAdminFeatures, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user?.department, user?.rank]);
 
     const pageTitle = useMemo(() => (
         activeTab === 'Clocking Dashboard'
@@ -1153,7 +1154,6 @@ const EnhancedDashboard = () => {
                                     onLogout={openLogout}
                                     onExpand={expandSidebar}
                                     allItems={allNavItems}
-                                    platformConfigVersion={platformConfigVersion}
                                 />
                             </motion.div>
                         ) : (

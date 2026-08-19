@@ -180,6 +180,7 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
     const [responding,     setResponding]     = useState(false);
     const [respondError,   setRespondError]   = useState('');
     const [respondSuccess, setRespondSuccess] = useState('');
+    const respondSuccessTimerRef = useRef(null);
 
     const loadRequests = useCallback(async () => {
         setLoading(true); setFetchError('');
@@ -193,7 +194,12 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
         } finally { setLoading(false); }
     }, [onCountChange]);
 
-    useEffect(() => { loadRequests(); }, [loadRequests]);
+    useEffect(() => {
+        loadRequests();
+        return () => {
+            if (respondSuccessTimerRef.current) clearTimeout(respondSuccessTimerRef.current);
+        };
+    }, [loadRequests]);
 
     const stats = useMemo(() => ({
         total:    requests.length,
@@ -227,7 +233,8 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
         try {
             await respondToLostDevice(dialogTarget.request._id, dialogTarget.action);
             setRespondSuccess(`Request from ${dialogTarget.request.user_email} has been ${dialogTarget.action === 'granted' ? 'approved' : 'rejected'}.`);
-            setTimeout(() => setRespondSuccess(''), 6000);
+            if (respondSuccessTimerRef.current) clearTimeout(respondSuccessTimerRef.current);
+            respondSuccessTimerRef.current = setTimeout(() => setRespondSuccess(''), 6000);
             setDialogTarget(null);
             await loadRequests();
         } catch (err) {

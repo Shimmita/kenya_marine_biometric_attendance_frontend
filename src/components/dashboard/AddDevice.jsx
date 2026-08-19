@@ -35,7 +35,7 @@ import {
     Typography,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchBiometricStatus, registerFingerprint } from '../../service/Biometrics';
 import { fetchMyDevices, removeDevice } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
@@ -190,6 +190,7 @@ const AddDeviceContent = () => {
     const [removeTarget,          setRemoveTarget]          = useState(null);
     const [removing,              setRemoving]              = useState(false);
     const [removeError,           setRemoveError]           = useState('');
+    const enrolledTimerRef = useRef(null);
 
     const current = detectCurrentDevice();
 
@@ -209,7 +210,12 @@ const AddDeviceContent = () => {
         } finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { loadDevices(); }, [loadDevices]);
+    useEffect(() => {
+        loadDevices();
+        return () => {
+            if (enrolledTimerRef.current) clearTimeout(enrolledTimerRef.current);
+        };
+    }, [loadDevices]);
 
     const isCurrentEnrolled = currentDeviceReady || devices.some(d => d.device_fingerprint === deviceHashFingerPrint);
 
@@ -231,7 +237,9 @@ const AddDeviceContent = () => {
                 await loadDevices();
                 return;
             }
-            setEnrolled(true); setTimeout(() => setEnrolled(false), 5000);
+            setEnrolled(true);
+            if (enrolledTimerRef.current) clearTimeout(enrolledTimerRef.current);
+            enrolledTimerRef.current = setTimeout(() => setEnrolled(false), 5000);
             await loadDevices();
         } catch (err) {
             setEnrollError(typeof err === 'string' ? err : 'Failed to enrol device. Please try again.');

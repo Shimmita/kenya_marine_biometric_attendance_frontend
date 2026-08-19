@@ -29,8 +29,6 @@ import {
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 
 /* ─── palette / glass tokens (keep in sync with dashboard) ─────────────── */
 const G = {
@@ -135,6 +133,7 @@ const SectionTitle = ({ children }) => (
    ════════════════════════════════════════════════════════════════════════════ */
 const UserProfileDialog = ({ open, onClose, user, onSave }) => {
     const fileInputRef = useRef(null);
+    const saveSuccessTimerRef = useRef(null);
 
     /* editable state */
     const [phone, setPhone] = useState('');
@@ -150,6 +149,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
 
     /* sync with user prop */
     useEffect(() => {
+        if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current);
         if (user) {
             setPhone(user.phone || '');
             setAvatarPreview(user.avatar || null);
@@ -159,6 +159,10 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
         setErrors({});
         setSaveSuccess(false);
     }, [user, open]);
+
+    useEffect(() => () => {
+        if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current);
+    }, []);
 
     /* ── avatar pick ── */
     const handleAvatarChange = (e) => {
@@ -194,7 +198,8 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
             setNewPassword('');
             setConfirmPassword('');
             setAvatarFile(null);
-            setTimeout(() => setSaveSuccess(false), 2000);
+            if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current);
+            saveSuccessTimerRef.current = setTimeout(() => setSaveSuccess(false), 2000);
         } catch (err) {
             setErrors({ general: err?.message || 'Failed to save changes. Please try again.' });
         } finally {

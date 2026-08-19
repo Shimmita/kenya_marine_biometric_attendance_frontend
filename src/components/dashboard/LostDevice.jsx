@@ -28,12 +28,13 @@ import {
     Typography,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { fetchMyDevices, fetchMyLostRequests, submitLostDeviceRequest } from '../../service/DeviceService';
 import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
+import { getLocalDateInputValue } from '../util/DateTimeFormater';
 
 const { colorPalette } = coreDataDetails;
 
@@ -88,7 +89,7 @@ const G = {
 };
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => getLocalDateInputValue();
 const MAX_DAYS = 30;
 
 const statusConfig = {
@@ -176,6 +177,7 @@ const LostDeviceContent = () => {
     const [requests,       setRequests]       = useState([]);
     const [loading,        setLoading]        = useState(true);
     const [fetchError,     setFetchError]     = useState('');
+    const submittedTimerRef = useRef(null);
     const dispatch = useDispatch();
 
     const loadDevices = useCallback(async () => {
@@ -197,7 +199,13 @@ const LostDeviceContent = () => {
         finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { loadDevices(); loadRequests(); }, [loadDevices, loadRequests]);
+    useEffect(() => {
+        loadDevices();
+        loadRequests();
+        return () => {
+            if (submittedTimerRef.current) clearTimeout(submittedTimerRef.current);
+        };
+    }, [loadDevices, loadRequests]);
 
     const validate = () => {
         const e = {};
@@ -220,7 +228,9 @@ const LostDeviceContent = () => {
         try {
             await submitLostDeviceRequest({ description: reason.trim(), startDate: fromDate, endDate: toDate, device_fingerprint: selectedDevice.device_fingerprint });
             setConfirmed(false); setSelectedDevice(null); setFromDate(''); setToDate(''); setReason(''); setErrors({});
-            setSubmitted(true); setTimeout(() => setSubmitted(false), 6000);
+            setSubmitted(true);
+            if (submittedTimerRef.current) clearTimeout(submittedTimerRef.current);
+            submittedTimerRef.current = setTimeout(() => setSubmitted(false), 6000);
             await Promise.all([loadRequests(), loadDevices()]);
             const user = await getUserProfile();
             dispatch(updateUserCurrentUserRedux(user));

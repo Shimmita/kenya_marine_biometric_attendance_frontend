@@ -24,6 +24,7 @@ import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../service/UserManagement";
 import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
+import { getLocalDateInputValue } from "./DateTimeFormater";
 
 /* ─────────────────────────────────────────────
    DESIGN TOKENS (identical to UserCard)
@@ -135,7 +136,7 @@ const ControlField = ({ label, minWidth = 140, children, disabled }) => (
    CLOCK OUTSIDE MODAL
 ───────────────────────────────────────────── */
 const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormData, onSubmit }) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateInputValue();
 
     // Calculate the maximum allowed end date (1 month after start date)
     const getMaxEndDate = () => {
@@ -145,7 +146,7 @@ const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormD
         // Add 1 month to the selected start date
         startDateObj.setMonth(startDateObj.getMonth() + 1); 
         
-        return startDateObj.toISOString().split("T")[0];
+        return getLocalDateInputValue(startDateObj);
     };
 
     // Handle start date change and validate/reset end date if necessary

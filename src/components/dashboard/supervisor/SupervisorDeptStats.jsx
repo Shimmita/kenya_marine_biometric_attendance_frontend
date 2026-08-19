@@ -229,12 +229,14 @@ const SupervisorDeptStats = () => {
 
   const formatLocationLabel = (rec, isEntry) => {
     const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
-    const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
-    if (!locationName) return status;
+    const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
+    const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
+    if (withinPremise === true) return 'In Premise';
+    if (!locationName) return withinPremise === false ? 'Off Premise' : status;
     const parts = String(locationName).split('|').map(p => p.trim()).filter(Boolean);
     const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
-    if (filtered.length === 0) return status;
-    return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+    if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
+    return filtered.join(' | ');
   };
 
   const normalizeExportValue = (value) => (value == null || value === '' ? '—' : String(value));

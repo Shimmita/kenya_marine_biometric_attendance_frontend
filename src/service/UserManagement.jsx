@@ -82,6 +82,19 @@ export const updateUserStation = async (userId, station) => {
 };
 
 
+export const updateUserOnLeave = async (userId, isOnLeave) => {
+    try {
+        const res = await api.put(`/admin/user/${userId}/update-on-leave`, {
+            isOnLeave
+        });
+        return res.data;
+    } catch (err) {
+        console.error("Error updating on-leave status:", err);
+        throw err.response?.data?.message || "Failed to update on-leave status";
+    }
+};
+
+
 export const getAllSupervisors = async () => {
     try {
         const res = await api.get(`/all/supervisors`);
@@ -131,10 +144,7 @@ export const revokeClockOutsideStatus = async (userId) => {
 
 export const revokeOnLeaveStatus = async (userId) => {
     try {
-        // This sends the startDate, endDate, and reason to the backend
-        const res = await api.put(`/admin/user/${userId}/revoke-on-leave`, {
-            ...onLeaveData
-        });
+        const res = await api.put(`/admin/user/${userId}/revoke-on-leave`);
         return res.data;
     } catch (err) {
         console.error("Error revoking on-leave status:", err);

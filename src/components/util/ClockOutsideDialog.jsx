@@ -1,5 +1,6 @@
 import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, IconButton, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
 import coreDataDetails from "../CoreDataDetails";
+import { getLocalDateInputValue } from "./DateTimeFormater";
 import { FieldLabel } from "./UserCard";
 import { Close } from "@mui/icons-material";
 const C = {
@@ -65,7 +66,7 @@ const menuProps = {
    CLOCK OUTSIDE MODAL (shared)
 ───────────────────────────────────────────── */
 const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormData, onSubmit }) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateInputValue();
 
     return (
         <Box sx={{

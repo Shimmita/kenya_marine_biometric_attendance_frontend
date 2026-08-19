@@ -111,7 +111,8 @@ export const verifyFingerprint = async (
   selectedStation,
   userCoords,
   device_fingerprint,
-  outsideLocation = null
+  outsideLocation = null,
+  isWithinGeofence = null
 ) => {
   try {
     ensureWebAuthnSupport();
@@ -134,6 +135,7 @@ export const verifyFingerprint = async (
         userCoords,
         device_fingerprint,
         outsideLocation,
+        isWithinGeofence,
       }
     );
 

@@ -28,6 +28,7 @@ import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../service/UserManagement";
 import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
+import { getLocalDateInputValue } from "./DateTimeFormater";
 
 /* ─────────────────────────────────────────────
    DESIGN TOKENS
@@ -142,7 +143,7 @@ const ControlField = ({ label, children, minWidth = 140 }) => (
    CLOCK OUTSIDE MODAL (shared)
 ───────────────────────────────────────────── */
 const ClockOutsideModal = ({ open, onClose, isLoading, error, formData, setFormData, onSubmit }) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateInputValue();
 
     return (
         <Modal open={open} onClose={!isLoading ? onClose : undefined} closeAfterTransition>

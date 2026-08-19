@@ -16,7 +16,7 @@ import {
     TablePagination, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
 import { AnimatePresence, motion as Motion, useInView } from 'framer-motion';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
     Bar, BarChart, CartesianGrid, Cell, ComposedChart,
@@ -1839,6 +1839,7 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
     const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
     const [search, setSearch] = useState('');
+    const deferredSearch = useDeferredValue(search);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(15);
     const hasFetched = useRef(false);
@@ -1853,12 +1854,14 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
     const formatLocationLabel = (rec, isEntry) => {
         const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
-        const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
-        if (!locationName) return status;
+        const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
+        const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
+        if (withinPremise === true) return 'In Premise';
+        if (!locationName) return withinPremise === false ? 'Off Premise' : status;
         const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
         const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
-        if (filtered.length === 0) return status;
-        return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+        if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
+        return filtered.join(' | ');
     };
 
     const loadRecords = useCallback(async () => {
@@ -1883,7 +1886,7 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     }, []); // eslint-disable-line
 
     const processedRecords = useMemo(() => records.map((rec, idx) => ({
-        id: idx + 1 + page * rowsPerPage,
+        id: idx + 1,
         userId: rec.employeeId || '—',
         name: toTitleCase(rec.name || '—'),
         email: toTitleCase(rec.email || '—'),
@@ -1926,19 +1929,13 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
         if (filterDept && String(row.department || '').toLowerCase() !== String(filterDept || '').toLowerCase()) return false;
         if (filterRole && String(row.role || '').toLowerCase() !== String(filterRole || '').toLowerCase()) return false;
         if (filterRank && String(row.rank || '').toLowerCase() !== String(filterRank || '').toLowerCase()) return false;
-        if (search) { const s = search.toLowerCase(); if (!String(row.name || '').toLowerCase().includes(s) && !String(row.userId || '').toLowerCase().includes(s) && !String(row.station || '').toLowerCase().includes(s) && !String(row.department || '').toLowerCase().includes(s)) return false; }
+        if (deferredSearch) { const s = deferredSearch.toLowerCase(); if (!String(row.name || '').toLowerCase().includes(s) && !String(row.userId || '').toLowerCase().includes(s) && !String(row.station || '').toLowerCase().includes(s) && !String(row.department || '').toLowerCase().includes(s)) return false; }
         return true;
-    }), [processedRecords, filterStation, filterDept, filterRole, filterRank, search]);
+    }), [processedRecords, filterStation, filterDept, filterRole, filterRank, deferredSearch]);
 
-    const paginatedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-    const exportRows = filteredRecords.map(r => ({
-        'Name': r.name, 'Date': r.date,
-        'Clock In': r.clockIn, 'Clock Out': r.clockOut,
-        'In Location': r.inLocation, 'Out Location': r.outLocation,
-        'Why Out': r.whyOut,
-        'Station': r.station, 'Department': r.department,
-    }));
+    const paginatedRecords = useMemo(() => (
+        filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+    ), [filteredRecords, page, rowsPerPage]);
 
     const handleExportPDF = async () => {
         const { default: jsPDF } = await import('jspdf');
@@ -2156,6 +2153,7 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     const [filterStartDate, setFilterStartDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; });
     const [filterEndDate, setFilterEndDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
     const [search, setSearch] = useState('');
+    const deferredSearch = useDeferredValue(search);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(15);
     const hasFetched = useRef(false);
@@ -2170,12 +2168,14 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
     const formatLocationLabel = (rec, isEntry) => {
         const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
-        const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
-        if (!locationName) return status;
+        const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
+        const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
+        if (withinPremise === true) return 'In Premise';
+        if (!locationName) return withinPremise === false ? 'Off Premise' : status;
         const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
         const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
-        if (filtered.length === 0) return status;
-        return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+        if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
+        return filtered.join(' | ');
     };
 
     const loadSummary = useCallback(async () => {
@@ -2300,9 +2300,9 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
         )
             return false;
 
-        if (search) {
+        if (deferredSearch) {
 
-            const s = search.toLowerCase();
+            const s = deferredSearch.toLowerCase();
 
             if (
 
@@ -2320,7 +2320,7 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
         return true;
 
-    }), [processedSummary, filterStation, filterDept, filterRole, filterRank, search]);
+    }), [processedSummary, filterStation, filterDept, filterRole, filterRank, deferredSearch]);
 
     const paginatedSummary = useMemo(() => {
         return filteredSummary.slice(
@@ -2328,19 +2328,6 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
             page * rowsPerPage + rowsPerPage
         );
     }, [filteredSummary, page, rowsPerPage]);
-
-    const exportRows = filteredSummary.map(r => ({
-        "Employee ID": r.employeeId,
-        "Name": r.name,
-        "Total Days": r.totalDays,
-        "Working Days": r.workingDays,
-        "Days Present": r.daysPresent,
-        "Days Absent": r.daysAbsent,
-        "Station": r.station,
-        "Department": r.department,
-        "Role": r.role,
-        "Attendance": r.attendance
-    }));
 
     const handleExportPDF = async () => {
         const { default: jsPDF } = await import('jspdf');

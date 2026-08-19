@@ -46,12 +46,14 @@ const toTitleCase = (value) => {
 };
 const formatLocationLabel = (rec, isEntry) => {
     const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
-    const status = rec?.clockedOutside ? 'Off Premise' : 'In Premise';
-    if (!locationName) return status;
+    const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
+    const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
+    if (withinPremise === true) return 'In Premise';
+    if (!locationName) return withinPremise === false ? 'Off Premise' : status;
     const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
     const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
-    if (filtered.length === 0) return status;
-    return `${status} (${filtered.map(toTitleCase).join(' | ')})`;
+    if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
+    return filtered.join(' | ');
 };
 const normalizeExportValue = (value) => {
     if (value == null || value === '') return '—';
@@ -367,10 +369,11 @@ export default function AttendanceHistoryContent() {
 
     const notify = (msg, sev = 'success') => setSnack({ open: true, message: msg, severity: sev });
 
-    const loadData = async () => {
+    const loadData = async (isActive = () => true) => {
         setLoading(true); setHistoryLoading(true);
         try {
             const [statsData, historyData] = await Promise.all([fetchAttendanceStats(), fetchClockingHistory(90)]);
+            if (!isActive()) return;
             setStats(statsData);
             setRawHistory(historyData.map(rec => {
                 const rawClockIn = safeNewDate(rec.clock_in);
@@ -389,11 +392,22 @@ export default function AttendanceHistoryContent() {
                     timing: rec.isLate ? 'Late' : 'Early',
                 };
             }));
-        } catch { notify('Failed to load data.', 'error'); }
-        finally { setLoading(false); setHistoryLoading(false); }
+        } catch {
+            if (isActive()) notify('Failed to load data.', 'error');
+        }
+        finally {
+            if (isActive()) {
+                setLoading(false);
+                setHistoryLoading(false);
+            }
+        }
     };
 
-    useEffect(() => { loadData(); }, []);// eslint-disable-line
+    useEffect(() => {
+        let active = true;
+        loadData(() => active);
+        return () => { active = false; };
+    }, []);// eslint-disable-line
 
     const filteredRows = useMemo(() => rawHistory.filter(row => {
         if (!row?.rawDate) return false;
@@ -405,7 +419,9 @@ export default function AttendanceHistoryContent() {
         return true;
     }), [rawHistory, filterTiming, filterMonth]);
 
-    const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const paginatedRows = useMemo(() => (
+        filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+    ), [filteredRows, page, rowsPerPage]);
 
     const handleExportPDF = async () => {
         setExporting(true);

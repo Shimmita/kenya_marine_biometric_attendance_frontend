@@ -18,6 +18,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useMemo, useState } from 'react';
 import api from '../../service/Api';
 import coreDataDetails from '../CoreDataDetails';
+import { getLocalDateInputValue } from '../util/DateTimeFormater';
 import {
     INTERN_ATTACHEE_ROLES,
     PersonalDetailsStep,
@@ -187,7 +188,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
         station:    '',
         employeeId: '',
         password:   '123456',   // immutable default — changed on first login
-        startDate:  new Date().toISOString().split('T')[0],
+        startDate:  getLocalDateInputValue(),
         endDate:    '',
     });
     const [errors, setErrors] = useState({});
@@ -266,7 +267,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
                 role: '', name: '', phone: '', email: '',
                 department: '', station: '', employeeId: '',
                 password: '123456',
-                startDate: new Date().toISOString().split('T')[0],
+                startDate: getLocalDateInputValue(),
                 endDate: '',
             });
             setStep(0);

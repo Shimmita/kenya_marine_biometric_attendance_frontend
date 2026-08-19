@@ -13,8 +13,8 @@ import {
     useTheme
 } from "@mui/material";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import {
     deleteUser,
@@ -24,6 +24,7 @@ import {
     resetUserPassword,
     toggleUserActive,
     updateUserDepartment,
+    updateUserOnLeave,
     updateUserRank,
     updateUserRole,
     updateUserStation,
@@ -125,11 +126,7 @@ export const FilterBar = ({
     stationFilter, setStationFilter,
     totalCount, filteredCount,
 }) => {
-    const theme = useTheme();
-    const isSmall = useMediaQuery(theme.breakpoints.down('sm'));   // <600px
-    const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600-900px
-
-    const hasFilters = searchTerm || rankFilter || roleFilter || statusFilter || departmentFilter;
+    const hasFilters = searchTerm || rankFilter || roleFilter || statusFilter || departmentFilter || stationFilter;
 
     // Responsive stat pills – reduce size and text on small screens
     const statPills = [
@@ -292,16 +289,17 @@ export const FilterBar = ({
                     </FormControl>
                 </Box>
 
-                {/* (Optional) Station – uncomment if needed */}
-                {/* <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
-          <Typography variant="caption" ml={2} color={C.softGray}>Station</Typography>
-          <FormControl size="small" fullWidth>
-            <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-              <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-              {AvailableStations.map((d) => <MenuItem key={d.name} value={d}>{d.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-        </Box> */}
+                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
+                    <Typography variant="caption" ml={2} color={C.softGray}>Station</Typography>
+                    <FormControl size="small" fullWidth>
+                        <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
+                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+                            {AvailableStations.map((station) => (
+                                <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Box>
 
                 {/* Clear button – stays at the end, full width on small screens */}
                 <Box sx={{
@@ -319,8 +317,7 @@ export const FilterBar = ({
                             setRoleFilter("");
                             setStatusFilter("");
                             setDepartmentFilter("");
-                            // also reset stationFilter if used
-                            // setStationFilter("");
+                            setStationFilter("");
                         }}
                         sx={{
                             height: 36,
@@ -362,6 +359,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     const [launchLoading, setLaunchLoading] = useState(false);
     const [updatingId, setUpdatingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const deferredSearchTerm = useDeferredValue(searchTerm);
     const [rankFilter, setRankFilter] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
@@ -416,63 +414,57 @@ const UserManagementContent = ({ readOnly = false }) => {
     // dispatch and redux activities
     const dispatch = useDispatch();
 
-    //get current user from the redux
-    const currentUser = useSelector((state) => state?.currentUser);
+    useEffect(() => {
+        let active = true;
 
-    const fetchUsers = async () => {
-        try {
-            setLoading(true);
-            setLaunchLoading(true);
-            const data = await getAllUsers();
-            setUsers(data);
-        } catch (err) {
-            console.error(err);
-            alert("Failed to fetch users: " + (err.response?.data?.message || err.message || "Unknown error"));
-        } finally {
-            setLoading(false);
-            setLaunchLoading(false);
-        }
-    };
+        const loadInitialData = async () => {
+            try {
+                setLoading(true);
+                setLaunchLoading(true);
+                const [usersData, supervisorsData] = await Promise.all([
+                    getAllUsers(),
+                    getAllSupervisors(),
+                ]);
+                if (!active) return;
+                setUsers(usersData);
+                setSupervisors(supervisorsData);
+            } catch (err) {
+                if (!active) return;
+                console.error(err);
+                alert("Failed to fetch users: " + (err.response?.data?.message || err.message || "Unknown error"));
+            } finally {
+                if (active) {
+                    setLoading(false);
+                    setLaunchLoading(false);
+                }
+            }
+        };
 
-    useEffect(() => { fetchUsers(); }, []);
-
-
-
-    // fetch supervisors and make the updates
-    const fetchSupervisors = async () => {
-        try {
-            const data = await getAllSupervisors();
-            setSupervisors(data);
-        } catch (err) {
-            console.error(err);
-            alert("Failed to fetch supervisors: " + (err.response?.data?.message || err.message || "Unknown error"));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { fetchSupervisors(); }, []);
+        loadInitialData();
+        return () => { active = false; };
+    }, []);
 
 
 
 
 
     const filteredUsers = useMemo(() => {
-        const search = searchTerm.toLowerCase();
+        const search = deferredSearchTerm.toLowerCase();
         return users.filter((user) => {
             const matchesSearch =
-                user.name?.toLowerCase().includes(search) ||
-                user.email?.toLowerCase().includes(search) ||
-                user.employeeId?.toLowerCase().includes(search) ||
-                user.department?.toLowerCase().includes(search) ||
-                user.station?.toLowerCase().includes(search) ||
-                user.supervisor?.toLowerCase().includes(search);
+                String(user.name || "").toLowerCase().includes(search) ||
+                String(user.email || "").toLowerCase().includes(search) ||
+                String(user.employeeId || "").toLowerCase().includes(search) ||
+                String(user.department || "").toLowerCase().includes(search) ||
+                String(user.station || "").toLowerCase().includes(search) ||
+                String(user.supervisor || "").toLowerCase().includes(search);
 
             return (
                 matchesSearch &&
                 (!rankFilter || user.rank === rankFilter) &&
                 (!roleFilter || user.role === roleFilter) &&
                 (!departmentFilter || user.department === departmentFilter) &&
+                (!stationFilter || user.station === stationFilter) &&
                 (statusFilter === ""
                     ? true
                     : statusFilter === "active"
@@ -480,7 +472,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                         : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
-    }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
+    }, [users, deferredSearchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
 
     const handleToggleActive = async (id) => {
         try {
@@ -587,6 +579,28 @@ const UserManagementContent = ({ readOnly = false }) => {
             await refreshUsers(id);
 
             alert("User station updated successfully");
+
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
+    const handleOnLeaveChange = async (id, value) => {
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            await updateUserOnLeave(id, value === "yes");
+
+            const updatedUser = await getUserProfile();
+            dispatch(updateUserCurrentUserRedux(updatedUser));
+
+            await refreshUsers(id);
+
+            alert("User leave status updated successfully");
 
         } catch (e) {
             alert(e);
@@ -761,6 +775,8 @@ const UserManagementContent = ({ readOnly = false }) => {
                     onSupervisorChange={handleSupervisorChange}
 
                     onStationSave={handleStationSave}
+
+                    onOnLeaveChange={handleOnLeaveChange}
 
                     onToggleActive={handleToggleActive}
 

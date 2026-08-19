@@ -52,6 +52,17 @@ import { fetchAuditLogs } from "../../service/AuditorService.jsx";
 import coreDataDetails from "../CoreDataDetails.jsx";
 import { safeNewDate } from "../util/DateTimeFormater";
 const { colorPalette } = coreDataDetails;
+
+const useDebouncedValue = (value, delay = 350) => {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(timeoutId);
+    }, [value, delay]);
+
+    return debounced;
+};
 /* ─── Glass Design Tokens ────────────────────────────────────────────────── */
 const G = {
     surface: {
@@ -266,6 +277,7 @@ export default function AuditLogsContent() {
     const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedLog, setSelectedLog] = useState(null);
+    const debouncedSearch = useDebouncedValue(search);
 
     useEffect(() => {
         let active = true;
@@ -279,7 +291,7 @@ export default function AuditLogsContent() {
                     category,
                     action,
                     actorRank,
-                    search: search.trim(),
+                    search: debouncedSearch.trim(),
                     dateFrom,
                     dateTo,
                     limit: 300,
@@ -301,7 +313,7 @@ export default function AuditLogsContent() {
 
         loadLogs();
         return () => { active = false; };
-    }, [category, action, actorRank, search, dateFrom, dateTo]);
+    }, [category, action, actorRank, debouncedSearch, dateFrom, dateTo]);
 
     const actionOptions = useMemo(() => {
         const entries = Object.keys(data.actionCounts || {});

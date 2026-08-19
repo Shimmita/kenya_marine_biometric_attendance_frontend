@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import React from "react";
 import coreDataDetails from '../CoreDataDetails';
+import { getLocalDateInputValue } from './DateTimeFormater';
 
 const { colorPalette, AvailableStations, availableDepartments: departments, ROLE_OPTIONS } = coreDataDetails;
 
@@ -45,7 +46,7 @@ export const INTERN_ATTACHEE_ROLES = ['intern', 'attachee']
 
 
 // Today
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => getLocalDateInputValue();
 
 /* ══ MENU STYLE ════════════════════════════════════════════════════════════ */
 const menuProps = {

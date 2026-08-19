@@ -29,7 +29,7 @@ import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import { revokeClockOutsideStatus } from '../../service/UserManagement';
 import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
-import { formatDate, formatTime } from '../util/DateTimeFormater';
+import { formatDate, formatTime, getLocalDateInputValue } from '../util/DateTimeFormater';
 import { calculateDistanceMeters } from '../util/DistanceMeasure';
 import reverseGeocode from '../util/GeoLocationPlace';
 import LiveClock from '../util/LiveClock';
@@ -97,6 +97,7 @@ const useNotification = () => {
 };
 
 const CLOCKING_REMINDERS_STORAGE_KEY = 'kmfri_clocking_reminders';
+const CLOCKING_REMINDER_INTERVAL_MS = 9 * 60 * 1000;
 
 const formatReminderTemplate = (template, user) => {
     const firstName = user?.name?.split(' ')[0] || 'User';
@@ -197,6 +198,21 @@ const persistClockingReminder = (message) => {
     ].slice(0, 10);
 
     localStorage.setItem(CLOCKING_REMINDERS_STORAGE_KEY, JSON.stringify(next));
+};
+
+const shouldShowClockingReminder = (type) => {
+    if (typeof window === 'undefined' || !window.localStorage) return true;
+
+    const storageKey = `kmfri_clocking_reminder_${type}_${getLocalDateInputValue()}`;
+    const lastShown = Number(localStorage.getItem(storageKey) || 0);
+    const now = Date.now();
+
+    if (lastShown && now - lastShown < CLOCKING_REMINDER_INTERVAL_MS) {
+        return false;
+    }
+
+    localStorage.setItem(storageKey, String(now));
+    return true;
 };
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
@@ -780,6 +796,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             const reminders = coreDataDetails.notificationReminders || {};
 
             if (hour >= 6 && hour < 11 && !isClockedIn) {
+                if (!shouldShowClockingReminder('clockin')) return;
                 const message = getReminderMessage(reminders.clockInMessage, user) || 'Please clock in for your scheduled KMFRI workday.';
                 notify(message, 'info');
                 persistClockingReminder(message);
@@ -788,6 +805,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             }
 
             if (hour >= 16 && hour < 18 && isClockedIn && isToClockOut) {
+                if (!shouldShowClockingReminder('clockout')) return;
                 const message = getReminderMessage(reminders.clockOutMessage, user) || 'Please clock out before leaving your duty station.';
                 notify(message, 'info');
                 persistClockingReminder(message);
@@ -796,7 +814,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         };
 
         sendReminder();
-        const reminderInterval = setInterval(sendReminder, 9 * 60 * 1000);
+        const reminderInterval = setInterval(sendReminder, CLOCKING_REMINDER_INTERVAL_MS);
         return () => clearInterval(reminderInterval);
     }, [canUseClocking, isClockedIn, isToClockOut, notify, user]);
 
@@ -817,13 +835,15 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         navigator.geolocation.getCurrentPosition(
             ({ coords: { latitude, longitude } }) => {
                 const nextLocation = { latitude, longitude };
-                setUserLocation(nextLocation);
+                const stationRadius = Number(selectedStation.radiusMeters || GEOFENCE_RADIUS_METERS);
                 const d = calculateDistanceMeters(latitude, longitude, selectedStation.lat, selectedStation.lng);
-                setIsWithinGeofence(d <= GEOFENCE_RADIUS_METERS);
-                resolve(nextLocation);
+                const withinGeofence = d <= stationRadius;
+                setUserLocation(nextLocation);
+                setIsWithinGeofence(withinGeofence);
+                resolve({ ...nextLocation, isWithinGeofence: withinGeofence });
             },
             (error) => reject(error),
-            { enableHighAccuracy: true, timeout: 20000 }
+            { enableHighAccuracy: true, maximumAge: 60_000, timeout: 12000 }
         );
     }), [selectedStation.lat, selectedStation.lng, setIsWithinGeofence, setUserLocation]);
 
@@ -926,7 +946,16 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         try {
             setBiometricLoading(true);
             const fp = currentDeviceFingerprint || await getDeviceFingerprint();
-            let locationForClock = userLocation;
+            let locationForClock = null;
+
+            try {
+                locationForClock = await getCurrentLocation();
+                setLocationStatus('granted');
+            } catch (error) {
+                setLocationStatus(error?.code === 1 ? 'denied' : 'error');
+                notify('Location could not be verified. Please try again.', 'error');
+                return;
+            }
 
             if (!locationForClock?.latitude || !locationForClock?.longitude) {
                 notify('Please allow location access before clocking.', 'warning');
@@ -934,12 +963,14 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 return;
             }
 
-            // If user is authorized to clock outside, obtain a human-readable
-            // outsideLocation string from the reverse geocode helper and pass
-            // it to the backend. Backend will validate authorization again.
+            // Only outside-premise authorized clocking needs a place name.
+            // Inside-premise clocking remains "In Premise" even when the user
+            // has active outside-clock permission.
             let outsideLocation = null;
+            const withinGeofenceForClock = Boolean(locationForClock.isWithinGeofence);
+            const isOutsidePremiseClocking = outsideClockingAuthorized && !withinGeofenceForClock;
             try {
-                if (outsideClockingAuthorized && locationForClock?.latitude && locationForClock?.longitude) {
+                if (isOutsidePremiseClocking && locationForClock?.latitude && locationForClock?.longitude) {
                     const geo = await reverseGeocode({
                         latitude: locationForClock.latitude,
                         longitude: locationForClock.longitude,
@@ -950,7 +981,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 console.warn('Reverse geocode failed:', e);
             }
 
-            const verifyRes = await verifyFingerprint(selectedStation.name, locationForClock, fp, outsideLocation);
+            const verifyRes = await verifyFingerprint(selectedStation.name, locationForClock, fp, outsideLocation, withinGeofenceForClock);
             console.debug('biometric verify response:', verifyRes);
             const [updated, biometricStatus] = await Promise.all([
                 getUserProfile(),

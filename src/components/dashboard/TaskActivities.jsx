@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { getLocalDateInputValue } from '../util/DateTimeFormater';
 import coreDataDetails from '../CoreDataDetails';
 const { colorPalette } = coreDataDetails
 
@@ -48,7 +49,7 @@ const TasksActivitiesContent = ({ tasks, setTasks }) => {
                 title: newTask,
                 status: 'pending',
                 time: currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                date: currentTime.toISOString().split('T')[0],
+                date: getLocalDateInputValue(currentTime),
                 priority: 'medium',
                 category: 'Research'
             };

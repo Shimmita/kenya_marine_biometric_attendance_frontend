@@ -319,7 +319,6 @@ const SignInCard = ({ onBack, reducedMotion }) => {
     const [resetPasswordErrors, setResetPasswordErrors] = useState('');
     const [resetPasswordProcessing, setResetPasswordProcessing] = useState(false);
     const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
-    const [passwordChanged, setPasswordChanged] = useState(false);
     const [hasPendingReset, setHasPendingReset] = useState(false);
     const [isPasswordChangeEnabled, setIsPasswordChangeEnabled] = useState(false);
     const dispatch = useDispatch();
@@ -473,17 +472,8 @@ const SignInCard = ({ onBack, reducedMotion }) => {
         }
 
         setResetPasswordProcessing(true);
-        try {
-            await resetPassword(resetPasswordEmail, newPassword);
-            setPasswordChanged(true);
-            setIsPasswordChangeEnabled(false);
-            setTimeout(() => setPasswordChanged(false), 4000);
-            switchToSignin();
-        } catch (err) {
-            setResetPasswordErrors((err?.message || err?.toString() || 'Failed to change password').toString());
-        } finally {
-            setResetPasswordProcessing(false);
-        }
+        setResetPasswordErrors('Please sign in using the temporary password sent to your phone, then change it from your profile.');
+        setResetPasswordProcessing(false);
     };
 
     const handleCloseSnack = (_, reason) => {
@@ -751,9 +741,9 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                 </Alert>
             </Snackbar>
 
-            <Snackbar open={resetPasswordSuccess || passwordChanged} autoHideDuration={3000} onClose={handleCloseResetSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Snackbar open={resetPasswordSuccess} autoHideDuration={3000} onClose={handleCloseResetSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
                 <Alert onClose={handleCloseResetSnack} severity="success" icon={<CheckCircle />} sx={{ borderRadius: '14px', fontWeight: 500, backdropFilter: 'blur(16px)', boxShadow: '0 8px 28px rgba(76,175,80,0.32)' }}>
-                    {resetPasswordSuccess ? 'Password reset request submitted!' : passwordChanged ? 'Password changed successfully!' : ''}
+                    Password reset request submitted!
                 </Alert>
             </Snackbar>
         </motion.div>

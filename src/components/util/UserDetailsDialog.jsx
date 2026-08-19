@@ -25,7 +25,7 @@ import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import WorkRoundedIcon from "@mui/icons-material/WorkRounded";
 
-import { BorderAllRounded, BusinessRounded, Face6Rounded, GroupsRounded, InfoRounded, LockClockRounded, ManageAccountsRounded, SecurityRounded, SelfImprovementRounded, ShieldRounded } from "@mui/icons-material";
+import { BorderAllRounded, BusinessRounded, EventBusyRounded, Face6Rounded, GroupsRounded, InfoRounded, LockClockRounded, ManageAccountsRounded, SecurityRounded, SelfImprovementRounded, ShieldRounded } from "@mui/icons-material";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -142,11 +142,14 @@ export default function UserDetailsDialog({
     onClose,
     user,
     supervisors = [],
+    updatingId,
+    readOnly = false,
     onRankChange,
     onRoleChange,
     onDepartmentSave,
     onStationSave,
     onSupervisorChange,
+    onOnLeaveChange,
     onToggleActive,
     onDeleteUser,
     onResetBiometrics,
@@ -158,7 +161,7 @@ export default function UserDetailsDialog({
     const [tab, setTab] = useState(0);
 
     const dispatch = useDispatch();
-    const currentUserRank = useSelector((state) => state.currentUser.user?.rank);
+    const currentUserRank = String(useSelector((state) => state.currentUser.user?.rank) || "").toLowerCase();
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -218,6 +221,9 @@ export default function UserDetailsDialog({
     }, [hideActionsTab, tab]);
 
     if (!user) return null;
+
+    const isUpdatingUser = isLoading || updatingId === user._id;
+    const canManageLeaveStatus = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
 
 
     const handleClockOutsideChange = async (e) => {
@@ -943,6 +949,46 @@ export default function UserDetailsDialog({
                                                 <Select
                                                     value={clockOutside}
                                                     onChange={handleClockOutsideChange}
+                                                >
+
+                                                    <MenuItem value="no">
+                                                        No
+                                                    </MenuItem>
+
+                                                    <MenuItem value="yes">
+                                                        Yes
+                                                    </MenuItem>
+
+                                                </Select>
+
+                                            </FormControl>
+
+                                        </GlassSection>
+
+                                    </Grid>
+
+                                    <Grid size={{ xs: 12, md: 5 }}>
+
+                                        <GlassSection
+                                            icon={<EventBusyRounded />}
+                                            title="Leave Status"
+                                        >
+
+                                            <Typography mb={1}>
+                                                On Leave
+                                            </Typography>
+
+                                            <FormControl fullWidth size="small">
+
+                                                <Select
+                                                    value={user.isOnLeave ? "yes" : "no"}
+                                                    disabled={!canManageLeaveStatus || !onOnLeaveChange || isUpdatingUser || readOnly}
+                                                    onChange={(e) =>
+                                                        onOnLeaveChange(
+                                                            user._id,
+                                                            e.target.value
+                                                        )
+                                                    }
                                                 >
 
                                                     <MenuItem value="no">

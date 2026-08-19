@@ -19,6 +19,7 @@ import {
     getAllSupervisors,
     getAllUsersDepartment,
     updateUserDepartment,
+    updateUserOnLeave,
     updateUserStation,
     updateUserSupervisor,
 } from "../../../service/UserManagement";
@@ -129,10 +130,21 @@ const UserManagementContent = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
-    const fetchUsers = async () => {
+    const refreshUsers = async (selectedId = null) => {
         try {
-            const data = await getAllUsersDepartment();
-            setUsers(data);
+            const [usersData, supervisorsData] = await Promise.all([
+                getAllUsersDepartment(),
+                getAllSupervisors(),
+            ]);
+            setUsers(usersData);
+            setSupervisors(supervisorsData);
+
+            if (selectedId) {
+                const updatedUser = usersData.find((u) => u._id === selectedId);
+                if (updatedUser) {
+                    setSelectedUser(updatedUser);
+                }
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -140,25 +152,7 @@ const UserManagementContent = () => {
         }
     };
 
-    useEffect(() => { fetchUsers(); }, []);
-
-
-
-    // fetch supervisors and make the updates
-    const fetchSupervisors = async () => {
-        try {
-            const data = await getAllSupervisors();
-            setSupervisors(data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { fetchSupervisors(); }, []);
-
-
+    useEffect(() => { refreshUsers(); }, []);
 
 
 
@@ -196,9 +190,10 @@ const UserManagementContent = () => {
         setPage(0);
     };
 
-    const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); fetchUsers(); fetchSupervisors() } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); fetchUsers(); fetchSupervisors(); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleOnLeaveChange = async (id, value) => { try { setUpdatingId(id); await updateUserOnLeave(id, value === "yes"); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
 
     if (loading) {
         return (
@@ -268,6 +263,7 @@ const UserManagementContent = () => {
                     onDepartmentSave={handleDepartmentSave}
                     onSupervisorChange={handleSupervisorChange}
                     onStationSave={handleStationSave}
+                    onOnLeaveChange={handleOnLeaveChange}
                     hideActionsTab
                     hideRoleRankManagement
                 />

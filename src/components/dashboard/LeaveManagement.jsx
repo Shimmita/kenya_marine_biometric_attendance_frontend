@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { createLeave, deleteLeave, fetchAllLeaves, fetchColleagues } from "../../service/LeaveService";
 import coreDataDetails from "../CoreDataDetails";
+import { getLocalDateInputValue } from "../util/DateTimeFormater";
 const { colorPalette } = coreDataDetails;
 
 /* ─────────────────────────────────────────────
@@ -96,7 +97,7 @@ export default function LeaveManagementContent() {
     const [viewFile, setViewFile] = useState(null);
     const [fileType, setFileType] = useState("");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateInputValue();
 
     // redux access user state
     const { user } = useSelector(s => s.currentUser);
