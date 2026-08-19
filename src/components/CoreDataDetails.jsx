@@ -255,13 +255,23 @@ const coreDataDetails = {
         clockOutReminderMinutes: 15,
         clockInMessage: 'Dear {firstName}, please clock in for your scheduled KMFRI workday.',
         clockOutMessage: 'Dear {firstName}, please clock out before leaving your duty station.',
+        clockInSuccessMessage: 'Dear {firstName}, you have successfully checked in at {station} on {date} at {time} EAT.',
+        clockOutSuccessMessage: 'Dear {firstName}, you have successfully checked out from {station} on {date} at {time} EAT.',
         channels: ['in_app'],
     },
     attendancePolicy: cachedPlatformConfig?.attendancePolicy || {
         standardClockIn: '08:00',
         standardClockOut: '17:00',
         gracePeriodMinutes: 15,
-        allowClockOutsideStation: false,
+        clockInReminderOffsetMinutes: 0,
+        clockOutReminderOffsetMinutes: 0,
+        midnightProcessingTime: '00:00',
+        workingDays: [1, 2, 3, 4, 5],
+        requireLocationForClocking: true,
+        requireStationSelection: true,
+        autoClockOutMissedSessions: true,
+        markAbsenteesAutomatically: true,
+        allowClockOutsideStation: true,
         requireBiometricVerification: true,
     },
 
@@ -340,6 +350,8 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
             clockOutReminderMinutes: config.notificationReminders.clockOutReminderMinutes ?? coreDataDetails.notificationReminders.clockOutReminderMinutes,
             clockInMessage: config.notificationReminders.clockInMessage || coreDataDetails.notificationReminders.clockInMessage,
             clockOutMessage: config.notificationReminders.clockOutMessage || coreDataDetails.notificationReminders.clockOutMessage,
+            clockInSuccessMessage: config.notificationReminders.clockInSuccessMessage || coreDataDetails.notificationReminders.clockInSuccessMessage,
+            clockOutSuccessMessage: config.notificationReminders.clockOutSuccessMessage || coreDataDetails.notificationReminders.clockOutSuccessMessage,
             channels: Array.isArray(config.notificationReminders.channels)
                 ? config.notificationReminders.channels
                 : coreDataDetails.notificationReminders.channels,
@@ -351,6 +363,16 @@ export const applyPlatformConfigToCoreData = (config = {}) => {
             standardClockIn: config.attendancePolicy.standardClockIn || coreDataDetails.attendancePolicy.standardClockIn,
             standardClockOut: config.attendancePolicy.standardClockOut || coreDataDetails.attendancePolicy.standardClockOut,
             gracePeriodMinutes: Number(config.attendancePolicy.gracePeriodMinutes ?? coreDataDetails.attendancePolicy.gracePeriodMinutes),
+            clockInReminderOffsetMinutes: Number(config.attendancePolicy.clockInReminderOffsetMinutes ?? coreDataDetails.attendancePolicy.clockInReminderOffsetMinutes),
+            clockOutReminderOffsetMinutes: Number(config.attendancePolicy.clockOutReminderOffsetMinutes ?? coreDataDetails.attendancePolicy.clockOutReminderOffsetMinutes),
+            midnightProcessingTime: config.attendancePolicy.midnightProcessingTime || coreDataDetails.attendancePolicy.midnightProcessingTime,
+            workingDays: Array.isArray(config.attendancePolicy.workingDays)
+                ? config.attendancePolicy.workingDays
+                : coreDataDetails.attendancePolicy.workingDays,
+            requireLocationForClocking: config.attendancePolicy.requireLocationForClocking ?? coreDataDetails.attendancePolicy.requireLocationForClocking,
+            requireStationSelection: config.attendancePolicy.requireStationSelection ?? coreDataDetails.attendancePolicy.requireStationSelection,
+            autoClockOutMissedSessions: config.attendancePolicy.autoClockOutMissedSessions ?? coreDataDetails.attendancePolicy.autoClockOutMissedSessions,
+            markAbsenteesAutomatically: config.attendancePolicy.markAbsenteesAutomatically ?? coreDataDetails.attendancePolicy.markAbsenteesAutomatically,
             allowClockOutsideStation: config.attendancePolicy.allowClockOutsideStation ?? coreDataDetails.attendancePolicy.allowClockOutsideStation,
             requireBiometricVerification: config.attendancePolicy.requireBiometricVerification ?? coreDataDetails.attendancePolicy.requireBiometricVerification,
         };

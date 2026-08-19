@@ -5,14 +5,18 @@ import {
   CloudUpload,
   Delete as DeleteIcon,
   Email,
+  FileDownloadRounded,
   HomeRounded,
+  MenuBookRounded,
   MessageRounded,
   Palette,
   Phone,
   RestartAlt,
   Save,
   Schedule,
+  SettingsBackupRestoreRounded,
   Tune,
+  UploadFileRounded,
   Visibility
 } from '@mui/icons-material';
 import {
@@ -20,6 +24,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Fab,
   FormControlLabel,
@@ -91,6 +99,197 @@ const paletteFields = [
   { field: 'textColor', label: 'Primary Text Color', helper: 'Body content copy text color.' },
 ];
 
+const defaultNotificationReminders = {
+  clockInReminderMinutes: 15,
+  clockOutReminderMinutes: 15,
+  clockInMessage: 'Dear {firstName}, you did not clock in today. Please remember to clock in and out for your scheduled workday.',
+  clockOutMessage: 'Dear {firstName}, please remember to clock out before leaving your station.',
+  clockInSuccessMessage: 'Dear {firstName}, you have successfully checked in at {station} on {date} at {time} EAT.',
+  clockOutSuccessMessage: 'Dear {firstName}, you have successfully checked out from {station} on {date} at {time} EAT.',
+  internRegMessage: 'Dear {firstName}, your KMFRI Attendance account is ready. Login: {email} | Password: {password}. Please change your password after login.',
+  staffRegMessage: 'Dear {firstName}, your KMFRI Attendance account is ready. Login: {employeeId} | Password: {password}. Please change your password after login.',
+  authorisedClockOut: 'Dear {firstName}, you are authorised to clock out outside your assigned station.',
+  clockOutsideGrantedMessage: 'Dear {firstName}, permission to clock outside "{station}" is granted from {startDate} to {endDate}. Reason: {reason}.',
+  clockOutsideRevokedMessage: 'Dear {firstName}, permission to clock outside "{station}" has been revoked. Please follow standard clocking procedures.',
+  accountActivatedMessage: 'Dear {firstName}, your KMFRI Attendance account has been activated. You may now access attendance services.',
+  accountDeactivatedMessage: 'Dear {firstName}, your KMFRI Attendance account has been deactivated. Please contact HR for assistance.',
+  leaveSubmittedMessage: 'Dear {firstName}, your {type} request ({startDate}-{endDate}) has been submitted for review.',
+  leaveApprovedMessage: 'Dear {firstName}, your {type} request ({startDate}-{endDate}) has been approved.',
+  leaveRejectedMessage: 'Dear {firstName}, your {type} request ({startDate}-{endDate}) was rejected. Please contact your supervisor or HR.',
+  leaveCancelledMessage: 'Dear {firstName}, your {type} request ({startDate}-{endDate}) has been cancelled.',
+  manualLeaveEnabledMessage: 'Dear {firstName}, your attendance profile has been marked as on leave.',
+  manualLeaveDisabledMessage: 'Dear {firstName}, your attendance profile has been removed from on-leave status.',
+  missedClockOutMessage: 'Dear {firstName}, you did not clock out yesterday. Please ensure you complete your attendance records.',
+  absentMessage: 'Dear {firstName}, no attendance was recorded for you yesterday. Please contact HR if this is incorrect.',
+  channels: ['sms', 'in_app'],
+};
+
+const defaultAttendancePolicy = {
+  standardClockIn: '08:00',
+  standardClockOut: '17:00',
+  gracePeriodMinutes: 15,
+  minimumWorkHours: 8,
+  halfDayWorkHours: 4,
+  earlyDepartureGraceMinutes: 15,
+  clockInReminderOffsetMinutes: 0,
+  clockOutReminderOffsetMinutes: 0,
+  midnightProcessingTime: '00:00',
+  workingDays: [1, 2, 3, 4, 5],
+  requireLocationForClocking: true,
+  requireStationSelection: true,
+  autoClockOutMissedSessions: true,
+  markAbsenteesAutomatically: true,
+  allowClockOutsideStation: true,
+  requireBiometricVerification: true,
+};
+
+const defaultMasterSettings = {
+  allowEmployeeSelfRegistration: false,
+  maintenanceMode: false,
+  requirePasswordResetOnFirstLogin: false,
+  maxDevicesPerUser: 2,
+  biometricVerificationWindowMinutes: 5,
+  sessionTimeoutMinutes: 1440,
+  enableAuditLogging: true,
+  enableAttendanceExports: true,
+  enableLeaveManagement: true,
+  enableSupervisorManagement: true,
+};
+
+const weekDayOptions = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+];
+
+const notificationChannelOptions = [
+  { value: 'sms', label: 'SMS' },
+  { value: 'in_app', label: 'In-App' },
+  { value: 'email', label: 'Email' },
+];
+
+const messageTemplateFields = [
+  { key: 'clockInMessage', label: 'Clock-In Reminder Message', helper: '{firstName} {name} {station} {department}' },
+  { key: 'clockOutMessage', label: 'Clock-Out Reminder Message', helper: '{firstName} {name} {station} {department}' },
+  { key: 'clockInSuccessMessage', label: 'Clock-In Success Message', helper: '{firstName} {station} {date} {time}' },
+  { key: 'clockOutSuccessMessage', label: 'Clock-Out Success Message', helper: '{firstName} {station} {date} {time}' },
+  { key: 'authorisedClockOut', label: 'General Outside Clocking Message', helper: '{firstName} {station}' },
+  { key: 'clockOutsideGrantedMessage', label: 'Outside Clocking Granted Message', helper: '{firstName} {station} {startDate} {endDate} {reason}' },
+  { key: 'clockOutsideRevokedMessage', label: 'Outside Clocking Revoked Message', helper: '{firstName} {station}' },
+  { key: 'internRegMessage', label: 'Intern/Attache Registration Message', helper: '{firstName} {email} {password}' },
+  { key: 'staffRegMessage', label: 'Staff Registration Message', helper: '{firstName} {employeeId} {password}' },
+  { key: 'leaveSubmittedMessage', label: 'Leave Submitted Message', helper: '{firstName} {type} {startDate} {endDate}' },
+  { key: 'leaveApprovedMessage', label: 'Leave Approved Message', helper: '{firstName} {type} {startDate} {endDate}' },
+  { key: 'leaveRejectedMessage', label: 'Leave Rejected Message', helper: '{firstName} {type} {startDate} {endDate}' },
+  { key: 'leaveCancelledMessage', label: 'Leave Cancelled Message', helper: '{firstName} {type} {startDate} {endDate}' },
+  { key: 'manualLeaveEnabledMessage', label: 'Manual On-Leave Message', helper: '{firstName} {name}' },
+  { key: 'manualLeaveDisabledMessage', label: 'Manual Leave Cleared Message', helper: '{firstName} {name}' },
+  { key: 'missedClockOutMessage', label: 'Missed Clock-Out Message', helper: '{firstName} {name}' },
+  { key: 'absentMessage', label: 'Absent Attendance Message', helper: '{firstName} {name}' },
+  { key: 'accountActivatedMessage', label: 'Account Activated Message', helper: '{firstName} {name}' },
+  { key: 'accountDeactivatedMessage', label: 'Account Deactivated Message', helper: '{firstName} {name}' },
+];
+
+const policyToggleFields = [
+  { key: 'requireLocationForClocking', label: 'Require Location Before Clocking' },
+  { key: 'requireStationSelection', label: 'Require Station Selection' },
+  { key: 'requireBiometricVerification', label: 'Require Biometric Verification' },
+  { key: 'allowClockOutsideStation', label: 'Allow Outside-Station Clocking' },
+  { key: 'autoClockOutMissedSessions', label: 'Auto Clock-Out Missed Sessions' },
+  { key: 'markAbsenteesAutomatically', label: 'Auto Mark Absent Users' },
+];
+
+const masterToggleFields = [
+  { key: 'maintenanceMode', label: 'Maintenance Mode' },
+  { key: 'allowEmployeeSelfRegistration', label: 'Employee Self Registration' },
+  { key: 'requirePasswordResetOnFirstLogin', label: 'Force First Login Reset' },
+  { key: 'enableAuditLogging', label: 'Audit Logging' },
+  { key: 'enableAttendanceExports', label: 'Attendance Exports' },
+  { key: 'enableLeaveManagement', label: 'Leave Management' },
+  { key: 'enableSupervisorManagement', label: 'Supervisor Management' },
+];
+
+const templateParameterGroups = [
+  {
+    title: 'User Profile',
+    params: [
+      ['{firstName}', 'First word from the user name.'],
+      ['{name}', 'Full registered user name.'],
+      ['{fullName}', 'Full registered user name.'],
+      ['{email}', 'Registered email address.'],
+      ['{phone}', 'Registered phone number.'],
+      ['{employeeId}', 'Staff payroll or employee identifier.'],
+      ['{department}', 'Assigned department.'],
+      ['{station}', 'Assigned or selected station.'],
+    ],
+  },
+  {
+    title: 'Clocking',
+    params: [
+      ['{date}', 'Clock-in or clock-out date.'],
+      ['{time}', 'Clock-in or clock-out time.'],
+      ['{reason}', 'Approved outside-clock reason.'],
+    ],
+  },
+  {
+    title: 'Leave',
+    params: [
+      ['{type}', 'Leave request type.'],
+      ['{startDate}', 'Leave or outside-clock start date.'],
+      ['{endDate}', 'Leave or outside-clock end date.'],
+    ],
+  },
+  {
+    title: 'Registration',
+    params: [
+      ['{password}', 'Temporary password sent during account creation.'],
+    ],
+  },
+];
+
+const platformConfigBackupKeys = [
+  'logoUrl',
+  'branding',
+  'activeThemeName',
+  'themes',
+  'notificationReminders',
+  'geofence',
+  'attendancePolicy',
+  'departments',
+  'stations',
+  'dropdowns',
+  'masterSettings',
+  'holidays',
+];
+
+const pickPlatformConfigPayload = (source = {}) =>
+  platformConfigBackupKeys.reduce((payload, key) => {
+    if (typeof source[key] !== 'undefined') payload[key] = source[key];
+    return payload;
+  }, {});
+
+const buildConfigBackup = (config = {}) => ({
+  backupType: 'kmfri-platform-config',
+  exportedAt: new Date().toISOString(),
+  version: 1,
+  platformConfig: pickPlatformConfigPayload(config),
+});
+
+const getBackupConfigPayload = (backup = {}) => {
+  const source = backup.platformConfig || backup.config || backup;
+  const payload = pickPlatformConfigPayload(source);
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error('This file does not contain platform configuration settings.');
+  }
+
+  return payload;
+};
+
 const ConfigPanel = ({ onConfigLoaded }) => {
   const [tab, setTab] = useState(0);
   const [config, setConfig] = useState(null);
@@ -102,6 +301,8 @@ const ConfigPanel = ({ onConfigLoaded }) => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
 
   const dropdowns = useMemo(() => normalizeDropdowns(config?.dropdowns), [config?.dropdowns]);
   const selectedDropdownValues = dropdowns[dropdownKey] || [];
@@ -115,11 +316,25 @@ const ConfigPanel = ({ onConfigLoaded }) => {
       ...data,
       stations: (data?.stations || []).map(normalizeStation),
       dropdowns: normalizeDropdowns(data?.dropdowns),
-      masterSettings: data?.masterSettings || {
-        allowEmployeeSelfRegistration: false,
-        maintenanceMode: false,
-        requirePasswordResetOnFirstLogin: false,
-        maxDevicesPerUser: 2
+      geofence: {
+        radiusMeters: 500,
+        enabled: false,
+        ...(data?.geofence || {}),
+      },
+      attendancePolicy: {
+        ...defaultAttendancePolicy,
+        ...(data?.attendancePolicy || {}),
+      },
+      notificationReminders: {
+        ...defaultNotificationReminders,
+        ...(data?.notificationReminders || {}),
+        channels: Array.isArray(data?.notificationReminders?.channels)
+          ? data.notificationReminders.channels
+          : defaultNotificationReminders.channels,
+      },
+      masterSettings: {
+        ...defaultMasterSettings,
+        ...(data?.masterSettings || {}),
       }
     };
     setConfig(next);
@@ -158,6 +373,25 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     }
   };
 
+  const updateSectionField = (section, field, value) => {
+    setConfig(prev => ({
+      ...prev,
+      [section]: {
+        ...(prev?.[section] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const toggleWorkingDay = (dayValue) => {
+    const currentDays = config.attendancePolicy?.workingDays || [];
+    const nextDays = currentDays.includes(dayValue)
+      ? currentDays.filter((day) => day !== dayValue)
+      : [...currentDays, dayValue].sort((a, b) => a - b);
+
+    updateSectionField('attendancePolicy', 'workingDays', nextDays);
+  };
+
   const resetConfig = async (section = 'all') => {
     if (!window.confirm(`Are you sure you want to restore default values for ${section}?`)) return;
     try {
@@ -171,6 +405,49 @@ const ConfigPanel = ({ onConfigLoaded }) => {
       setError(err?.response?.data?.message || err?.message || 'Reset failed');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const downloadConfigBackup = () => {
+    const backup = buildConfigBackup(config);
+    const fileName = `kmfri-platform-config-${new Date().toISOString().slice(0, 10)}.json`;
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus('Platform configuration backup downloaded.');
+  };
+
+  const uploadConfigBackup = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      setError('');
+      const rawText = await file.text();
+      const parsed = JSON.parse(rawText);
+      const payload = getBackupConfigPayload(parsed);
+      const applyBackup = window.confirm(
+        'Configuration file loaded successfully. Click OK to apply these settings across the platform.'
+      );
+
+      if (!applyBackup) return;
+
+      await savePatch(payload, 'Platform configuration backup restored successfully.');
+      setBackupOpen(false);
+      window.alert('Configuration restored successfully. The changes are now active across the platform.');
+    } catch (err) {
+      console.error('Restore config backup', err);
+      setError(err?.message || 'Could not restore configuration backup.');
     }
   };
 
@@ -460,23 +737,52 @@ const ConfigPanel = ({ onConfigLoaded }) => {
             {/* Row 4: Master Operational System Flags (New Branding Features) */}
             <Paper elevation={0} sx={cardSx}>
               <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2 }}>More Operational Controls</Typography>
-              <Grid container spacing={3} alignItems="center">
-
-                <Grid item xs={12} sm={6} md={3}>
-                  <FormControlLabel
-                    control={<Switch checked={config.masterSettings?.maintenanceMode || false} onChange={(e) => setConfig({ ...config, masterSettings: { ...config.masterSettings, maintenanceMode: e.target.checked } })} color="error" />}
-                    label="Maintenance Shield Mode"
+              <Grid container spacing={2.5} alignItems="center">
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Maximum Devices Per User"
+                    type="number"
+                    value={config.masterSettings?.maxDevicesPerUser ?? 2}
+                    onChange={(e) => updateSectionField('masterSettings', 'maxDevicesPerUser', Number(e.target.value))}
+                    fullWidth
                   />
-                  <Typography variant="caption" color="text.secondary" display="block">Restrict regular accounts from accessing system interfaces.</Typography>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <FormControlLabel
-                    control={<Switch checked={config.masterSettings?.requirePasswordResetOnFirstLogin || false} onChange={(e) => setConfig({ ...config, masterSettings: { ...config.masterSettings, requirePasswordResetOnFirstLogin: e.target.checked } })} />}
-                    label="Force Initial Credentials Reset"
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Biometric Session Window"
+                    type="number"
+                    value={config.masterSettings?.biometricVerificationWindowMinutes ?? 5}
+                    onChange={(e) => updateSectionField('masterSettings', 'biometricVerificationWindowMinutes', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
                   />
-                  <Typography variant="caption" color="text.secondary" display="block">Compel password validation changes on initial system login cycles.</Typography>
                 </Grid>
-
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Session Timeout"
+                    type="number"
+                    value={config.masterSettings?.sessionTimeoutMinutes ?? 1440}
+                    onChange={(e) => updateSectionField('masterSettings', 'sessionTimeoutMinutes', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                {masterToggleFields.map(({ key, label }) => (
+                  <Grid item xs={12} sm={6} md={4} key={key}>
+                    <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={!!config.masterSettings?.[key]}
+                            onChange={(e) => updateSectionField('masterSettings', key, e.target.checked)}
+                            color={key === 'maintenanceMode' ? 'error' : 'primary'}
+                          />
+                        }
+                        label={<Typography fontWeight={700}>{label}</Typography>}
+                      />
+                    </Box>
+                  </Grid>
+                ))}
               </Grid>
             </Paper>
 
@@ -578,20 +884,76 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                   />
                 </Grid>
 
-                {/* GLOBAL GEOFECE RADIUS */}
-                {/* <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Clock-In Reminder Offset"
+                    type="number"
+                    value={config.attendancePolicy?.clockInReminderOffsetMinutes ?? 0}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'clockInReminderOffsetMinutes', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Clock-Out Reminder Lead"
+                    type="number"
+                    value={config.attendancePolicy?.clockOutReminderOffsetMinutes ?? 0}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'clockOutReminderOffsetMinutes', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Midnight Processing Time"
+                    type="time"
+                    value={config.attendancePolicy?.midnightProcessingTime || '00:00'}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'midnightProcessingTime', e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Minimum Work Day"
+                    type="number"
+                    value={config.attendancePolicy?.minimumWorkHours ?? 8}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'minimumWorkHours', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">hrs</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Half-Day Threshold"
+                    type="number"
+                    value={config.attendancePolicy?.halfDayWorkHours ?? 4}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'halfDayWorkHours', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">hrs</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Early Departure Grace"
+                    type="number"
+                    value={config.attendancePolicy?.earlyDepartureGraceMinutes ?? 15}
+                    onChange={(e) => updateSectionField('attendancePolicy', 'earlyDepartureGraceMinutes', Number(e.target.value))}
+                    InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
                   <TextField
                     label="Global Geofence Radius"
                     type="number"
                     value={config.geofence?.radiusMeters ?? 500}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      geofence: { ...(prev.geofence || {}), radiusMeters: Number(e.target.value) }
-                    }))}
+                    onChange={(e) => updateSectionField('geofence', 'radiusMeters', Number(e.target.value))}
                     InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }}
                     fullWidth
                   />
-                </Grid> */}
+                </Grid>
               </Grid>
             </Paper>
 
@@ -600,187 +962,125 @@ const ConfigPanel = ({ onConfigLoaded }) => {
               <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tune color="primary" /> Verification Policies & System Rule Enforcement
               </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
                     <FormControlLabel
                       control={
                         <Switch
                           disabled={isLoading}
                           checked={!!config.geofence?.enabled}
-                          onChange={(e) => setConfig(prev => ({
-                            ...prev,
-                            geofence: { ...(prev.geofence || {}), enabled: e.target.checked }
-                          }))}
+                          onChange={(e) => updateSectionField('geofence', 'enabled', e.target.checked)}
                         />
                       }
                       label={<Typography fontWeight={700}>Geofence Enforcement</Typography>}
                     />
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
-                      Restrict check-ins exclusively to verified coordinates.
-                    </Typography>
                   </Box>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          disabled={isLoading}
-                          checked={!!config.attendancePolicy?.allowClockOutsideStation}
-                          onChange={(e) => setConfig(prev => ({
-                            ...prev,
-                            attendancePolicy: { ...(prev.attendancePolicy || {}), allowClockOutsideStation: e.target.checked }
-                          }))}
-                        />
-                      }
-                      label={<Typography fontWeight={700}>Allow Remote Clocking</Typography>}
-                    />
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
-                      Permit trusted staff to record attendance out of office.
-                    </Typography>
-                  </Box>
-                </Grid>
+                {policyToggleFields.map(({ key, label }) => (
+                  <Grid item xs={12} sm={6} md={4} key={key}>
+                    <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            disabled={isLoading}
+                            checked={config.attendancePolicy?.[key] !== false}
+                            onChange={(e) => updateSectionField('attendancePolicy', key, e.target.checked)}
+                          />
+                        }
+                        label={<Typography fontWeight={700}>{label}</Typography>}
+                      />
+                    </Box>
+                  </Grid>
+                ))}
 
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(148,163,184,0.05)', height: '100%' }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          disabled={isLoading}
-                          checked={config.attendancePolicy?.requireBiometricVerification !== false}
-                          onChange={(e) => setConfig(prev => ({
-                            ...prev,
-                            attendancePolicy: { ...(prev.attendancePolicy || {}), requireBiometricVerification: e.target.checked }
-                          }))}
+                <Grid item xs={12}>
+                  <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
+                    <Typography variant="body2" fontWeight={800} sx={{ mr: 1 }}>Working Days</Typography>
+                    {weekDayOptions.map((day) => {
+                      const selected = (config.attendancePolicy?.workingDays || []).includes(day.value);
+                      return (
+                        <Chip
+                          key={day.value}
+                          label={day.label}
+                          color={selected ? 'primary' : 'default'}
+                          variant={selected ? 'filled' : 'outlined'}
+                          onClick={() => toggleWorkingDay(day.value)}
+                          sx={{ borderRadius: 1.5, fontWeight: 800 }}
                         />
-                      }
-                      label={<Typography fontWeight={700}>Biometric Security Check</Typography>}
-                    />
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, pl: 4 }}>
-                      Require secondary face or fingerprint hardware authorization.
-                    </Typography>
-                  </Box>
+                      );
+                    })}
+                  </Stack>
                 </Grid>
               </Grid>
             </Paper>
 
-            {/* Section C: Automated Reminders & Alerts */}
             <Paper elevation={0} sx={cardSx}>
               <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AdminPanelSettings color="primary" /> Automated Dispatch Notifications
+                <AdminPanelSettings color="primary" /> Notification Timing & Channels
               </Typography>
               <Grid container spacing={2.5}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
                     label="Clock-In Reminder Threshold"
                     type="number"
                     value={config.notificationReminders?.clockInReminderMinutes ?? 15}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), clockInReminderMinutes: Number(e.target.value) }
-                    }))}
+                    onChange={(e) => updateSectionField('notificationReminders', 'clockInReminderMinutes', Number(e.target.value))}
                     InputProps={{ endAdornment: <InputAdornment position="end">mins</InputAdornment> }}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                  />
-                  <TextField
-                    label="Clock-In Push Message Template"
-                    multiline
-                    minRows={3}
-                    value={config.notificationReminders?.clockInMessage || ''}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), clockInMessage: e.target.value }
-                    }))}
-                    helperText="Dynamic variables: {firstName}"
                     fullWidth
                   />
                 </Grid>
-
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
-                    label="Clock-Out grace period"
+                    label="Clock-Out Reminder Threshold"
                     type="number"
                     value={config.notificationReminders?.clockOutReminderMinutes ?? 15}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), clockOutReminderMinutes: Number(e.target.value) }
-                    }))}
+                    onChange={(e) => updateSectionField('notificationReminders', 'clockOutReminderMinutes', Number(e.target.value))}
                     InputProps={{ endAdornment: <InputAdornment position="end">mins</InputAdornment> }}
                     fullWidth
-                    sx={{ mb: 2 }}
                   />
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField
-                    label="Clock-Out Push Message Template"
-                    multiline
-                    minRows={3}
-                    value={config.notificationReminders?.clockOutMessage || ''}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), clockOutMessage: e.target.value }
-                    }))}
-                    helperText="Dynamic variables: {firstName}"
+                    select
+                    label="Notification Channels"
+                    value={config.notificationReminders?.channels || []}
+                    onChange={(e) => updateSectionField('notificationReminders', 'channels', e.target.value)}
+                    SelectProps={{
+                      multiple: true,
+                      renderValue: (selected) => selected.map((value) => notificationChannelOptions.find((item) => item.value === value)?.label || value).join(', '),
+                    }}
                     fullWidth
-                    sx={{ mb: 2 }}
-                  />
-
-                  {/* clock outside message */}
-                  {/* <TextField
-                    label="Authorise clocking outside message"
-                    multiline
-                    minRows={3}
-                    value={config.notificationReminders?.authorisedClockOut || ''}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), authorisedClockOut: e.target.value }
-                    }))}
-                    helperText="Dynamic variables: {firstName}"
-                    fullWidth
-                  /> */}
+                  >
+                    {notificationChannelOptions.map((channel) => (
+                      <MenuItem key={channel.value} value={channel.value}>
+                        {channel.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
               </Grid>
             </Paper>
 
-
-            {/* automated reg messages */}
             <Paper elevation={0} sx={cardSx}>
               <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MessageRounded color="primary" /> Automated Registration Messages
+                <MessageRounded color="primary" /> Message Template Controls
               </Typography>
               <Grid container spacing={2.5}>
-                <Grid item xs={12} sm={6}>
-                  {/* intern reg message */}
-                  <TextField
-                    label="Intern/Attache signup message"
-                    multiline
-                    minRows={3}
-                    gutterbottom
-                    value={config.notificationReminders?.internRegMessage || ''}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), internRegMessage: e.target.value }
-                    }))}
-                    helperText="Dynamic variables: {firstName} {email}"
-                    fullWidth
-                  />
-
-                  {/* staff reg message */}
-                  <TextField
-                    label="Staff signup message"
-                    multiline
-                    sx={{ mt: 2 }}
-                    minRows={3}
-                    value={config.notificationReminders?.staffRegMessage || ''}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      notificationReminders: { ...(prev.notificationReminders || {}), staffRegMessage: e.target.value }
-                    }))}
-                    helperText="Dynamic variables: {firstName}"
-                    fullWidth
-                  />
-                </Grid>
+                {messageTemplateFields.map(({ key, label, helper }) => (
+                  <Grid item xs={12} md={6} key={key}>
+                    <TextField
+                      label={label}
+                      multiline
+                      minRows={3}
+                      value={config.notificationReminders?.[key] || ''}
+                      onChange={(e) => updateSectionField('notificationReminders', key, e.target.value)}
+                      helperText={helper}
+                      fullWidth
+                    />
+                  </Grid>
+                ))}
               </Grid>
             </Paper>
 
@@ -811,7 +1111,17 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                 onClick={() => resetConfig('attendancePolicy')}
                 sx={{ borderRadius: 2.5 }}
               >
-                Reset to Default Values
+                Reset Attendance Policy
+              </Button>
+              <Button
+                disabled={isLoading}
+                startIcon={<RestartAlt />}
+                color="warning"
+                variant="outlined"
+                onClick={() => resetConfig('notificationReminders')}
+                sx={{ borderRadius: 2.5 }}
+              >
+                Reset Messages
               </Button>
             </Stack>
           </Stack>
@@ -891,7 +1201,171 @@ const ConfigPanel = ({ onConfigLoaded }) => {
           </Paper>
         )}
 
-        {/* Global Reset Float Trigger Button */}
+        <Dialog
+          open={backupOpen}
+          onClose={() => setBackupOpen(false)}
+          fullWidth
+          maxWidth="sm"
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: '1px solid rgba(148,163,184,0.22)',
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SettingsBackupRestoreRounded color="primary" /> Platform Config Backup
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2.5}>
+              <Alert severity="info">
+                Export a JSON snapshot of the current platform configuration or restore a previous backup into the live system.
+              </Alert>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 1 }}>
+                  Included Sections
+                </Typography>
+                <Stack direction="row" gap={1} flexWrap="wrap">
+                  {platformConfigBackupKeys.map((key) => (
+                    <Chip key={key} label={key} size="small" variant="outlined" sx={{ borderRadius: 1.5 }} />
+                  ))}
+                </Stack>
+              </Paper>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <Button
+                  variant="contained"
+                  startIcon={<FileDownloadRounded />}
+                  onClick={downloadConfigBackup}
+                  disabled={!config || isLoading}
+                  fullWidth
+                  sx={{ minHeight: 48, borderRadius: 2 }}
+                >
+                  Download JSON
+                </Button>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<UploadFileRounded />}
+                  disabled={isLoading}
+                  fullWidth
+                  sx={{ minHeight: 48, borderRadius: 2 }}
+                >
+                  Upload JSON
+                  <input hidden accept="application/json,.json" type="file" onChange={uploadConfigBackup} />
+                </Button>
+              </Stack>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setBackupOpen(false)} variant="contained" sx={{ borderRadius: 2 }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={manualOpen}
+          onClose={() => setManualOpen(false)}
+          fullWidth
+          maxWidth="md"
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: '1px solid rgba(148,163,184,0.22)',
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MenuBookRounded color="primary" /> Superadmin Message Manual
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2.5}>
+              <Alert severity="info">
+                Use these parameters inside message templates. The system replaces them automatically when sending clocking, leave, account, device, and registration messages.
+              </Alert>
+
+              <Grid container spacing={2}>
+                {templateParameterGroups.map((group) => (
+                  <Grid item xs={12} md={6} key={group.title}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                      <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 1.5 }}>
+                        {group.title}
+                      </Typography>
+                      <Stack spacing={1.2}>
+                        {group.params.map(([param, description]) => (
+                          <Box
+                            key={param}
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: { xs: '1fr', sm: '150px 1fr' },
+                              gap: 1,
+                              alignItems: 'start',
+                            }}
+                          >
+                            <Chip
+                              label={param}
+                              color="primary"
+                              variant="outlined"
+                              sx={{
+                                borderRadius: 1.5,
+                                fontFamily: 'monospace',
+                                fontWeight: 800,
+                                justifySelf: 'start',
+                              }}
+                            />
+                            <Typography variant="body2" color="text.secondary">
+                              {description}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setManualOpen(false)} variant="contained" sx={{ borderRadius: 2 }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Tooltip title="Import or Export Platform Config" placement="left" arrow>
+          <Fab
+            color="secondary"
+            aria-label="platform-config-backup"
+            size="large"
+            onClick={() => setBackupOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 168,
+              right: 24,
+              boxShadow: '0 6px 20px rgba(54,141,197,0.35)'
+            }}
+          >
+            <SettingsBackupRestoreRounded />
+          </Fab>
+        </Tooltip>
+
+        <Tooltip title="Superadmin Message Manual" placement="left" arrow>
+          <Fab
+            color="primary"
+            aria-label="superadmin-manual"
+            size="large"
+            onClick={() => setManualOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 96,
+              right: 24,
+              boxShadow: '0 6px 20px rgba(10,61,98,0.35)'
+            }}
+          >
+            <MenuBookRounded />
+          </Fab>
+        </Tooltip>
+
         <Tooltip title="Purge System Override Options" placement="left" arrow>
           <Fab
             color="error"
