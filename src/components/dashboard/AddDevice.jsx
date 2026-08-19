@@ -36,7 +36,7 @@ import {
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useState } from 'react';
-import { registerFingerprint } from '../../service/Biometrics';
+import { fetchBiometricStatus, registerFingerprint } from '../../service/Biometrics';
 import { fetchMyDevices, removeDevice } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import coreDataDetails from '../CoreDataDetails';
@@ -185,6 +185,7 @@ const AddDeviceContent = () => {
     const [enrolled,              setEnrolled]              = useState(false);
     const [enrollError,           setEnrollError]           = useState('');
     const [alreadyEnrolled,       setAlreadyEnrolled]       = useState(false);
+    const [currentDeviceReady,    setCurrentDeviceReady]    = useState(false);
     const [deviceHashFingerPrint, setDeviceHashFingerPrint] = useState();
     const [removeTarget,          setRemoveTarget]          = useState(null);
     const [removing,              setRemoving]              = useState(false);
@@ -195,10 +196,14 @@ const AddDeviceContent = () => {
     const loadDevices = useCallback(async () => {
         setLoading(true); setFetchError('');
         try {
-            const data = await fetchMyDevices();
-            setDevices(Array.isArray(data) ? data : (data.devices ?? []));
             const fp = await getDeviceFingerprint();
+            const [data, biometricStatus] = await Promise.all([
+                fetchMyDevices(),
+                fetchBiometricStatus(fp),
+            ]);
+            setDevices(Array.isArray(data) ? data : (data.devices ?? []));
             setDeviceHashFingerPrint(fp);
+            setCurrentDeviceReady(Boolean(biometricStatus?.currentDeviceRegistered));
         } catch (err) {
             setFetchError(typeof err === 'string' ? err : 'Failed to load your devices.');
         } finally { setLoading(false); }
@@ -206,7 +211,7 @@ const AddDeviceContent = () => {
 
     useEffect(() => { loadDevices(); }, [loadDevices]);
 
-    const isCurrentEnrolled = devices.some(d => d.device_fingerprint === deviceHashFingerPrint);
+    const isCurrentEnrolled = currentDeviceReady || devices.some(d => d.device_fingerprint === deviceHashFingerPrint);
 
     const handleEnroll = async () => {
         if (isCurrentEnrolled) { setAlreadyEnrolled(true); return; }
@@ -214,12 +219,18 @@ const AddDeviceContent = () => {
         setEnrolling(true); setEnrollError('');
         try {
             const fp = deviceHashFingerPrint || await getDeviceFingerprint();
-            await registerFingerprint({
+            const registrationResult = await registerFingerprint({
                 device_name: current.deviceName,
                 device_os: current.os,
                 device_browser: current.browser,
                 device_fingerprint: fp,
             });
+            if (registrationResult?.alreadyRegistered) {
+                setAlreadyEnrolled(true);
+                setCurrentDeviceReady(true);
+                await loadDevices();
+                return;
+            }
             setEnrolled(true); setTimeout(() => setEnrolled(false), 5000);
             await loadDevices();
         } catch (err) {

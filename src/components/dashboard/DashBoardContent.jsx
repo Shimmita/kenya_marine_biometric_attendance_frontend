@@ -22,7 +22,7 @@ import {
 } from 'recharts';
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
-import { registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
+import { fetchBiometricStatus, registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
 import { fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
@@ -664,6 +664,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const [statsLoading, setStatsLoading] = useState(true);
     const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState('');
     const [enrolledDevices, setEnrolledDevices] = useState([]);
+    const [currentDeviceRegistered, setCurrentDeviceRegistered] = useState(false);
     const [locationStatus, setLocationStatus] = useState('idle');
 
     useEffect(() => {
@@ -671,28 +672,31 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         const loadCurrentDevice = async () => {
             if (!canUseClocking) {
                 setBiometricRegistered(false);
+                setCurrentDeviceRegistered(false);
                 setCurrentDeviceFingerprint('');
                 setEnrolledDevices([]);
                 return;
             }
 
             try {
-                const [fp, devices] = await Promise.all([
-                    getDeviceFingerprint(),
+                const fp = await getDeviceFingerprint();
+                const [devices, biometricStatus] = await Promise.all([
                     fetchMyDevices(),
+                    fetchBiometricStatus(fp),
                 ]);
                 if (!alive) return;
                 const activeDevices = (Array.isArray(devices) ? devices : []).filter(d => !d.device_lost);
                 setCurrentDeviceFingerprint(fp);
                 setEnrolledDevices(activeDevices);
-                setBiometricRegistered(
-                    Boolean(user?.doneBiometric) &&
-                    activeDevices.some(device => device.device_fingerprint === fp)
-                );
+                setBiometricRegistered(Boolean(biometricStatus?.registered || user?.doneBiometric));
+                setCurrentDeviceRegistered(Boolean(biometricStatus?.currentDeviceRegistered));
                 dispatch(updateUserCurrentDeviceRedux(activeDevices));
             } catch (err) {
                 console.error("Current device check failed:", err);
-                if (alive) setBiometricRegistered(false);
+                if (alive) {
+                    setBiometricRegistered(Boolean(user?.doneBiometric));
+                    setCurrentDeviceRegistered(false);
+                }
             }
         };
         loadCurrentDevice();
@@ -749,7 +753,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             setRecentAttendance(records.map(rec => ({
                 date: formatDate(rec.clock_in),
                 clockIn: formatTime(rec.clock_in),
-                clockOut: rec.clock_out ? formatTime(rec.clock_out) : 'System',
+                clockOut: rec.missedClockOut ? 'System' : rec.clock_out ? formatTime(rec.clock_out) : 'System',
                 status: rec.clock_out ? (rec.isPresent ? 'Present' : 'Halfday') : '',
                 timing: rec.isLate ? 'Late' : 'Early',
                 hours: rec.clock_out ? ((new Date(rec.clock_out) - new Date(rec.clock_in)) / 3_600_000).toFixed(2) : '—',
@@ -883,22 +887,31 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             setBiometricLoading(true);
             const fp = currentDeviceFingerprint || await getDeviceFingerprint();
             const { deviceName, browser, os } = detectCurrentDevice();
-            await registerFingerprint({
+            const registrationResult = await registerFingerprint({
                 device_name: deviceName,
                 device_os: os,
                 device_browser: browser,
                 device_fingerprint: fp,
             });
-            const updated = await getUserProfile();
-            if (updated?.doneBiometric) {
+            const [updated, devices, biometricStatus] = await Promise.all([
+                getUserProfile(),
+                fetchMyDevices(),
+                fetchBiometricStatus(fp),
+            ]);
+
+            if (updated?.doneBiometric || registrationResult?.registered || biometricStatus?.registered) {
                 setBiometricRegistered(true);
-                const devices = await fetchMyDevices();
                 const activeDevices = (Array.isArray(devices) ? devices : []).filter(d => !d.device_lost);
                 setEnrolledDevices(activeDevices);
                 setCurrentDeviceFingerprint(fp);
-                dispatch(updateUserCurrentUserRedux(await getUserProfile()));
+                setCurrentDeviceRegistered(Boolean(biometricStatus?.currentDeviceRegistered || registrationResult?.alreadyRegistered));
+                dispatch(updateUserCurrentUserRedux(updated));
                 dispatch(updateUserCurrentDeviceRedux(activeDevices));
-                notify(activeDevices.length > 1 ? 'Second device enrolled successfully!' : 'Primary device enrolled successfully!');
+                notify(
+                    registrationResult?.alreadyRegistered
+                        ? 'Fingerprint already registered. You can clock in or out now.'
+                        : activeDevices.length > 1 ? 'Second device enrolled successfully!' : 'Primary device enrolled successfully!'
+                );
             } else throw new Error('Biometric registration incomplete.');
         } catch (err) { notify(`${err}`, 'error'); }
         finally { setBiometricLoading(false); }
@@ -939,8 +952,13 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
             const verifyRes = await verifyFingerprint(selectedStation.name, locationForClock, fp, outsideLocation);
             console.debug('biometric verify response:', verifyRes);
-            const updated = await getUserProfile();
+            const [updated, biometricStatus] = await Promise.all([
+                getUserProfile(),
+                fetchBiometricStatus(fp),
+            ]);
             dispatch(updateUserCurrentUserRedux(updated));
+            setBiometricRegistered(Boolean(biometricStatus?.registered || updated?.doneBiometric));
+            setCurrentDeviceRegistered(Boolean(biometricStatus?.currentDeviceRegistered));
             setIsClockedIn(updated.hasClockedIn);
             setIsToClockOut(updated.isToClockOut);
             localStorage.setItem('recent_station', selectedStation.name);
@@ -1118,6 +1136,14 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                 {isClockedIn && isToClockOut && (
                                                     <Chip icon={<CheckCircle sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />} label="Session Active" size="small"
                                                         sx={{ bgcolor: isWithinGeofence && !outsideClockingAuthorized ? 'rgba(34,197,94,0.24)' : outsideClockingAuthorized ? 'rgba(154, 211, 21, 0.24)' : 'rgba(138,138,138,0.24)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: isWithinGeofence && !outsideClockingAuthorized ? '1px solid rgba(34,197,94,0.40)' : outsideClockingAuthorized ? '1px solid rgba(154, 211, 21, 0.40)' : '1px solid rgba(138,138,138,0.40)' }} />
+                                                )}
+                                                {biometricRegistered && (
+                                                    <Chip
+                                                        icon={<Fingerprint sx={{ color: 'white !important', fontSize: '0.85rem !important' }} />}
+                                                        label={currentDeviceRegistered ? 'Biometric Ready' : 'Biometric Registered'}
+                                                        size="small"
+                                                        sx={{ bgcolor: 'rgba(0,180,200,0.22)', color: '#fff', fontWeight: 700, fontSize: '0.7rem', border: '1px solid rgba(0,180,200,0.38)' }}
+                                                    />
                                                 )}
 
                                                 {/* If authorized outside, show a special badge */}

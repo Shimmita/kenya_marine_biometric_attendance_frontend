@@ -381,7 +381,7 @@ export default function AttendanceHistoryContent() {
                     date: createdDate ? formatDate(createdDate) : 'Invalid date',
                     rawDate: createdDate,
                     clockIn: rawClockIn ? formatTime(rawClockIn) : 'Invalid date',
-                    clockOut: rawClockOut ? formatTime(rawClockOut) : 'System',
+                    clockOut: rec.missedClockOut ? 'System' : rawClockOut ? formatTime(rawClockOut) : 'System',
                     inLocation: formatLocationLabel(rec, true),
                     outLocation: formatLocationLabel(rec, false),
                     whyOut: rec.outSideReason ? toTitleCase(rec.outSideReason) : "",

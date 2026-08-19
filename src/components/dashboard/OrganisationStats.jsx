@@ -1,38 +1,47 @@
-// src/pages/analytics/OrgDashboard.jsx
-import {
-    AccessTime,
-    CheckCircle,
-    CloudOff,
-    Devices,
-    Fingerprint,
-    LockOpen,
-    People,
-    Settings,
-    Storage,
-    TrendingUp,
-    Warning
-} from '@mui/icons-material';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Alert,
     Box,
+    Button,
+    Card,
+    CardContent,
     Chip,
+    CircularProgress,
+    FormControl,
     Grid,
+    InputLabel,
     LinearProgress,
     MenuItem,
-    Paper,
-    Snackbar,
+    Select,
     Stack,
-    Table, TableBody,
-    TableCell, TableContainer, TableHead, TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     TextField,
-    ToggleButton, ToggleButtonGroup,
-    Typography
-} from '@mui/material';
-import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+    Tooltip,
+    Typography,
+} from "@mui/material";
 import {
-    Area,
-    AreaChart,
+    AssessmentRounded,
+    CheckCircleRounded,
+    DownloadRounded,
+    EventAvailableRounded,
+    FilterAltRounded,
+    GroupsRounded,
+    HelpOutlineRounded,
+    HourglassBottomRounded,
+    InsightsRounded,
+    PieChartRounded,
+    RefreshRounded,
+    ShieldRounded,
+    TrendingDownRounded,
+    TrendingUpRounded,
+    WarningAmberRounded,
+} from "@mui/icons-material";
+import {
     Bar,
     BarChart,
     CartesianGrid,
@@ -42,919 +51,924 @@ import {
     LineChart,
     Pie,
     PieChart,
-    PolarAngleAxis,
-    PolarGrid,
-    PolarRadiusAxis,
-    Radar,
-    RadarChart,
     ResponsiveContainer,
-    Scatter,
-    ScatterChart,
-    Tooltip,
+    Tooltip as RechartsTooltip,
     XAxis,
     YAxis,
-    ZAxis
-} from 'recharts';
+} from "recharts";
 
 import {
-    fetchAbsenteeismAnalytics,
     fetchAnalyticsKPIs,
     fetchAttendanceTrends,
-    fetchBiometricAnalytics,
-    fetchComplianceAnalytics,
     fetchDepartmentAnalytics,
-    fetchEarlyDepartureAnalytics,
     fetchLateArrivalAnalytics,
-    fetchStationAnalytics
-} from '../../service/ClockingService';
-import { AmbientOrbs, colorPalette, G, GlassTooltip, Reveal, StatCard } from './AttendanceHistory';
+    fetchStationAnalytics,
+} from "../../service/ClockingService";
+import * as SuperadminAPI from "../../service/SuperadminService";
+import coreDataDetails, {
+    applyPlatformConfigToCoreData,
+    getActiveTheme,
+} from "../CoreDataDetails";
 
-// ---------------------------------------------------------------------
-// 1. FILTER BAR
-// ---------------------------------------------------------------------
-const FilterBar = ({ filters, setFilters, departments, stations }) => (
-    <Box sx={{ ...G.card, p: 2, borderRadius: '16px', mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
-                <TextField
-                    label="Start Date"
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    size="small"
-                    sx={G.input}
-                />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-                <TextField
-                    label="End Date"
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    size="small"
-                    sx={G.input}
-                />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-                <TextField
-                    select
-                    label="Department"
-                    value={filters.department}
-                    onChange={(e) => setFilters(prev => ({ ...prev, department: e.target.value }))}
-                    fullWidth
-                    size="small"
-                    sx={G.input}
+const EAT_TIMEZONE = "Africa/Nairobi";
+
+const datePartsFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: EAT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+});
+
+const getDateInputValue = (date = new Date()) => {
+    const parts = Object.fromEntries(
+        datePartsFormatter.formatToParts(date).map((part) => [part.type, part.value])
+    );
+
+    return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const getMonthStart = () => {
+    const [year, month] = getDateInputValue().split("-");
+    return `${year}-${month}-01`;
+};
+
+const formatDateLabel = (value, options = {}) => {
+    if (!value) return "N/A";
+
+    const date = new Date(`${value}T00:00:00+03:00`);
+    if (Number.isNaN(date.getTime())) return "N/A";
+
+    return date.toLocaleDateString("en-KE", {
+        timeZone: EAT_TIMEZONE,
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        ...options,
+    });
+};
+
+const formatRangeLabel = (startDate, endDate) => {
+    if (!startDate || !endDate) return "Selected period";
+    return `${formatDateLabel(startDate, { day: undefined })} to ${formatDateLabel(endDate, { day: undefined })}`;
+};
+
+const formatNumber = (value) => Number(value || 0).toLocaleString();
+const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+const safePercent = (value) => Math.max(0, Math.min(Number(value || 0), 100));
+
+const normalizeOption = (option) => {
+    if (typeof option === "string") return option;
+    return option?.name || "";
+};
+
+const uniqueValues = (values = []) => [
+    ...new Set(values.map(normalizeOption).map((value) => String(value || "").trim()).filter(Boolean)),
+];
+
+const titleCase = (value) =>
+    String(value || "")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const staffFilters = [
+    { value: "", label: "All" },
+    { value: "role:employee", label: "Employee" },
+    { value: "role:intern", label: "Intern" },
+    { value: "role:attachee", label: "Attachee" },
+    { value: "rank:hr", label: "HR" },
+    { value: "rank:supervisor", label: "Supervisor" },
+    { value: "rank:admin", label: "Admin" },
+    { value: "rank:ceo", label: "CEO" },
+];
+
+const buildParams = (filters) => {
+    const params = {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        station: filters.station || "",
+        department: filters.department || "",
+        role: "",
+        rank: "",
+    };
+
+    const [kind, value] = String(filters.staffFilter || "").split(":");
+    if (kind === "role") params.role = value;
+    if (kind === "rank") params.rank = value;
+
+    return params;
+};
+
+const buildTheme = (config = {}) => {
+    const activeTheme = getActiveTheme(config) || {};
+    const branding = config.branding || coreDataDetails.branding || {};
+    const palette = coreDataDetails.colorPalette;
+
+    return {
+        primary: activeTheme.primaryColor || branding.primaryColor || palette.deepNavy,
+        secondary: activeTheme.secondaryColor || branding.secondaryColor || palette.oceanBlue,
+        accent: activeTheme.accentColor || branding.accentColor || palette.seafoamGreen,
+        surface: activeTheme.surfaceColor || palette.cloudWhite,
+        text: activeTheme.textColor || palette.charcoal || "#0f172a",
+        success: palette.seafoamGreen || "#10B981",
+        danger: palette.coralSunset || "#EF4444",
+        warning: palette.warmSand || "#F59E0B",
+        purple: "#7C3AED",
+        border: "rgba(15, 23, 42, 0.10)",
+        muted: "#64748B",
+        white: "#FFFFFF",
+    };
+};
+
+const getAttendanceColor = (rate, theme) => {
+    const value = Number(rate || 0);
+    if (value >= 90) return theme.success;
+    if (value >= 80) return theme.secondary;
+    if (value >= 70) return theme.warning;
+    return theme.danger;
+};
+
+const exportCsv = ({ kpis, stations, departments, filters }) => {
+    const rows = [
+        ["Organisation Statistics", ""],
+        ["Period", `${filters.startDate} to ${filters.endDate}`],
+        ["Total Staff", kpis?.totalEmployees || 0],
+        ["Present Today", kpis?.presentToday || 0],
+        ["Absent Today", kpis?.absentToday || 0],
+        ["On Leave Today", kpis?.onLeaveToday || 0],
+        ["Attendance Rate", formatPercent(kpis?.attendanceRate)],
+        [],
+        ["Station", "Staff", "Present Days", "Absent Days", "Late", "On Leave", "Attendance Rate"],
+        ...stations.map((station) => [
+            station.station,
+            station.staffCount || 0,
+            station.presentDays || 0,
+            station.absentDays || 0,
+            station.totalLateCount || 0,
+            station.onLeaveDays || 0,
+            formatPercent(station.attendanceRate),
+        ]),
+        [],
+        ["Department", "Staff", "Present Days", "Absent Days", "Late", "On Leave", "Attendance Rate"],
+        ...departments.map((department) => [
+            department.department,
+            department.staffCount || 0,
+            department.presentDays || 0,
+            department.absentDays || 0,
+            department.totalLateCount || 0,
+            department.onLeaveDays || 0,
+            formatPercent(department.attendanceRate),
+        ]),
+    ];
+
+    const csv = rows
+        .map((row) =>
+            row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
+        )
+        .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `organisation-statistics-${filters.startDate}-to-${filters.endDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+};
+
+const StatCard = ({ title, value, subtitle, icon, tone, theme }) => (
+    <Card
+        elevation={0}
+        sx={{
+            height: "100%",
+            border: `1px solid ${theme.border}`,
+            borderRadius: "8px",
+            background: theme.white,
+        }}
+    >
+        <CardContent sx={{ p: 2 }}>
+            <Stack direction="row" justifyContent="space-between" spacing={1.5}>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: theme.muted, textTransform: "uppercase", letterSpacing: 0 }}>
+                        {title}
+                    </Typography>
+                    <Typography sx={{ mt: 0.5, fontSize: { xs: 22, md: 26 }, fontWeight: 900, color: theme.text, lineHeight: 1.05 }}>
+                        {value}
+                    </Typography>
+                    <Typography sx={{ mt: 0.5, fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+
+                <Box
+                    sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "8px",
+                        background: `${tone}18`,
+                        color: tone,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                    }}
                 >
-                    <MenuItem value="">All Departments</MenuItem>
-                    {departments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                </TextField>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-                <TextField
-                    select
-                    label="Station"
-                    value={filters.station}
-                    onChange={(e) => setFilters(prev => ({ ...prev, station: e.target.value }))}
-                    fullWidth
-                    size="small"
-                    sx={G.input}
-                >
-                    <MenuItem value="">All Stations</MenuItem>
-                    {stations.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </TextField>
-            </Grid>
-        </Grid>
-    </Box>
+                    {icon}
+                </Box>
+            </Stack>
+        </CardContent>
+    </Card>
 );
 
-// ---------------------------------------------------------------------
-// 2. SECTION LABEL (with optional description)
-// ---------------------------------------------------------------------
-const SectionLabel = ({ children, accent, chip, description }) => (
-    <Stack spacing={0.5} mb={2}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-            <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: accent }} />
-            <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>
-                {children}
-            </Typography>
-            {chip && <Chip label={chip} size="small" sx={{ bgcolor: `${accent}14`, color: accent, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />}
-        </Stack>
-        {description && (
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                {description}
-            </Typography>
-        )}
+const SectionCard = ({ title, subtitle, action, children, theme }) => (
+    <Card
+        elevation={0}
+        sx={{
+            height: "100%",
+            border: `1px solid ${theme.border}`,
+            borderRadius: "8px",
+            background: theme.white,
+        }}
+    >
+        <CardContent sx={{ p: 2 }}>
+            <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 15, fontWeight: 900, color: theme.text, letterSpacing: 0 }}>
+                        {title}
+                    </Typography>
+                    {subtitle && (
+                        <Typography sx={{ mt: 0.25, fontSize: 11, color: theme.muted }}>
+                            {subtitle}
+                        </Typography>
+                    )}
+                </Box>
+                {action}
+            </Stack>
+            {children}
+        </CardContent>
+    </Card>
+);
+
+const EmptyState = ({ label, theme }) => (
+    <Stack alignItems="center" justifyContent="center" sx={{ height: "100%", minHeight: 180 }}>
+        <Typography sx={{ fontSize: 13, color: theme.muted, fontWeight: 700 }}>
+            {label}
+        </Typography>
     </Stack>
 );
 
-// ---------------------------------------------------------------------
-// 3. TRENDS SECTION (Line chart)
-// ---------------------------------------------------------------------
-const TrendsSection = ({ data }) => {
-    const [view, setView] = useState('daily');
-    if (!data) return <LinearProgress />;
-
-    const chartData = data[view] || [];
-    const xKey = view === 'daily' ? 'date' : view === 'weekly' ? 'week' : view === 'monthly' ? 'month' : 'year';
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent={colorPalette.cyanFresh}
-                    chip="Trend"
-                    description="Track how attendance rates evolve over time – daily, weekly, monthly, or yearly."
-                >
-                    Attendance Trends
-                </SectionLabel>
-                <ToggleButtonGroup value={view} exclusive onChange={(_, v) => v && setView(v)} size="small" sx={{ mb: 1.5 }}>
-                    <ToggleButton value="daily">Daily</ToggleButton>
-                    <ToggleButton value="weekly">Weekly</ToggleButton>
-                    <ToggleButton value="monthly">Monthly</ToggleButton>
-                    <ToggleButton value="yearly">Yearly</ToggleButton>
-                </ToggleButtonGroup>
-                <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
-                        <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Line type="monotone" dataKey="attendance" stroke={colorPalette.oceanBlue} strokeWidth={3} dot={{ r: 4, fill: colorPalette.oceanBlue }} activeDot={{ r: 6 }} />
-                    </LineChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 4. LATE ARRIVALS (bar + heatmap)
-// ---------------------------------------------------------------------
-const LateArrivalSection = ({ data }) => {
-    if (!data) return null;
-    const { lateByWeekday, lateByDepartment, heatmapData } = data;
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent={colorPalette.coralSunset}
-                    chip="Analytics"
-                    description="Analyse late arrivals by weekday, department, and the arrival time heatmap."
-                >
-                    Late Arrivals
-                </SectionLabel>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={4}>
-                        <Stack spacing={1}>
-                            <StatCard label="Employees Late Today" value={data.employeesLateToday} accent={colorPalette.coralSunset} icon={<Warning />} />
-                            <StatCard label="Avg Lateness (min)" value={data.averageLatenessMinutes} accent={colorPalette.coralSunset} icon={<AccessTime />} />
-                        </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">By Weekday</Typography>
-                        <ResponsiveContainer width="100%" height={150}>
-                            <BarChart data={lateByWeekday}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                                <XAxis dataKey="weekday" tick={{ fontSize: 10 }} />
-                                <YAxis tick={{ fontSize: 10 }} />
-                                <Tooltip content={<GlassTooltip />} />
-                                <Bar dataKey="count" fill={colorPalette.coralSunset} radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">By Department</Typography>
-                        <ResponsiveContainer width="100%" height={150}>
-                            <BarChart data={lateByDepartment} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 10 }} />
-                                <YAxis type="category" dataKey="department" tick={{ fontSize: 10 }} width={60} />
-                                <Tooltip content={<GlassTooltip />} />
-                                <Bar dataKey="count" fill={colorPalette.coralSunset} radius={[0, 6, 6, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Grid>
-                    {heatmapData && heatmapData.length > 0 && (
-                        <Grid item xs={12}>
-                            <Typography variant="caption" fontWeight={700} color="text.secondary">Arrival Time Heatmap</Typography>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <ScatterChart>
-                                    <XAxis dataKey="hour" type="number" domain={[6, 12]} tick={{ fontSize: 10 }} />
-                                    <YAxis dataKey="day" type="category" data={['Mon', 'Tue', 'Wed', 'Thu', 'Fri']} tick={{ fontSize: 10 }} />
-                                    <ZAxis dataKey="value" range={[0, 100]} />
-                                    <Tooltip content={<GlassTooltip />} />
-                                    <Scatter data={heatmapData} fill={colorPalette.coralSunset} />
-                                </ScatterChart>
-                            </ResponsiveContainer>
-                        </Grid>
-                    )}
-                </Grid>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 5. EARLY DEPARTURES
-// ---------------------------------------------------------------------
-const EarlyDepartureSection = ({ data }) => {
-    if (!data) return null;
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#f59e0b"
-                    chip="Analytics"
-                    description="Employees leaving before official closing time – track frequency and departments."
-                >
-                    Early Departures
-                </SectionLabel>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={4}>
-                        <StatCard label="Employees Leaving Early" value={data.employeesLeavingEarly} accent="#f59e0b" icon={<Warning />} />
-                        <StatCard label="Avg Early Departure (min)" value={data.averageEarlyDepartureMinutes} accent="#f59e0b" icon={<AccessTime />} />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">Frequent Early Departures</Typography>
-                        <TableContainer component={Paper} sx={{ mt: 1, background: 'transparent', boxShadow: 'none' }}>
-                            <Table size="small">
-                                <TableHead><TableRow><TableCell>Employee</TableCell><TableCell align="right">Count</TableCell></TableRow></TableHead>
-                                <TableBody>
-                                    {data.frequentEarlyDepartures.slice(0, 5).map((e, i) => (
-                                        <TableRow key={i}><TableCell>{e.email}</TableCell><TableCell align="right">{e.count}</TableCell></TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">By Department</Typography>
-                        <ResponsiveContainer width="100%" height={150}>
-                            <BarChart data={data.earlyByDepartment}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                                <XAxis dataKey="department" tick={{ fontSize: 10 }} />
-                                <YAxis tick={{ fontSize: 10 }} />
-                                <Tooltip content={<GlassTooltip />} />
-                                <Bar dataKey="count" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Grid>
-                </Grid>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 6. ABSENTEEISM
-// ---------------------------------------------------------------------
-const AbsenteeismSection = ({ data }) => {
-    if (!data) return null;
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#ef4444"
-                    chip="Analytics"
-                    description="Average absenteeism rate, monthly trend, and breakdown by department."
-                >
-                    Absenteeism
-                </SectionLabel>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={4}>
-                        <StatCard label="Average Absenteeism Rate" value={`${data.averageAbsenteeismRate}%`} accent="#ef4444" icon={<Warning />} />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">Monthly Trend</Typography>
-                        <ResponsiveContainer width="100%" height={150}>
-                            <AreaChart data={data.monthlyAbsenteeism}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                <YAxis tick={{ fontSize: 10 }} />
-                                <Tooltip content={<GlassTooltip />} />
-                                <Area type="monotone" dataKey="rate" stroke="#ef4444" fill="#ef444422" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary">By Department</Typography>
-                        <ResponsiveContainer width="100%" height={150}>
-                            <BarChart data={data.departmentAbsenteeism}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                                <XAxis dataKey="department" tick={{ fontSize: 10 }} />
-                                <YAxis tick={{ fontSize: 10 }} />
-                                <Tooltip content={<GlassTooltip />} />
-                                <Bar dataKey="rate" fill="#ef4444" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Grid>
-                </Grid>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 7. DEPARTMENT COMPARISON (Radar)
-// ---------------------------------------------------------------------
-const DeptComparisonSection = ({ data }) => {
-    if (!data || !data.departments) return null;
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent={colorPalette.deepNavy}
-                    chip="Compare"
-                    description="Radar chart comparing departments on attendance, lateness, and absenteeism rates."
-                >
-                    Department Comparison
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart data={data.departments}>
-                        <PolarGrid stroke="rgba(10,61,98,0.15)" />
-                        <PolarAngleAxis dataKey="department" tick={{ fontSize: 10 }} />
-                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                        <Radar name="Attendance %" dataKey="attendanceRate" stroke={colorPalette.oceanBlue} fill={colorPalette.oceanBlue} fillOpacity={0.3} />
-                        <Radar name="Lateness %" dataKey="latenessRate" stroke={colorPalette.coralSunset} fill={colorPalette.coralSunset} fillOpacity={0.3} />
-                        <Radar name="Absenteeism %" dataKey="absenteeismRate" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Legend />
-                    </RadarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 8. DEPARTMENT PERFORMANCE GROUPED BAR
-// ---------------------------------------------------------------------
-const DeptPerformanceBarSection = ({ deptData }) => {
-    if (!deptData || !deptData.departments || deptData.departments.length === 0) return null;
-
-    const data = deptData.departments.map(d => ({
-        department: d.department,
-        Attendance: d.attendanceRate || 0,
-        Lateness: d.latenessRate || 0,
-        Absenteeism: d.absenteeismRate || 0,
-    }));
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent={colorPalette.deepNavy}
-                    chip="Compare"
-                    description="Side‑by‑side bar comparison of departments on key performance indicators."
-                >
-                    Department Performance (Grouped Bar)
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                        <XAxis dataKey="department" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Legend />
-                        <Bar dataKey="Attendance" fill={colorPalette.oceanBlue} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Lateness" fill={colorPalette.coralSunset} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Absenteeism" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 9. ATTENDANCE HISTOGRAM (departments)
-// ---------------------------------------------------------------------
-const AttendanceHistogramSection = ({ deptData }) => {
-    if (!deptData || !deptData.departments || deptData.departments.length === 0) return null;
-
-    const bins = { '0-20': 0, '20-40': 0, '40-60': 0, '60-80': 0, '80-100': 0 };
-    deptData.departments.forEach(d => {
-        const rate = d.attendanceRate || 0;
-        if (rate < 20) bins['0-20']++;
-        else if (rate < 40) bins['20-40']++;
-        else if (rate < 60) bins['40-60']++;
-        else if (rate < 80) bins['60-80']++;
-        else bins['80-100']++;
-    });
-
-    const histData = Object.keys(bins).map(key => ({ range: key, count: bins[key] }));
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#6366f1"
-                    chip="Distribution"
-                    description="Distribution of departments across attendance rate ranges – helps spot overall performance spread."
-                >
-                    Attendance Rate Histogram
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={histData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                        <XAxis dataKey="range" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 10. PRODUCTIVITY TREND (using daily attendance)
-// ---------------------------------------------------------------------
-const ProductivityTrendSection = ({ trends }) => {
-    if (!trends || !trends.daily) return null;
-    const data = trends.daily.slice(-30);
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#22c55e"
-                    chip="Trend"
-                    description="Daily attendance rate as a proxy for productivity – shows recent performance trend."
-                >
-                    Productivity Index (Proxy)
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Area type="monotone" dataKey="attendance" stroke="#22c55e" fill="#22c55e22" />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 11. COMPLIANCE (table + pie)
-// ---------------------------------------------------------------------
-const ComplianceSection = ({ data }) => {
-    if (!data) return null;
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#8b5cf6"
-                    chip="Monitoring"
-                    description="List of employees with missing clock‑ins or clock‑outs – essential for payroll and discipline."
-                >
-                    Compliance Monitoring
-                </SectionLabel>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" fontWeight={700} color="text.secondary">Missing Clock‑Ins</Typography>
-                        <TableContainer component={Paper} sx={{ mt: 1, background: 'transparent', boxShadow: 'none' }}>
-                            <Table size="small">
-                                <TableHead><TableRow><TableCell>Employee</TableCell><TableCell>Date</TableCell></TableRow></TableHead>
-                                <TableBody>
-                                    {data.missingClockIns.slice(0, 5).map((e, i) => (
-                                        <TableRow key={i}><TableCell>{e.email}</TableCell><TableCell>{e.date}</TableCell></TableRow>
-                                    ))}
-                                    {data.missingClockIns.length === 0 && <TableRow><TableCell colSpan={2} align="center">All clear</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" fontWeight={700} color="text.secondary">Missing Clock‑Outs</Typography>
-                        <TableContainer component={Paper} sx={{ mt: 1, background: 'transparent', boxShadow: 'none' }}>
-                            <Table size="small">
-                                <TableHead><TableRow><TableCell>Employee</TableCell><TableCell>Date</TableCell></TableRow></TableHead>
-                                <TableBody>
-                                    {data.missingClockOuts.slice(0, 5).map((e, i) => (
-                                        <TableRow key={i}><TableCell>{e.email}</TableCell><TableCell>{e.date}</TableCell></TableRow>
-                                    ))}
-                                    {data.missingClockOuts.length === 0 && <TableRow><TableCell colSpan={2} align="center">All clear</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Grid>
-                </Grid>
-            </Box>
-        </Reveal>
-    );
-};
-
-const CompliancePieSection = ({ data }) => {
-    if (!data) return null;
-    const pieData = [
-        { name: 'Missing Clock-Ins', value: data.totalMissingClockIns || 0 },
-        { name: 'Missing Clock-Outs', value: data.totalMissingClockOuts || 0 },
-    ];
-    if (pieData[0].value === 0 && pieData[1].value === 0) return null;
-    const COLORS = ['#ef4444', '#f59e0b'];
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#8b5cf6"
-                    chip="Overview"
-                    description="Pie chart summarising total compliance gaps – clock‑ins vs clock‑outs."
-                >
-                    Compliance Overview
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} label>
-                            {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip content={<GlassTooltip />} />
-                        <Legend />
-                    </PieChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 12. STATION COMPARISON (Radar)
-// ---------------------------------------------------------------------
-const StationComparisonRadarSection = ({ stationData }) => {
-    if (!stationData || !stationData.stations || stationData.stations.length === 0) return null;
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#0ea5e9"
-                    chip="Stations"
-                    description="Radar chart comparing stations on attendance, lateness, and absenteeism rates."
-                >
-                    Station Comparison (Radar)
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart data={stationData.stations}>
-                        <PolarGrid stroke="rgba(10,61,98,0.15)" />
-                        <PolarAngleAxis dataKey="station" tick={{ fontSize: 10 }} />
-                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                        <Radar name="Attendance %" dataKey="attendanceRate" stroke={colorPalette.oceanBlue} fill={colorPalette.oceanBlue} fillOpacity={0.3} />
-                        <Radar name="Lateness %" dataKey="latenessRate" stroke={colorPalette.coralSunset} fill={colorPalette.coralSunset} fillOpacity={0.3} />
-                        <Radar name="Absenteeism %" dataKey="absenteeismRate" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Legend />
-                    </RadarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 13. STATION PERFORMANCE GROUPED BAR
-// ---------------------------------------------------------------------
-const StationPerformanceBarSection = ({ stationData }) => {
-    if (!stationData || !stationData.stations || stationData.stations.length === 0) return null;
-
-    const data = stationData.stations.map(s => ({
-        station: s.station,
-        Attendance: s.attendanceRate || 0,
-        Lateness: s.latenessRate || 0,
-        Absenteeism: s.absenteeismRate || 0,
-        StaffCount: s.staffCount || 0,
-    }));
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#0ea5e9"
-                    chip="Stations"
-                    description="Grouped bar chart comparing station performance across attendance, lateness, and absenteeism."
-                >
-                    Station Performance (Grouped Bar)
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                        <XAxis dataKey="station" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Legend />
-                        <Bar dataKey="Attendance" fill={colorPalette.oceanBlue} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Lateness" fill={colorPalette.coralSunset} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Absenteeism" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 14. STATION ATTENDANCE HISTOGRAM
-// ---------------------------------------------------------------------
-const StationHistogramSection = ({ stationData }) => {
-    if (!stationData || !stationData.stations || stationData.stations.length === 0) return null;
-
-    const bins = { '0-20': 0, '20-40': 0, '40-60': 0, '60-80': 0, '80-100': 0 };
-    stationData.stations.forEach(s => {
-        const rate = s.attendanceRate || 0;
-        if (rate < 20) bins['0-20']++;
-        else if (rate < 40) bins['20-40']++;
-        else if (rate < 60) bins['40-60']++;
-        else if (rate < 80) bins['60-80']++;
-        else bins['80-100']++;
-    });
-
-    const histData = Object.keys(bins).map(key => ({ range: key, count: bins[key] }));
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#6366f1"
-                    chip="Distribution"
-                    description="Histogram showing how many stations fall into each attendance rate bucket."
-                >
-                    Station Attendance Histogram
-                </SectionLabel>
-                <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={histData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" />
-                        <XAxis dataKey="range" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip content={<GlassTooltip />} />
-                        <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 15. BIOMETRIC SECTION (with Pie charts)
-// ---------------------------------------------------------------------
-const BiometricSection = ({ data }) => {
-    if (!data) return null;
-
-    const osData = data.osDistribution || [];
-    const browserData = data.browserDistribution || [];
-    const osPieData = osData.map(item => ({ name: item._id || 'Unknown', value: item.count }));
-    const browserPieData = browserData.map(item => ({ name: item._id || 'Unknown', value: item.count }));
-    const COLORS = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6'];
-
-    return (
-        <Reveal>
-            <Box sx={{ ...G.card, p: 2.5, borderRadius: '20px', mb: 3 }}>
-                <SectionLabel
-                    accent="#3b82f6"
-                    chip="Admin"
-                    description="Biometric enrolment, device health, and OS/browser distribution for IT monitoring."
-                >
-                    Biometric & Device Analytics
-                </SectionLabel>
-
-                <Grid container spacing={2}>
-                    {/* Biometric enrolment cards */}
-                    <Grid item xs={12}>
-                        <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1 }}>
-                            Biometric Enrolment
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Users Enrolled" value={data.usersWithBiometric} icon={<Fingerprint />} accent="#3b82f6" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Authenticators" value={data.totalAuthenticators} icon={<LockOpen />} accent="#8b5cf6" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Successful Verifications" value={data.totalSuccessfulVerifications} icon={<CheckCircle />} accent="#22c55e" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Enrolment Rate" value={`${data.enrolmentRate}%`} icon={<TrendingUp />} accent="#f59e0b" />
-                    </Grid>
-
-                    {/* Device health cards */}
-                    <Grid item xs={12}>
-                        <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-                            Device Health
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Total Devices" value={data.totalDevices} icon={<Devices />} accent="#0a3d62" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Active (7d)" value={data.activeDevices} icon={<CheckCircle />} accent="#22c55e" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Inactive" value={data.inactiveDevices} icon={<CloudOff />} accent="#ef4444" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Uptime" value={`${data.deviceUptime}%`} icon={<Storage />} accent="#3b82f6" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Avg Offline (min)" value={data.deviceOfflineDuration} icon={<AccessTime />} accent="#f59e0b" />
-                    </Grid>
-
-                    {/* Device status cards */}
-                    <Grid item xs={12}>
-                        <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-                            Device Status
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Lost Devices" value={data.lostDevices} icon={<Warning />} accent="#ef4444" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Users with Lost Device" value={data.usersWithLostDevice} icon={<People />} accent="#f59e0b" />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                        <StatCard label="Primary Devices" value={data.primaryDevices} icon={<Settings />} accent="#3b82f6" />
-                    </Grid>
-
-                    {/* OS & Browser Distribution – Pie charts */}
-                    {(osPieData.length > 0 || browserPieData.length > 0) && (
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-                                OS / Browser Distribution
-                            </Typography>
-                            <Grid container spacing={2}>
-                                {osPieData.length > 0 && (
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" display="block" color="text.secondary">Operating Systems</Typography>
-                                        <ResponsiveContainer width="100%" height={150}>
-                                            <PieChart>
-                                                <Pie data={osPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={60} label>
-                                                    {osPieData.map((entry, index) => (
-                                                        <Cell key={`os-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<GlassTooltip />} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </Grid>
-                                )}
-                                {browserPieData.length > 0 && (
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" display="block" color="text.secondary">Browsers</Typography>
-                                        <ResponsiveContainer width="100%" height={150}>
-                                            <PieChart>
-                                                <Pie data={browserPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={60} label>
-                                                    {browserPieData.map((entry, index) => (
-                                                        <Cell key={`browser-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<GlassTooltip />} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </Grid>
-                                )}
-                            </Grid>
-                        </Grid>
-                    )}
-                </Grid>
-            </Box>
-        </Reveal>
-    );
-};
-
-// ---------------------------------------------------------------------
-// 16. MAIN ORGDASHBOARD – charts only (no HeroBanner / KpiSection)
-// ---------------------------------------------------------------------
-export default function OrgDashboard({ user }) {
+const OrganisationStats = () => {
     const [filters, setFilters] = useState({
-        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        department: '',
-        station: '',
+        startDate: getMonthStart(),
+        endDate: getDateInputValue(),
+        station: "",
+        department: "",
+        staffFilter: "",
     });
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    // Data states
+    const [theme, setTheme] = useState(() => buildTheme());
+    const [filterOptions, setFilterOptions] = useState(() => ({
+        stations: uniqueValues(coreDataDetails.AvailableStations),
+        departments: uniqueValues(coreDataDetails.availableDepartments),
+    }));
     const [kpis, setKpis] = useState(null);
-    const [trends, setTrends] = useState(null);
-    const [late, setLate] = useState(null);
-    const [early, setEarly] = useState(null);
-    const [absenteeism, setAbsenteeism] = useState(null);
-    const [deptComp, setDeptComp] = useState(null);
-    const [stationComp, setStationComp] = useState(null);
-    const [compliance, setCompliance] = useState(null);
-    const [biometric, setBiometric] = useState(null);
+    const [trends, setTrends] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [stations, setStations] = useState([]);
+    const [lateAnalytics, setLateAnalytics] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+    const params = useMemo(() => buildParams(filters), [filters]);
 
-    const departments = kpis?.departments || [];
-    const stations = kpis?.stations || [];
+    const loadDashboard = useCallback(async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+            const [
+                configResult,
+                kpiResult,
+                trendResult,
+                departmentResult,
+                stationResult,
+                lateResult,
+            ] = await Promise.allSettled([
+                SuperadminAPI.getPlatformConfig(),
+                fetchAnalyticsKPIs(params),
+                fetchAttendanceTrends(params),
+                fetchDepartmentAnalytics(params),
+                fetchStationAnalytics(params),
+                fetchLateArrivalAnalytics(params),
+            ]);
+
+            if (configResult.status === "fulfilled") {
+                const config = configResult.value || {};
+                applyPlatformConfigToCoreData(config);
+                setTheme(buildTheme(config));
+                setFilterOptions({
+                    stations: uniqueValues(config.stations || coreDataDetails.AvailableStations),
+                    departments: uniqueValues(config.departments || coreDataDetails.availableDepartments),
+                });
+            }
+
+            if (kpiResult.status !== "fulfilled") {
+                throw kpiResult.reason;
+            }
+
+            setKpis(kpiResult.value || {});
+            setTrends(trendResult.status === "fulfilled" ? trendResult.value?.daily || [] : []);
+            setDepartments(departmentResult.status === "fulfilled" ? departmentResult.value?.departments || [] : []);
+            setStations(stationResult.status === "fulfilled" ? stationResult.value?.stations || [] : []);
+            setLateAnalytics(lateResult.status === "fulfilled" ? lateResult.value || {} : {});
+        } catch (err) {
+            setError(
+                typeof err === "string"
+                    ? err
+                    : err?.response?.data?.message || err?.message || "Failed to load organisation statistics."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, [params]);
 
     useEffect(() => {
-        const fetchAllData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const params = {
-                    startDate: filters.startDate,
-                    endDate: filters.endDate,
-                    department: filters.department,
-                    station: filters.station,
-                };
+        loadDashboard();
+    }, [loadDashboard]);
 
-                const promises = [
-                    fetchAnalyticsKPIs(params).then(data => { setKpis(data); return data; }),
-                    fetchAttendanceTrends(params).then(data => { setTrends(data); return data; }),
-                    fetchLateArrivalAnalytics(params).then(data => { setLate(data); return data; }),
-                    fetchEarlyDepartureAnalytics(params).then(data => { setEarly(data); return data; }),
-                    fetchAbsenteeismAnalytics(params).then(data => { setAbsenteeism(data); return data; }),
-                    fetchDepartmentAnalytics(params).then(data => { setDeptComp(data); return data; }),
-                    fetchStationAnalytics(params).then(data => { setStationComp(data); return data; }),
-                    fetchComplianceAnalytics(params).then(data => { setCompliance(data); return data; }),
-                ];
+    const lateToday = Number(lateAnalytics?.employeesLateToday || 0);
+    const presentToday = Number(kpis?.presentToday || 0);
+    const onTimeToday = Math.max(presentToday - lateToday, 0);
 
-                if (user?.rank === 'admin') {
-                    promises.push(
-                        fetchBiometricAnalytics(params).then(data => { setBiometric(data); return data; })
-                    );
-                } else {
-                    setBiometric(null);
-                }
+    const chartData = useMemo(
+        () =>
+            trends.map((item) => ({
+                ...item,
+                label: formatDateLabel(item.date, { year: undefined }),
+                present: Number(item.present || 0),
+                absent: Number(item.absent || 0),
+                late: Number(item.late || 0),
+                attendance: Number(item.attendance || 0),
+            })),
+        [trends]
+    );
 
-                await Promise.all(promises);
-                setLoading(false);
-            } catch (err) {
-                console.error(err);
-                setError(err.message || 'Failed to load data');
-                setSnack({ open: true, message: err.message || 'Failed to load analytics data', severity: 'error' });
-                setLoading(false);
-            }
-        };
+    const distribution = useMemo(
+        () =>
+            [
+                { name: "Present", value: onTimeToday, color: theme.success },
+                { name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
+                { name: "On Leave", value: Number(kpis?.onLeaveToday || 0), color: theme.warning },
+                { name: "Late", value: lateToday, color: theme.purple },
+            ].filter((item) => item.value > 0),
+        [kpis, lateToday, onTimeToday, theme]
+    );
 
-        fetchAllData();
-    }, [filters, user]);
+    const sortedStations = useMemo(
+        () => [...stations].sort((a, b) => Number(b.attendanceRate || 0) - Number(a.attendanceRate || 0)),
+        [stations]
+    );
 
-    if (error && !loading) {
+    const sortedDepartments = useMemo(
+        () => [...departments].sort((a, b) => Number(b.attendanceRate || 0) - Number(a.attendanceRate || 0)),
+        [departments]
+    );
+
+    const topStation = sortedStations[0];
+    const lowestStation = [...sortedStations].reverse()[0];
+    const topDepartment = sortedDepartments[0];
+    const attentionCount = Number(kpis?.absentToday || 0) + lateToday;
+
+    const handleFilterChange = (field) => (event) => {
+        setFilters((previous) => ({
+            ...previous,
+            [field]: event.target.value,
+        }));
+    };
+
+    const clearFilters = () => {
+        setFilters({
+            startDate: getMonthStart(),
+            endDate: getDateInputValue(),
+            station: "",
+            department: "",
+            staffFilter: "",
+        });
+    };
+
+    if (loading && !kpis) {
         return (
-            <Box sx={{ p: 4 }}>
-                <Alert severity="error">Failed to load analytics: {error}</Alert>
+            <Box sx={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Stack spacing={2} alignItems="center">
+                    <CircularProgress size={34} sx={{ color: theme.secondary }} />
+                    <Typography sx={{ color: theme.muted, fontWeight: 700 }}>
+                        Loading organisation statistics...
+                    </Typography>
+                </Stack>
             </Box>
         );
     }
 
     return (
-        <Box sx={{ position: 'relative', px: { xs: 2, md: 4 }, py: 3, maxWidth: '1600px', mx: 'auto' }}>
-            <AmbientOrbs />
-
-            <Snackbar
-                open={snack.open}
-                autoHideDuration={5000}
-                onClose={() => setSnack(prev => ({ ...prev, open: false }))}
-                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        <Box sx={{ minHeight: "100%", p: { xs: 1.5, md: 3 }, background: `linear-gradient(180deg, ${theme.surface} 0%, #ffffff 100%)` }}>
+            <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={2}
+                alignItems={{ xs: "stretch", md: "center" }}
+                justifyContent="space-between"
+                sx={{ mb: 2.5 }}
             >
-                <Alert severity={snack.severity} variant="filled" elevation={6}>
-                    {snack.message}
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box
+                        sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: theme.secondary,
+                            background: `${theme.secondary}14`,
+                        }}
+                    >
+                        <AssessmentRounded />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 900, color: theme.text, lineHeight: 1.1 }}>
+                            Organisation Statistics
+                        </Typography>
+                        <Typography sx={{ mt: 0.5, fontSize: 13, color: theme.muted }}>
+                            Attendance performance across stations and departments.
+                        </Typography>
+                    </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} flexWrap="wrap" useFlexGap>
+                    <Chip
+                        icon={<ShieldRounded sx={{ fontSize: 16 }} />}
+                        label="HR Manager"
+                        sx={{
+                            height: 40,
+                            borderRadius: "8px",
+                            bgcolor: `${theme.accent}18`,
+                            color: theme.primary,
+                            fontWeight: 800,
+                        }}
+                    />
+                    <Button
+                        variant="outlined"
+                        startIcon={loading ? <CircularProgress size={14} /> : <RefreshRounded />}
+                        onClick={loadDashboard}
+                        disabled={loading}
+                        sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, borderColor: theme.border, color: theme.primary }}
+                    >
+                        Refresh
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<DownloadRounded />}
+                        onClick={() => exportCsv({ kpis, stations: sortedStations, departments: sortedDepartments, filters })}
+                        sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+                    >
+                        Export
+                    </Button>
+                </Stack>
+            </Stack>
+
+            {error && (
+                <Alert severity="error" sx={{ mb: 2, borderRadius: "8px" }}>
+                    {error}
                 </Alert>
-            </Snackbar>
+            )}
 
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                <FilterBar filters={filters} setFilters={setFilters} departments={departments} stations={stations} />
-            </motion.div>
+            <Card elevation={0} sx={{ mb: 2.5, border: `1px solid ${theme.border}`, borderRadius: "8px" }}>
+                <CardContent sx={{ p: 2 }}>
+                    <Grid container spacing={1.5} alignItems="center">
+                        <Grid item xs={12} sm={6} md={2.4}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                type="date"
+                                label="From"
+                                value={filters.startDate}
+                                onChange={handleFilterChange("startDate")}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={2.4}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                type="date"
+                                label="To"
+                                value={filters.endDate}
+                                onChange={handleFilterChange("endDate")}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={2.4}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Station</InputLabel>
+                                <Select value={filters.station} label="Station" onChange={handleFilterChange("station")}>
+                                    <MenuItem value="">All Stations</MenuItem>
+                                    {filterOptions.stations.map((station) => (
+                                        <MenuItem key={station} value={station}>
+                                            {station}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={2.4}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Department</InputLabel>
+                                <Select value={filters.department} label="Department" onChange={handleFilterChange("department")}>
+                                    <MenuItem value="">All Departments</MenuItem>
+                                    {filterOptions.departments.map((department) => (
+                                        <MenuItem key={department} value={department}>
+                                            {department}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={2.4}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Staff Type / Rank</InputLabel>
+                                <Select value={filters.staffFilter} label="Staff Type / Rank" onChange={handleFilterChange("staffFilter")}>
+                                    {staffFilters.map((item) => (
+                                        <MenuItem key={item.value || "all"} value={item.value}>
+                                            {item.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                                <Button onClick={clearFilters} sx={{ textTransform: "none", fontWeight: 800, color: theme.primary }}>
+                                    Clear
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<FilterAltRounded />}
+                                    onClick={loadDashboard}
+                                    disabled={loading}
+                                    sx={{ textTransform: "none", fontWeight: 800, borderRadius: "8px", bgcolor: theme.primary }}
+                                >
+                                    Apply Filters
+                                </Button>
+                            </Stack>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
 
-            {/* ---- Charts only (HeroBanner and KpiSection removed) ---- */}
+            <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="Total Staff" value={formatNumber(kpis?.totalEmployees)} subtitle="Workforce" icon={<GroupsRounded />} tone={theme.secondary} theme={theme} />
+                </Grid>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="Present" value={formatNumber(kpis?.presentToday)} subtitle="Today" icon={<CheckCircleRounded />} tone={theme.success} theme={theme} />
+                </Grid>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="Absent" value={formatNumber(kpis?.absentToday)} subtitle="Today" icon={<WarningAmberRounded />} tone={theme.danger} theme={theme} />
+                </Grid>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="On Leave" value={formatNumber(kpis?.onLeaveToday)} subtitle="Today" icon={<EventAvailableRounded />} tone={theme.warning} theme={theme} />
+                </Grid>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="Late" value={formatNumber(lateToday)} subtitle="Today" icon={<HourglassBottomRounded />} tone={theme.purple} theme={theme} />
+                </Grid>
+                <Grid item xs={6} sm={4} lg={2}>
+                    <StatCard title="Attendance Rate" value={formatPercent(kpis?.attendanceRate)} subtitle={formatRangeLabel(filters.startDate, filters.endDate)} icon={<PieChartRounded />} tone={theme.secondary} theme={theme} />
+                </Grid>
+            </Grid>
 
-            <TrendsSection data={trends} />
-            <LateArrivalSection data={late} />
-            <EarlyDepartureSection data={early} />
-            <AbsenteeismSection data={absenteeism} />
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} lg={5}>
+                    <SectionCard
+                        title="Attendance Trend"
+                        subtitle="Daily present, absent, and late staff"
+                        theme={theme}
+                        action={
+                            <Tooltip title="Working days in the selected date range">
+                                <HelpOutlineRounded sx={{ fontSize: 18, color: theme.muted }} />
+                            </Tooltip>
+                        }
+                    >
+                        <Box sx={{ height: 295 }}>
+                            {chartData.length ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.18)" />
+                                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={18} />
+                                        <YAxis tick={{ fontSize: 10, fill: theme.muted }} allowDecimals={false} />
+                                        <RechartsTooltip />
+                                        <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                                        <Line type="monotone" dataKey="present" name="Present" stroke={theme.success} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
+                                        <Line type="monotone" dataKey="absent" name="Absent" stroke={theme.danger} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
+                                        <Line type="monotone" dataKey="late" name="Late" stroke={theme.purple} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <EmptyState label="No attendance trend data available." theme={theme} />
+                            )}
+                        </Box>
+                    </SectionCard>
+                </Grid>
 
-            {/* Department comparisons */}
-            <DeptComparisonSection data={deptComp} />
-            <DeptPerformanceBarSection deptData={deptComp} />
-            <AttendanceHistogramSection deptData={deptComp} />
+                <Grid item xs={12} md={6} lg={3}>
+                    <SectionCard title="Attendance Distribution" subtitle="Today by attendance state" theme={theme}>
+                        <Box sx={{ height: 295, position: "relative" }}>
+                            {distribution.length ? (
+                                <>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={distribution} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={2}>
+                                                {distribution.map((item) => (
+                                                    <Cell key={item.name} fill={item.color} />
+                                                ))}
+                                            </Pie>
+                                            <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                                            <RechartsTooltip formatter={(value, name) => [formatNumber(value), name]} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <Box sx={{ position: "absolute", top: "41%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
+                                        <Typography sx={{ fontSize: 24, fontWeight: 900, color: theme.text, lineHeight: 1 }}>
+                                            {formatNumber(kpis?.totalEmployees)}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 10, color: theme.muted, fontWeight: 700 }}>
+                                            Total Staff
+                                        </Typography>
+                                    </Box>
+                                </>
+                            ) : (
+                                <EmptyState label="No distribution data available." theme={theme} />
+                            )}
+                        </Box>
+                        <Box sx={{ mt: -0.5, py: 1, px: 1.5, borderRadius: "8px", bgcolor: `${theme.success}14`, textAlign: "center" }}>
+                            <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.success }}>
+                                Attendance Rate: {formatPercent(kpis?.attendanceRate)}
+                            </Typography>
+                        </Box>
+                    </SectionCard>
+                </Grid>
 
-            {/* Station comparisons */}
-            <StationComparisonRadarSection stationData={stationComp} />
-            <StationPerformanceBarSection stationData={stationComp} />
-            <StationHistogramSection stationData={stationComp} />
+                <Grid item xs={12} md={6} lg={4}>
+                    <SectionCard title="Attendance by Station" subtitle="Station performance" theme={theme}>
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 900 }}>Station</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Staff</TableCell>
+                                        <TableCell sx={{ fontWeight: 900 }}>Attendance</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Absent</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Late</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {sortedStations.slice(0, 6).map((station) => {
+                                        const rate = Number(station.attendanceRate || 0);
+                                        return (
+                                            <TableRow key={station.station}>
+                                                <TableCell sx={{ maxWidth: 150 }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: theme.text, overflowWrap: "anywhere" }}>
+                                                        {station.station || "Unassigned"}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="right">{formatNumber(station.staffCount)}</TableCell>
+                                                <TableCell sx={{ minWidth: 118 }}>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={safePercent(rate)}
+                                                            sx={{
+                                                                width: 64,
+                                                                height: 6,
+                                                                borderRadius: 10,
+                                                                bgcolor: "rgba(100,116,139,0.16)",
+                                                                "& .MuiLinearProgress-bar": {
+                                                                    bgcolor: getAttendanceColor(rate, theme),
+                                                                    borderRadius: 10,
+                                                                },
+                                                            }}
+                                                        />
+                                                        <Typography sx={{ fontSize: 11, fontWeight: 900 }}>{formatPercent(rate)}</Typography>
+                                                    </Stack>
+                                                </TableCell>
+                                                <TableCell align="right">{formatNumber(station.absentDays)}</TableCell>
+                                                <TableCell align="right">{formatNumber(station.totalLateCount)}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                    {!sortedStations.length && (
+                                        <TableRow>
+                                            <TableCell colSpan={5}>
+                                                <EmptyState label="No station data available." theme={theme} />
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </SectionCard>
+                </Grid>
+            </Grid>
 
-            <ProductivityTrendSection trends={trends} />
+            <Grid container spacing={2}>
+                <Grid item xs={12} lg={8}>
+                    <SectionCard title="Department Performance" subtitle="Present-days, absence, leave, and lateness" theme={theme}>
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 900 }}>Department</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Staff</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Present</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Absent</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>Late</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 900 }}>On Leave</TableCell>
+                                        <TableCell sx={{ fontWeight: 900 }}>Attendance</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {sortedDepartments.slice(0, 8).map((department) => {
+                                        const rate = Number(department.attendanceRate || 0);
+                                        return (
+                                            <TableRow key={department.department}>
+                                                <TableCell sx={{ maxWidth: 230 }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: theme.text, overflowWrap: "anywhere" }}>
+                                                        {department.department || "Unassigned"}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="right">{formatNumber(department.staffCount)}</TableCell>
+                                                <TableCell align="right">{formatNumber(department.presentDays)}</TableCell>
+                                                <TableCell align="right">{formatNumber(department.absentDays)}</TableCell>
+                                                <TableCell align="right">{formatNumber(department.totalLateCount)}</TableCell>
+                                                <TableCell align="right">{formatNumber(department.onLeaveDays)}</TableCell>
+                                                <TableCell sx={{ minWidth: 140 }}>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={safePercent(rate)}
+                                                            sx={{
+                                                                width: 70,
+                                                                height: 7,
+                                                                borderRadius: 10,
+                                                                bgcolor: "rgba(100,116,139,0.16)",
+                                                                "& .MuiLinearProgress-bar": {
+                                                                    bgcolor: getAttendanceColor(rate, theme),
+                                                                    borderRadius: 10,
+                                                                },
+                                                            }}
+                                                        />
+                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>
+                                                            {formatPercent(rate)}
+                                                        </Typography>
+                                                    </Stack>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                    {!sortedDepartments.length && (
+                                        <TableRow>
+                                            <TableCell colSpan={7}>
+                                                <EmptyState label="No department data available." theme={theme} />
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </SectionCard>
+                </Grid>
 
-            <ComplianceSection data={compliance} />
-            <CompliancePieSection data={compliance} />
+                <Grid item xs={12} lg={4}>
+                    <SectionCard title="Management Insights" subtitle="Highlights for the selected period" theme={theme}>
+                        <Grid container spacing={1.2}>
+                            <Grid item xs={12}>
+                                <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: `${theme.success}12`, border: `1px solid ${theme.success}33` }}>
+                                    <Stack direction="row" justifyContent="space-between" spacing={2}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.success }}>Best Performing Station</Typography>
+                                            <Typography sx={{ mt: 0.5, fontSize: 16, fontWeight: 900, color: theme.text }}>{topStation?.station || "N/A"}</Typography>
+                                            <Typography sx={{ fontSize: 23, fontWeight: 900, color: theme.success }}>{formatPercent(topStation?.attendanceRate)}</Typography>
+                                        </Box>
+                                        <TrendingUpRounded sx={{ color: theme.success, fontSize: 34, alignSelf: "center" }} />
+                                    </Stack>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: `${theme.danger}10`, border: `1px solid ${theme.danger}33` }}>
+                                    <Stack direction="row" justifyContent="space-between" spacing={2}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.danger }}>Lowest Attendance Station</Typography>
+                                            <Typography sx={{ mt: 0.5, fontSize: 16, fontWeight: 900, color: theme.text }}>{lowestStation?.station || "N/A"}</Typography>
+                                            <Typography sx={{ fontSize: 23, fontWeight: 900, color: theme.danger }}>{formatPercent(lowestStation?.attendanceRate)}</Typography>
+                                        </Box>
+                                        <TrendingDownRounded sx={{ color: theme.danger, fontSize: 34, alignSelf: "center" }} />
+                                    </Stack>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Box sx={{ p: 1.4, minHeight: 104, borderRadius: "8px", bgcolor: `${theme.secondary}10` }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 900, color: theme.secondary }}>Top Department</Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: 13, fontWeight: 900, color: theme.text, overflowWrap: "anywhere" }}>
+                                        {topDepartment?.department || "N/A"}
+                                    </Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: 18, fontWeight: 900, color: theme.secondary }}>
+                                        {formatPercent(topDepartment?.attendanceRate)}
+                                    </Typography>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Box sx={{ p: 1.4, minHeight: 104, borderRadius: "8px", bgcolor: `${theme.warning}16` }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 900, color: "#B45309" }}>Frequent Late Arrivals</Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: 24, fontWeight: 900, color: "#92400E" }}>{formatNumber(lateToday)}</Typography>
+                                    <Typography sx={{ fontSize: 10, color: "#B45309", fontWeight: 700 }}>staff today</Typography>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Box sx={{ p: 1.4, minHeight: 104, borderRadius: "8px", bgcolor: `${theme.purple}12` }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 900, color: theme.purple }}>Staff Requiring Attention</Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: 24, fontWeight: 900, color: theme.purple }}>{formatNumber(attentionCount)}</Typography>
+                                    <Typography sx={{ fontSize: 10, color: theme.purple, fontWeight: 700 }}>absent or late today</Typography>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Box sx={{ p: 1.4, minHeight: 104, borderRadius: "8px", bgcolor: `${theme.accent}14` }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 900, color: theme.primary }}>Average Hours</Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: 24, fontWeight: 900, color: theme.primary }}>
+                                        {Number(kpis?.averageWorkingHours || 0).toFixed(1)}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 10, color: theme.primary, fontWeight: 700 }}>hours per record</Typography>
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </SectionCard>
+                </Grid>
+            </Grid>
 
-            {user?.rank === 'admin' && <BiometricSection data={biometric} />}
+            <Grid container spacing={2} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={8}>
+                    <SectionCard title="Department Attendance Rate" subtitle="Top departments by attendance percentage" theme={theme}>
+                        <Box sx={{ height: 300 }}>
+                            {sortedDepartments.length ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={sortedDepartments.slice(0, 8)} margin={{ top: 8, right: 10, left: -20, bottom: 42 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
+                                        <XAxis dataKey="department" tick={{ fontSize: 10, fill: theme.muted }} interval={0} angle={-20} textAnchor="end" height={64} />
+                                        <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
+                                        <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance"]} />
+                                        <Bar dataKey="attendanceRate" name="Attendance Rate" radius={[6, 6, 0, 0]}>
+                                            {sortedDepartments.slice(0, 8).map((item) => (
+                                                <Cell key={item.department} fill={getAttendanceColor(item.attendanceRate, theme)} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <EmptyState label="No department chart data available." theme={theme} />
+                            )}
+                        </Box>
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={4}>
+                    <SectionCard title="Summary" subtitle="Selected period snapshot" theme={theme}>
+                        <Stack spacing={1.2}>
+                            {[
+                                ["Scope", filters.station || filters.department || "All Stations and Departments"],
+                                ["Staff Type / Rank", staffFilters.find((item) => item.value === filters.staffFilter)?.label || "All"],
+                                ["Punctuality Rate", formatPercent(kpis?.punctualityRate)],
+                                ["Absenteeism Rate", formatPercent(kpis?.absenteeismRate)],
+                                ["Productivity Index", formatPercent(kpis?.productivityIndex)],
+                            ].map(([label, value]) => (
+                                <Stack key={label} direction="row" justifyContent="space-between" spacing={2} sx={{ py: 1, borderBottom: `1px solid ${theme.border}` }}>
+                                    <Typography sx={{ color: theme.muted, fontSize: 12, fontWeight: 800 }}>{label}</Typography>
+                                    <Typography sx={{ color: theme.text, fontSize: 12, fontWeight: 900, textAlign: "right", overflowWrap: "anywhere" }}>
+                                        {titleCase(value)}
+                                    </Typography>
+                                </Stack>
+                            ))}
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ pt: 0.5 }}>
+                                <InsightsRounded sx={{ color: theme.secondary, fontSize: 18 }} />
+                                <Typography sx={{ color: theme.muted, fontSize: 11 }}>
+                                    Last updated{" "}
+                                    {new Date().toLocaleString("en-KE", {
+                                        dateStyle: "medium",
+                                        timeStyle: "short",
+                                        timeZone: EAT_TIMEZONE,
+                                    })}{" "}
+                                    EAT.
+                                </Typography>
+                            </Stack>
+                        </Stack>
+                    </SectionCard>
+                </Grid>
+            </Grid>
         </Box>
     );
-}
+};
+
+export default OrganisationStats;

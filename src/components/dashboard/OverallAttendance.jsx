@@ -1890,7 +1890,7 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
         date: toTitleCase(fmtDate(rec.clock_in)),
         rawDate: new Date(rec.clock_in),
         clockIn: fmtTime(rec.clock_in),
-        clockOut: rec.clock_out ? fmtTime(rec.clock_out) : 'System',
+        clockOut: rec.missedClockOut ? 'System' : rec.clock_out ? fmtTime(rec.clock_out) : 'System',
         duration: fmtDuration(rec.clock_in, rec.clock_out),
         inLocation: formatLocationLabel(rec, true),
         outLocation: formatLocationLabel(rec, false),

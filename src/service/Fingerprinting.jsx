@@ -1,8 +1,13 @@
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
+let deviceFingerprintPromise;
+
 export const getDeviceFingerprint = async () => {
-  const fp = await FingerprintJS.load();
-  const result = await fp.get();
-  // unique device ID
-  return result.visitorId; 
+  if (!deviceFingerprintPromise) {
+    deviceFingerprintPromise = FingerprintJS.load()
+      .then(fp => fp.get())
+      .then(result => result.visitorId);
+  }
+
+  return deviceFingerprintPromise;
 };

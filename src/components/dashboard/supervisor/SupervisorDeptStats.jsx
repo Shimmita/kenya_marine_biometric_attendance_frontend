@@ -207,7 +207,7 @@ const SupervisorDeptStats = () => {
             date: new Date(r.clock_in).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }),
             dateObj: new Date(r.clock_in), // for date filtering
             clockIn: new Date(r.clock_in).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
-            clockOut: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : 'System',
+            clockOut: r.missedClockOut ? 'System' : r.clock_out ? new Date(r.clock_out).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : 'System',
             inLocation: formatLocationLabel(r, true),
             outLocation: formatLocationLabel(r, false),
             whyOut: r.outSideReason ? toTitleCase(r.outSideReason) : "",

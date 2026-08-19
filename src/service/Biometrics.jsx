@@ -16,6 +16,22 @@ const ensureWebAuthnSupport = () => {
   }
 };
 
+export const fetchBiometricStatus = async (device_fingerprint) => {
+  try {
+    const { data } = await api.get("/biometric/status", {
+      params: { device_fingerprint },
+    });
+
+    return data;
+  } catch (err) {
+    throw (
+      err?.response?.data?.message ||
+      err?.message ||
+      "Failed to check biometric status"
+    );
+  }
+};
+
 /**
  * Register fingerprint/device biometric
  * Runs once per device enrollment
@@ -26,11 +42,16 @@ export const registerFingerprint = async (device = {}) => {
 
     // fetch registration challenge/options
     const { data: options } = await api.get(
-      "/biometric/register/challenge"
+      "/biometric/register/challenge",
+      { params: { device_fingerprint: device.device_fingerprint } }
     );
 
+    if (options?.registered || options?.alreadyRegistered) {
+      return options;
+    }
+
     // trigger WebAuthn registration
-    const credential = await startRegistration(options);
+    const credential = await startRegistration({ optionsJSON: options });
 
     // verify + persist credential
     const { data } = await api.post(
@@ -62,6 +83,15 @@ export const registerFingerprint = async (device = {}) => {
 
     // duplicate / invalid credential
     if (err?.name === "InvalidStateError") {
+      const status = await fetchBiometricStatus(device.device_fingerprint).catch(() => null);
+      if (status?.registered) {
+        return {
+          registered: true,
+          alreadyRegistered: true,
+          currentDeviceRegistered: status.currentDeviceRegistered,
+        };
+      }
+
       throw "This biometric credential is already registered";
     }
 
@@ -88,11 +118,12 @@ export const verifyFingerprint = async (
 
     // fetch authentication challenge/options
     const { data: options } = await api.get(
-      "/biometric/auth/challenge"
+      "/biometric/auth/challenge",
+      { params: { device_fingerprint } }
     );
 
     // trigger WebAuthn auth flow
-    const authResponse = await startAuthentication(options);
+    const authResponse = await startAuthentication({ optionsJSON: options });
 
     // verify authentication
     const { data } = await api.post(
