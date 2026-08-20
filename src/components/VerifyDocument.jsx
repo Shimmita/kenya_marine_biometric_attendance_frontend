@@ -6,7 +6,7 @@ import {
     Fingerprint, Description, GppGood, Shield, Policy
 } from '@mui/icons-material';
 import {
-    Alert, Box, Chip, CircularProgress, Paper, Stack, Typography, Divider, Grid
+    Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Typography, Divider, Grid
 } from '@mui/material';
 import { verifyDocument } from '../service/VerificationService';
 import coreDataDetails from './CoreDataDetails';
@@ -84,6 +84,9 @@ const VerifyDocument = () => {
     const isTampered = isValid && verificationData?.contentMatch === false;
     const isExpired = verificationData?.expired;
     const isAuthentic = isValid && !isTampered && !isExpired;
+    const documentBase64 = verificationData?.document?.base64;
+    const documentMimeType = verificationData?.document?.mimeType || 'application/pdf';
+    const documentSrc = documentBase64 ? `data:${documentMimeType};base64,${documentBase64}` : '';
 
     // Theme color based on authenticity
     const statusColor = isAuthentic ? colorPalette.seafoamGreen : 
@@ -100,7 +103,7 @@ const VerifyDocument = () => {
                         KMFRI SECURITY PROTOCOL
                     </Typography>
                     <Typography variant="h3" sx={{ color: 'white', fontWeight: 900, mt: 1 }}>
-                        Attendance Verification
+                        Export Verification
                     </Typography>
                 </motion.div>
             </Box>
@@ -145,11 +148,11 @@ const VerifyDocument = () => {
                                             </Grid>
                                             <Grid item xs={12} md={8}>
                                                 <Typography variant="h4" fontWeight={900} color="#041421">
-                                                    {isAuthentic ? 'Authentic Attendance' : isTampered ? 'Tampered Document' : 'Not Authentic'}
+                                                    {isAuthentic ? 'Authentic KMFRI Export' : isTampered ? 'Tampered Document' : 'Not Authentic'}
                                                 </Typography>
                                                 <Typography sx={{ color: 'text.secondary', mt: 1, mb: 3 }}>
                                                     {isAuthentic 
-                                                        ? 'This report is verified as a genuine KMFRI attendance record.' 
+                                                        ? 'This export is verified as a genuine KMFRI attendance document.' 
                                                         : isTampered 
                                                         ? 'Warning: The digital footprint of this document has been modified.' 
                                                         : 'This token does not match any official research records.'}
@@ -173,7 +176,10 @@ const VerifyDocument = () => {
                                                 <InfoTile icon={<Policy />} label="Origin" value="KMFRI Headquarters" />
                                             </Grid>
                                             <Grid item xs={12} sm={6}>
-                                                <InfoTile icon={<Description />} label="Report Category" value={verificationData?.type?.toUpperCase() || 'ATTENDANCE'} />
+                                                <InfoTile icon={<Description />} label="Report Category" value={verificationData?.title || verificationData?.type?.toUpperCase() || 'ATTENDANCE'} />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6}>
+                                                <InfoTile icon={<Fingerprint />} label="Scope" value={verificationData?.scope || verificationData?.metadata?.scope || 'Official KMFRI export'} />
                                             </Grid>
                                             <Grid item xs={12}>
                                                 <Box sx={{ bgcolor: '#f8fafb', p: 2, borderRadius: '16px', border: '1px solid #edf2f7' }}>
@@ -186,6 +192,36 @@ const VerifyDocument = () => {
                                                 </Box>
                                             </Grid>
                                         </Grid>
+
+                                        {documentSrc && isAuthentic && (
+                                            <Box sx={{ mt: 4 }}>
+                                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 1.5 }}>
+                                                    <Typography variant="h6" fontWeight={900} color="#041421">
+                                                        Verified Document
+                                                    </Typography>
+                                                    <Button
+                                                        variant="contained"
+                                                        href={documentSrc}
+                                                        download={verificationData?.filename || 'KMFRI_Verified_Export.pdf'}
+                                                        sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 800, bgcolor: '#062c4d' }}
+                                                    >
+                                                        Download PDF
+                                                    </Button>
+                                                </Stack>
+                                                <Box
+                                                    component="iframe"
+                                                    title="Verified KMFRI export"
+                                                    src={documentSrc}
+                                                    sx={{
+                                                        width: '100%',
+                                                        height: { xs: 520, md: 720 },
+                                                        border: '1px solid #d7e5ee',
+                                                        borderRadius: '18px',
+                                                        bgcolor: '#fff',
+                                                    }}
+                                                />
+                                            </Box>
+                                        )}
                                     </Box>
                                 </Paper>
                             </Reveal>

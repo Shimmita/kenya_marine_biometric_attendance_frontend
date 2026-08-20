@@ -83,6 +83,13 @@ const RANK_META = {
     superadmin: { label: 'Superadmin' },
     user: { label: '' },
 };
+const normalizeStationAccessName = (value = '') =>
+    String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\bcenter\b/g, 'centre');
+const isMombasaCentreStation = (value) => normalizeStationAccessName(value) === 'mombasa centre';
 
 /* ─── Shared admin items — HR-specific items split out ─────────────────── */
 const ADMIN_SHARED_ITEMS = [
@@ -112,6 +119,7 @@ const SUPERADMIN_AUDITOR_ITEMS = [
 
 const SUPERADMIN_SUPERVISOR_ITEMS = [
     { text: 'Departmental Statistics', icon: <QueryStats /> },
+    { text: 'Broader Statistics', icon: <BarChartRounded /> },
     { text: 'Manage Your Members', icon: <SupervisorAccount /> },
     { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
 ];
@@ -491,6 +499,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const supervisorItems = useMemo(() => [
         { text: 'Departmental Statistics', icon: <QueryStats /> },
         { text: 'Analytics Dashboard', icon: <InsightsRounded /> },
+        { text: 'Broader Statistics', icon: <BarChartRounded /> },
         { text: 'Manage Your Members', icon: <SupervisorAccount />, },
         { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
     ], [platformConfigVersion]);
@@ -990,6 +999,7 @@ const EnhancedDashboard = () => {
             ],
             supervisor: [
                 { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
                 { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
             ],
@@ -1075,13 +1085,35 @@ const EnhancedDashboard = () => {
             case 'Platform Administration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
         }
-    }, [activeTab, canViewAdminFeatures, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user?.department, user?.rank]);
+    }, [activeTab, canViewAdminFeatures, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user]);
 
-    const pageTitle = useMemo(() => (
-        activeTab === 'Clocking Dashboard'
-            ? `Welcome Back, ${user?.name?.split(' ')[0] || 'User'} 👋`
-            : (PAGE_TITLES[activeTab] || activeTab)
-    ), [activeTab, user?.name]);
+    const pageTitle = useMemo(() => {
+        if (activeTab === 'Clocking Dashboard') {
+            return `Welcome Back, ${user?.name?.split(' ')[0] || 'User'} 👋`;
+        }
+
+        if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
+            return 'Department Broader Statistics';
+        }
+
+        return PAGE_TITLES[activeTab] || activeTab;
+    }, [activeTab, user?.name, user?.rank]);
+
+    const pageSubtitle = useMemo(() => {
+        if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
+            const department = user?.department || 'your department';
+            const station = user?.station || 'your station';
+            return `Station and department scoped analytics for ${department} at ${station}`;
+        }
+
+        if (activeTab === 'Broader Statistics' && user?.rank === 'hr') {
+            return isMombasaCentreStation(user?.station)
+                ? 'Super HR analytics across all stations'
+                : `Station scoped HR analytics for ${user?.station || 'your station'}`;
+        }
+
+        return PAGE_SUBTITLES[activeTab];
+    }, [activeTab, user?.department, user?.rank, user?.station]);
 
     useEffect(() => {
         const cleanTitle = String(pageTitle).replace('👋', '').trim();
@@ -1198,9 +1230,9 @@ const EnhancedDashboard = () => {
                                     }} />
                                 )}
                             </Stack>
-                            {PAGE_SUBTITLES[activeTab] && (
+                            {pageSubtitle && (
                                 <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mt: 0.5 }}>
-                                    {PAGE_SUBTITLES[activeTab]}
+                                    {pageSubtitle}
                                 </Typography>
                             )}
                         </Box>

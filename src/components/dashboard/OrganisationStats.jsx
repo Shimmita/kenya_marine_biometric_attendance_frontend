@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
     Alert,
     Box,
@@ -19,7 +19,10 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
+    Tab,
+    Tabs,
     TextField,
     Tooltip,
     Typography,
@@ -29,14 +32,15 @@ import {
     CheckCircleRounded,
     DownloadRounded,
     EventAvailableRounded,
-    FilterAltRounded,
     GroupsRounded,
     HelpOutlineRounded,
+    HistoryRounded,
     HourglassBottomRounded,
     InsightsRounded,
     PieChartRounded,
     RefreshRounded,
     ShieldRounded,
+    TableChartRounded,
     TrendingDownRounded,
     TrendingUpRounded,
     WarningAmberRounded,
@@ -56,6 +60,7 @@ import {
     XAxis,
     YAxis,
 } from "recharts";
+import QRCode from "qrcode";
 
 import {
     fetchAbsenteeismAnalytics,
@@ -65,13 +70,17 @@ import {
     fetchComplianceAnalytics,
     fetchDepartmentAnalytics,
     fetchEarlyDepartureAnalytics,
+    fetchOverallAttendanceRecords,
+    fetchOverallAttendanceSummary,
     fetchLateArrivalAnalytics,
     fetchOutsideClockingAnalytics,
     fetchProductivityAnalytics,
     fetchStationAnalytics,
     fetchWorkforceAnalytics,
 } from "../../service/ClockingService";
+import KMFRILogo from "../../images/kmfri_logo.png";
 import * as SuperadminAPI from "../../service/SuperadminService";
+import { createExportVerification, updateExportVerificationContent } from "../../service/VerificationService";
 import coreDataDetails, {
     applyPlatformConfigToCoreData,
     getActiveTheme,
@@ -184,6 +193,97 @@ const trendMetricOptions = [
     { value: "risk", label: "Absence and Lateness" },
 ];
 
+const normalizeStationAccessName = (value = "") =>
+    String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\bcenter\b/g, "centre");
+
+const isMombasaCentreStation = (value) => normalizeStationAccessName(value) === "mombasa centre";
+
+const formatDateTime = (value, options = {}) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleString("en-KE", {
+        timeZone: EAT_TIMEZONE,
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        ...options,
+    });
+};
+
+const formatTime = (value) => {
+    if (!value) return "System";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleTimeString("en-KE", {
+        timeZone: EAT_TIMEZONE,
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const formatHoursBetween = (start, end) => {
+    if (!start || !end) return "Open";
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "N/A";
+    return `${((endDate - startDate) / 3600000).toFixed(2)}h`;
+};
+
+const formatLocationLabel = (record, isEntry) => {
+    const locationName = isEntry ? record.clockInLocationName : record.clockOutLocationName;
+    const withinPremise = isEntry ? record.clockInWithinPremise : record.clockOutWithinPremise;
+    const offPremise = record?.clockedOutside || record?.clockedOutSide || locationName;
+
+    if (withinPremise === true) return "In Premise";
+    if (!locationName) return withinPremise === false || offPremise ? "Off Premise" : "In Premise";
+
+    const parts = String(locationName).split("|").map((part) => part.trim()).filter(Boolean);
+    const cleanParts = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
+    return cleanParts.length ? cleanParts.join(" | ") : "Off Premise";
+};
+
+const compactTitleCase = (value) => {
+    if (value == null || value === "") return "N/A";
+    return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.slice(1));
+};
+
+const getTotalDays = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(`${startDate}T00:00:00+03:00`);
+    const end = new Date(`${endDate}T00:00:00+03:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return 0;
+    return Math.floor((end - start) / 86400000) + 1;
+};
+
+const getWorkingDays = (startDate, endDate) => {
+    const totalDays = getTotalDays(startDate, endDate);
+    if (!totalDays) return 0;
+
+    const cursor = new Date(`${startDate}T00:00:00+03:00`);
+    let count = 0;
+    for (let index = 0; index < totalDays; index += 1) {
+        const day = cursor.getDay();
+        if (day !== 0 && day !== 6) count += 1;
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return count;
+};
+
+const humanizeFilterValue = (value) => {
+    if (!value) return "All";
+    return titleCase(value);
+};
+
 const buildParams = (filters) => {
     const params = {
         startDate: filters.startDate,
@@ -291,74 +391,6 @@ const topWithOthers = (items, limit = 6) => {
 };
 
 const getTotalValue = (items) => items.reduce((sum, item) => sum + Number(item.value || 0), 0);
-
-const exportCsv = ({ kpis, stations, departments, filters, overallTopEmployees = [], topEmployeesByStation = [] }) => {
-    const rows = [
-        ["Organisation Statistics", ""],
-        ["Period", `${filters.startDate} to ${filters.endDate}`],
-        ["Total Staff", kpis?.totalEmployees || 0],
-        ["Present Today", kpis?.presentToday || 0],
-        ["Absent Today", kpis?.absentToday || 0],
-        ["On Leave Today", kpis?.onLeaveToday || 0],
-        ["Attendance Rate", formatPercent(kpis?.attendanceRate)],
-        [],
-        ["Station", "Staff", "Present Days", "Absent Days", "Late", "On Leave", "Attendance Rate"],
-        ...stations.map((station) => [
-            station.station,
-            station.staffCount || 0,
-            station.presentDays || 0,
-            station.absentDays || 0,
-            station.totalLateCount || 0,
-            station.onLeaveDays || 0,
-            formatPercent(station.attendanceRate),
-        ]),
-        [],
-        ["Department", "Staff", "Present Days", "Absent Days", "Late", "On Leave", "Attendance Rate"],
-        ...departments.map((department) => [
-            department.department,
-            department.staffCount || 0,
-            department.presentDays || 0,
-            department.absentDays || 0,
-            department.totalLateCount || 0,
-            department.onLeaveDays || 0,
-            formatPercent(department.attendanceRate),
-        ]),
-        [],
-        ["Overall Top Employees", "Station", "Department", "Present Days", "Attendance Rate"],
-        ...overallTopEmployees.map((employee) => [
-            employee.name || employee.email || "Unknown",
-            employee.station || "Unassigned",
-            employee.department || "Unassigned",
-            employee.presentDays || 0,
-            formatPercent(employee.attendanceRate),
-        ]),
-        [],
-        ["Top Employees by Station", "Station", "Department", "Present Days", "Attendance Rate"],
-        ...topEmployeesByStation.flatMap((stationGroup) =>
-            stationGroup.employees.map((employee) => [
-                employee.name || employee.email || "Unknown",
-                employee.station || stationGroup.station || "Unassigned",
-                employee.department || "Unassigned",
-                employee.presentDays || 0,
-                formatPercent(employee.attendanceRate),
-            ])
-        ),
-    ];
-
-    const csv = rows
-        .map((row) =>
-            row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
-        )
-        .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `organisation-statistics-${filters.startDate}-to-${filters.endDate}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-};
 
 const StatCard = ({ title, value, subtitle, icon, tone, theme }) => (
     <Card
@@ -568,7 +600,15 @@ const EmployeeRankList = ({ rows, theme, emptyLabel }) => (
     </Stack>
 );
 
-const OrganisationStats = () => {
+const OrganisationStats = ({ user, readOnly = false }) => {
+    const userRank = String(user?.rank || "").toLowerCase();
+    const isSupervisorScope = userRank === "supervisor";
+    const isHrScope = userRank === "hr";
+    const isStationScopedHr = isHrScope && !isMombasaCentreStation(user?.station);
+    const isFullHr = isHrScope && isMombasaCentreStation(user?.station);
+    const supervisorStation = String(user?.station || "").trim();
+    const supervisorDepartment = String(user?.department || "").trim();
+
     const [filters, setFilters] = useState({
         startDate: getMonthStart(),
         endDate: getDateInputValue(),
@@ -598,12 +638,65 @@ const OrganisationStats = () => {
     const [outsideClockingAnalytics, setOutsideClockingAnalytics] = useState([]);
     const [workforceAnalytics, setWorkforceAnalytics] = useState(null);
     const [productivityAnalytics, setProductivityAnalytics] = useState([]);
+    const [records, setRecords] = useState([]);
+    const [summaryRows, setSummaryRows] = useState([]);
+    const [referenceLoading, setReferenceLoading] = useState(false);
+    const [referenceError, setReferenceError] = useState("");
+    const [referenceSearch, setReferenceSearch] = useState("");
+    const deferredReferenceSearch = useDeferredValue(referenceSearch);
+    const [activeReportTab, setActiveReportTab] = useState("analytics");
+    const [pdfExporting, setPdfExporting] = useState("");
+    const [recordPage, setRecordPage] = useState(0);
+    const [summaryPage, setSummaryPage] = useState(0);
+    const [recordRowsPerPage, setRecordRowsPerPage] = useState(10);
+    const [summaryRowsPerPage, setSummaryRowsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const effectiveFilters = useMemo(
+        () => ({
+            ...filters,
+            ...(isSupervisorScope
+                ? {
+                    station: supervisorStation,
+                    department: supervisorDepartment,
+                }
+                : isStationScopedHr
+                    ? {
+                        station: supervisorStation,
+                    }
+                : {}),
+        }),
+        [filters, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]
+    );
+
+    const scopeLabel = useMemo(() => {
+        if (isSupervisorScope) {
+            const departmentLabel = supervisorDepartment || "Assigned department";
+            const stationLabel = supervisorStation || "assigned station";
+            return `${departmentLabel} / ${stationLabel}`;
+        }
+        if (isStationScopedHr) {
+            return `${supervisorStation || "Assigned station"} HR scope`;
+        }
+        if (isFullHr) {
+            return "Super HR - all stations";
+        }
+        if (userRank === "ceo") {
+            return "CEO - all stations";
+        }
+
+        return effectiveFilters.station || effectiveFilters.department || "All Stations and Departments";
+    }, [effectiveFilters.department, effectiveFilters.station, isFullHr, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation, userRank]);
+
+    const displayedFilterOptions = useMemo(() => ({
+        stations: (isSupervisorScope || isStationScopedHr) ? [supervisorStation].filter(Boolean) : filterOptions.stations,
+        departments: isSupervisorScope ? [supervisorDepartment].filter(Boolean) : filterOptions.departments,
+    }), [filterOptions.departments, filterOptions.stations, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]);
+
     const params = useMemo(
-        () => buildParams(filters),
-        [filters.startDate, filters.endDate, filters.station, filters.department, filters.staffFilter]
+        () => buildParams(effectiveFilters),
+        [effectiveFilters]
     );
 
     const loadDashboard = useCallback(async () => {
@@ -646,8 +739,12 @@ const OrganisationStats = () => {
                 applyPlatformConfigToCoreData(config);
                 setTheme(buildTheme(config));
                 setFilterOptions({
-                    stations: uniqueValues(config.stations || coreDataDetails.AvailableStations),
-                    departments: uniqueValues(config.departments || coreDataDetails.availableDepartments),
+                    stations: (isSupervisorScope || isStationScopedHr)
+                        ? [supervisorStation].filter(Boolean)
+                        : uniqueValues(config.stations || coreDataDetails.AvailableStations),
+                    departments: isSupervisorScope
+                        ? [supervisorDepartment].filter(Boolean)
+                        : uniqueValues(config.departments || coreDataDetails.availableDepartments),
                 });
             }
 
@@ -676,11 +773,50 @@ const OrganisationStats = () => {
         } finally {
             setLoading(false);
         }
-    }, [params]);
+    }, [isStationScopedHr, isSupervisorScope, params, supervisorDepartment, supervisorStation]);
 
     useEffect(() => {
         loadDashboard();
     }, [loadDashboard]);
+
+    const loadReferenceData = useCallback(async () => {
+        setReferenceLoading(true);
+        setReferenceError("");
+
+        try {
+            const [recordsResult, summaryResult] = await Promise.allSettled([
+                fetchOverallAttendanceRecords(params),
+                fetchOverallAttendanceSummary(params),
+            ]);
+
+            if (recordsResult.status === "fulfilled") {
+                setRecords(recordsResult.value || []);
+            } else {
+                setRecords([]);
+            }
+
+            if (summaryResult.status === "fulfilled") {
+                setSummaryRows(summaryResult.value || []);
+            } else {
+                setSummaryRows([]);
+            }
+
+            if (recordsResult.status !== "fulfilled" || summaryResult.status !== "fulfilled") {
+                const reason = recordsResult.reason || summaryResult.reason;
+                setReferenceError(
+                    typeof reason === "string"
+                        ? reason
+                        : reason?.response?.data?.message || reason?.message || "Some reference data could not be loaded."
+                );
+            }
+        } finally {
+            setReferenceLoading(false);
+        }
+    }, [params]);
+
+    useEffect(() => {
+        loadReferenceData();
+    }, [loadReferenceData]);
 
     const lateToday = Number(lateAnalytics?.employeesLateToday || 0);
     const presentToday = Number(kpis?.presentToday || 0);
@@ -923,8 +1059,129 @@ const OrganisationStats = () => {
     const averageAbsenteeismRate = Number(absenteeismAnalytics?.averageAbsenteeismRate ?? kpis?.absenteeismRate ?? 0);
     const outsideClockingCount = Array.isArray(outsideClockingAnalytics) ? outsideClockingAnalytics.length : 0;
     const topPerformer = Array.isArray(productivityAnalytics) ? productivityAnalytics[0] : null;
+    const totalDaysInReferenceRange = useMemo(
+        () => getTotalDays(effectiveFilters.startDate, effectiveFilters.endDate),
+        [effectiveFilters.endDate, effectiveFilters.startDate]
+    );
+    const workingDaysInReferenceRange = useMemo(
+        () => getWorkingDays(effectiveFilters.startDate, effectiveFilters.endDate),
+        [effectiveFilters.endDate, effectiveFilters.startDate]
+    );
+
+    const processedRecords = useMemo(
+        () => records.map((record, index) => ({
+            id: record._id || `${record.email || "record"}-${index}`,
+            employeeId: record.employeeId || "N/A",
+            name: compactTitleCase(record.name || record.email),
+            email: String(record.email || ""),
+            date: formatDateTime(record.clock_in, { hour: undefined, minute: undefined }),
+            rawDate: record.clock_in,
+            clockIn: formatTime(record.clock_in),
+            clockOut: record.missedClockOut ? "System" : record.clock_out ? formatTime(record.clock_out) : "Open",
+            duration: formatHoursBetween(record.clock_in, record.clock_out),
+            inLocation: formatLocationLabel(record, true),
+            outLocation: formatLocationLabel(record, false),
+            reason: compactTitleCase(record.outSideReason || record.outsideReason || ""),
+            station: record.station || "Unassigned",
+            department: record.department || "Unassigned",
+            role: record.role || "",
+            rank: record.rank || "",
+            timing: record.isLate ? "Late" : "On Time",
+            status: record.clock_out ? "Completed" : "Open",
+        })),
+        [records]
+    );
+
+    const processedSummaryRows = useMemo(
+        () => summaryRows.map((row, index) => {
+            const daysPresent = Number(row.daysPresent || 0);
+            const attendanceRate = workingDaysInReferenceRange > 0
+                ? (daysPresent / workingDaysInReferenceRange) * 100
+                : 0;
+
+            return {
+                id: row.employeeId || row.email || `${row.name || "summary"}-${index}`,
+                employeeId: row.employeeId || "N/A",
+                name: compactTitleCase(row.name),
+                role: row.role || "",
+                rank: row.rank || "",
+                station: row.station || "Unassigned",
+                department: row.department || "Unassigned",
+                totalDays: totalDaysInReferenceRange,
+                workingDays: workingDaysInReferenceRange,
+                daysPresent,
+                daysAbsent: Number(row.daysAbsent || 0),
+                attendanceRate,
+            };
+        }),
+        [summaryRows, totalDaysInReferenceRange, workingDaysInReferenceRange]
+    );
+
+    const referenceSearchText = String(deferredReferenceSearch || "").trim().toLowerCase();
+
+    const filteredRecords = useMemo(
+        () => processedRecords.filter((row) => {
+            if (!referenceSearchText) return true;
+            return [
+                row.employeeId,
+                row.name,
+                row.email,
+                row.station,
+                row.department,
+                row.role,
+                row.rank,
+                row.timing,
+                row.status,
+            ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
+        }),
+        [processedRecords, referenceSearchText]
+    );
+
+    const filteredSummaryRows = useMemo(
+        () => processedSummaryRows.filter((row) => {
+            if (!referenceSearchText) return true;
+            return [
+                row.employeeId,
+                row.name,
+                row.station,
+                row.department,
+                row.role,
+                row.rank,
+            ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
+        }),
+        [processedSummaryRows, referenceSearchText]
+    );
+
+    const paginatedRecords = useMemo(
+        () => filteredRecords.slice(recordPage * recordRowsPerPage, recordPage * recordRowsPerPage + recordRowsPerPage),
+        [filteredRecords, recordPage, recordRowsPerPage]
+    );
+
+    const paginatedSummaryRows = useMemo(
+        () => filteredSummaryRows.slice(summaryPage * summaryRowsPerPage, summaryPage * summaryRowsPerPage + summaryRowsPerPage),
+        [filteredSummaryRows, summaryPage, summaryRowsPerPage]
+    );
+
+    const referenceMetrics = useMemo(() => {
+        const openSessions = processedRecords.filter((row) => row.status === "Open").length;
+        const lateRecords = processedRecords.filter((row) => row.timing === "Late").length;
+        const averageAttendance = processedSummaryRows.length
+            ? processedSummaryRows.reduce((sum, row) => sum + Number(row.attendanceRate || 0), 0) / processedSummaryRows.length
+            : 0;
+
+        return {
+            records: processedRecords.length,
+            openSessions,
+            lateRecords,
+            summaryRows: processedSummaryRows.length,
+            averageAttendance,
+        };
+    }, [processedRecords, processedSummaryRows]);
 
     const handleFilterChange = (field) => (event) => {
+        if ((isSupervisorScope || isStationScopedHr) && field === "station") return;
+        if (isSupervisorScope && field === "department") return;
+
         setFilters((previous) => ({
             ...previous,
             [field]: event.target.value,
@@ -952,15 +1209,412 @@ const OrganisationStats = () => {
         setFilters({
             startDate: getMonthStart(),
             endDate: getDateInputValue(),
-            station: "",
-            department: "",
+            station: (isSupervisorScope || isStationScopedHr) ? supervisorStation : "",
+            department: isSupervisorScope ? supervisorDepartment : "",
             staffFilter: "",
             quickRange: "month",
             performanceBand: "",
             sortBy: "attendance-desc",
             trendMetric: "all",
         });
+        setReferenceSearch("");
+        setRecordPage(0);
+        setSummaryPage(0);
     };
+
+    const loadReportLogo = async () => {
+        const logo = new Image();
+        logo.src = KMFRILogo;
+        await new Promise((resolve, reject) => {
+            logo.onload = resolve;
+            logo.onerror = reject;
+        });
+        return logo;
+    };
+
+    const createVerifiedPdfContext = async ({ type, title, filename, metadata = {} }) => {
+        const { default: jsPDF } = await import("jspdf");
+        const { default: autoTable } = await import("jspdf-autotable");
+        const logo = await loadReportLogo();
+        const { token } = await createExportVerification({
+            type,
+            title,
+            scope: scopeLabel,
+            filename,
+            metadata: {
+                ...metadata,
+                scope: scopeLabel,
+                filters: effectiveFilters,
+            },
+        });
+        const verifyUrl = `${window.location.origin}/verify/${token}`;
+        const qrImage = await QRCode.toDataURL(verifyUrl, {
+            margin: 1,
+            width: 300,
+            errorCorrectionLevel: "H",
+        });
+
+        const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+        const logoHeight = 20;
+        const logoWidth = (logo.width / logo.height) * logoHeight;
+        const qrSize = 24;
+        const qrX = pw - qrSize - 10;
+        const qrY = 5;
+
+        doc.setFillColor(10, 61, 98);
+        doc.rect(0, 0, pw, 40, "F");
+        doc.addImage(KMFRILogo, "PNG", 3, 8, logoWidth, logoHeight, undefined, "FAST");
+        doc.addImage(qrImage, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(15);
+        doc.text(title.toUpperCase(), pw / 2, 10, { align: "center" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.text(scopeLabel.toUpperCase(), pw / 2, 17, { align: "center" });
+        doc.text(`${effectiveFilters.startDate} TO ${effectiveFilters.endDate}`.toUpperCase(), pw / 2, 23, { align: "center" });
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || "AUTHORIZED PERSONNEL").toUpperCase()} | ${(user?.rank || "ADMIN").toUpperCase()}`, pw / 2, 29, { align: "center" });
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.text("VERIFICATION QR", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+
+        return { doc, autoTable, token, filename, pw, ph };
+    };
+
+    const finalizeVerifiedPdf = async ({ doc, token, filename, metadata = {} }) => {
+        const totalPages = doc.internal.getNumberOfPages();
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+
+        for (let pageIndex = 1; pageIndex <= totalPages; pageIndex += 1) {
+            doc.setPage(pageIndex);
+            doc.setDrawColor(10, 61, 98);
+            doc.line(10, ph - 12, pw - 10, ph - 12);
+            doc.setFontSize(8);
+            doc.setTextColor(80);
+            doc.text("Kenya Marine and Fisheries Research Institute (KMFRI)", 10, ph - 7);
+            doc.text(`Page ${pageIndex} of ${totalPages} | Public verification valid for 90 days`, pw - 10, ph - 7, { align: "right" });
+        }
+
+        const dataUri = doc.output("datauristring");
+        const documentBase64 = dataUri.split(",").pop();
+        await updateExportVerificationContent(token, {
+            documentBase64,
+            metadata: {
+                ...metadata,
+                finalizedAt: new Date().toISOString(),
+            },
+        });
+        doc.save(filename);
+    };
+
+    const handleExportAnalyticsPdf = async () => {
+        setPdfExporting("analytics");
+        try {
+            const filename = `KMFRI_Broader_Analytics_${Date.now()}.pdf`;
+            const ctx = await createVerifiedPdfContext({
+                type: "broader_statistics_analytics",
+                title: pageHeading,
+                filename,
+                metadata: {
+                    rows: {
+                        trends: chartData.length,
+                        stations: sortedStations.length,
+                        departments: sortedDepartments.length,
+                        topEmployees: overallTopEmployees.length,
+                    },
+                },
+            });
+            const { doc, autoTable } = ctx;
+            const rateBar = (value) => {
+                const rate = safePercent(value);
+                const filled = Math.round(rate / 10);
+                return `[${"#".repeat(filled)}${"-".repeat(10 - filled)}] ${rate.toFixed(1)}%`;
+            };
+
+            const sectionStyles = {
+                styles: { fontSize: 7.4, cellPadding: 1.7, overflow: "linebreak", valign: "middle" },
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: "bold", halign: "center" },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 8, right: 8 },
+            };
+
+            autoTable(doc, {
+                startY: 45,
+                head: [["Executive Metric", "Value", "Administrative Reading"]],
+                body: [
+                    ["Total Staff", formatNumber(kpis?.totalEmployees), "Active workforce inside the authorized scope"],
+                    ["Present Today", formatNumber(kpis?.presentToday), "Current clocked-in workforce"],
+                    ["Absent Today", formatNumber(kpis?.absentToday), "Requires operational review where high"],
+                    ["On Leave Today", formatNumber(kpis?.onLeaveToday), "Approved leave coverage"],
+                    ["Attendance Rate", formatPercent(kpis?.attendanceRate), rateBar(kpis?.attendanceRate)],
+                    ["Punctuality Rate", formatPercent(kpis?.punctualityRate), rateBar(kpis?.punctualityRate)],
+                    ["Absenteeism Rate", formatPercent(kpis?.absenteeismRate), rateBar(kpis?.absenteeismRate)],
+                    ["Average Working Hours", Number(kpis?.averageWorkingHours || 0).toFixed(1), "Average hours per completed attendance record"],
+                    ["Reference Records", formatNumber(referenceMetrics.records), "Underlying clocking rows included for audit reference"],
+                    ["Open Sessions", formatNumber(referenceMetrics.openSessions), "Clock-ins without completed clock-out"],
+                ],
+                ...sectionStyles,
+                columnStyles: { 0: { cellWidth: 58 }, 1: { cellWidth: 38, halign: "center" }, 2: { cellWidth: 170 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Management Insight", "Value", "Recommended Administrative Use"]],
+                body: [
+                    ["Best Performing Station", topStation?.station || "N/A", `Attendance ${formatPercent(topStation?.attendanceRate)}`],
+                    ["Lowest Attendance Station", lowestStation?.station || "N/A", `Attendance ${formatPercent(lowestStation?.attendanceRate)}; review staffing, leave, and lateness drivers`],
+                    ["Top Department", topDepartment?.department || "N/A", `Attendance ${formatPercent(topDepartment?.attendanceRate)}`],
+                    ["Current Top Performer", topPerformer?.name || topPerformer?.email || "N/A", topPerformer?.department || "No productivity ranking available"],
+                    ["Missing Records", formatNumber(missingRecords), "Prioritize correction before payroll or compliance reporting"],
+                    ["Outside Clocking", formatNumber(outsideClockingCount), "Review off-premise activity against authorizations"],
+                    ["Early Departures", formatNumber(earlyDepartureCount), "Check workload coverage and shift completion risk"],
+                    ["Staff Requiring Attention", formatNumber(attentionCount), "Absent or late today"],
+                ],
+                ...sectionStyles,
+                headStyles: { fillColor: [7, 58, 82], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 62 }, 1: { cellWidth: 74 }, 2: { cellWidth: 130 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Trend Date", "Present", "Absent", "Late", "Attendance Rate", "Visual Rate"]],
+                body: chartData.map((item) => [
+                    item.date || item.label,
+                    item.present,
+                    item.absent,
+                    item.late,
+                    formatPercent(item.attendance),
+                    rateBar(item.attendance),
+                ]),
+                ...sectionStyles,
+                headStyles: { fillColor: [0, 91, 150], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 42 }, 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "center" }, 5: { cellWidth: 58 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Station", "Staff", "Present", "Absent", "Late", "On Leave", "Attendance %", "Rate Bar"]],
+                body: sortedStations.map((station) => [
+                    station.station || "Unassigned",
+                    station.staffCount || 0,
+                    station.presentDays || 0,
+                    station.absentDays || 0,
+                    station.totalLateCount || 0,
+                    station.onLeaveDays || 0,
+                    formatPercent(station.attendanceRate),
+                    rateBar(station.attendanceRate),
+                ]),
+                ...sectionStyles,
+                headStyles: { fillColor: [0, 121, 140], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 52 }, 7: { cellWidth: 58 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Department", "Staff", "Present", "Absent", "Late", "On Leave", "Attendance %", "Rate Bar"]],
+                body: sortedDepartments.map((department) => [
+                    department.department || "Unassigned",
+                    department.staffCount || 0,
+                    department.presentDays || 0,
+                    department.absentDays || 0,
+                    department.totalLateCount || 0,
+                    department.onLeaveDays || 0,
+                    formatPercent(department.attendanceRate),
+                    rateBar(department.attendanceRate),
+                ]),
+                ...sectionStyles,
+                headStyles: { fillColor: [24, 110, 99], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 82 }, 7: { cellWidth: 58 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Top Employee", "Station", "Department", "Present Days", "Attendance %", "Hours"]],
+                body: overallTopEmployees.map((employee) => [
+                    employee.name || employee.email || "Unknown",
+                    employee.station || "Unassigned",
+                    employee.department || "Unassigned",
+                    employee.presentDays || 0,
+                    formatPercent(employee.attendanceRate),
+                    Number(employee.hours || 0).toFixed(1),
+                ]),
+                ...sectionStyles,
+                headStyles: { fillColor: [54, 141, 197], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 66 }, 2: { cellWidth: 82 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Station", "Employee", "Department", "Present Days", "Attendance %", "Hours"]],
+                body: topEmployeesByStation.flatMap((stationGroup) =>
+                    stationGroup.employees.map((employee) => [
+                        stationGroup.station,
+                        employee.name || employee.email || "Unknown",
+                        employee.department || "Unassigned",
+                        employee.presentDays || 0,
+                        formatPercent(employee.attendanceRate),
+                        Number(employee.hours || 0).toFixed(1),
+                    ])
+                ),
+                ...sectionStyles,
+                headStyles: { fillColor: [72, 201, 176], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 48 }, 1: { cellWidth: 62 }, 2: { cellWidth: 82 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Risk / Compliance Area", "Count / Rate", "Administrative Interpretation"]],
+                body: [
+                    ["Incomplete Records", formatNumber(missingRecords), "Missing clock-in or clock-out records that require correction follow-up"],
+                    ["Late Records Today", formatNumber(lateToday), "Daily punctuality signal"],
+                    ["Average Absenteeism", formatPercent(averageAbsenteeismRate), "Period absence exposure"],
+                    ["Outside Clocking", formatNumber(outsideClockingCount), "Off-premise activity needing authorization review"],
+                    ["Biometric Enrollment", formatPercent(biometricAnalytics?.enrollmentRate), "Registration coverage for biometric clocking"],
+                    ["Device Uptime", formatPercent(biometricAnalytics?.deviceUptime), "Device reliability signal"],
+                    ["Open Sessions", formatNumber(referenceMetrics.openSessions), "Active or missed clock-out sessions in records"],
+                    ["Mean Summary Attendance", formatPercent(referenceMetrics.averageAttendance), "Average attendance rate across summary staff rows"],
+                ],
+                ...sectionStyles,
+                headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 42, halign: "center" }, 2: { cellWidth: 150 } },
+            });
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 6,
+                head: [["Lateness Department", "Late Arrivals", "Early Departure Department", "Early Departures"]],
+                body: Array.from({ length: Math.max(latenessByDepartment.length, earlyDepartureByDepartment.length, 1) }).map((_, index) => [
+                    latenessByDepartment[index]?.department || "",
+                    latenessByDepartment[index]?.count || "",
+                    earlyDepartureByDepartment[index]?.department || "",
+                    earlyDepartureByDepartment[index]?.count || "",
+                ]),
+                ...sectionStyles,
+                headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: "bold", halign: "center" },
+                columnStyles: { 0: { cellWidth: 86 }, 1: { cellWidth: 36, halign: "right" }, 2: { cellWidth: 86 }, 3: { cellWidth: 36, halign: "right" } },
+            });
+
+            await finalizeVerifiedPdf({
+                ...ctx,
+                metadata: {
+                    exportKind: "analytics",
+                    trends: chartData.length,
+                    stations: sortedStations.length,
+                    departments: sortedDepartments.length,
+                    topEmployees: overallTopEmployees.length,
+                },
+            });
+        } finally {
+            setPdfExporting("");
+        }
+    };
+
+    const handleExportRecordsPdf = async () => {
+        setPdfExporting("records");
+        try {
+            const filename = `KMFRI_Attendance_Records_${Date.now()}.pdf`;
+            const ctx = await createVerifiedPdfContext({
+                type: "broader_statistics_records",
+                title: "KMFRI Attendance Records",
+                filename,
+                metadata: { rows: filteredRecords.length },
+            });
+            const { doc, autoTable } = ctx;
+
+            autoTable(doc, {
+                startY: 45,
+                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Duration", "Timing", "Status", "In Location", "Out Location", "Station", "Department"]],
+                body: filteredRecords.map((row, index) => [
+                    index + 1,
+                    row.employeeId,
+                    row.name,
+                    row.date,
+                    row.clockIn,
+                    row.clockOut,
+                    row.duration,
+                    row.timing,
+                    row.status,
+                    row.inLocation,
+                    row.outLocation,
+                    row.station,
+                    row.department,
+                ]),
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
+                styles: { fontSize: 6.8, cellPadding: 1.4, halign: "center" },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 6, right: 6 },
+            });
+
+            await finalizeVerifiedPdf({
+                ...ctx,
+                metadata: { exportKind: "records", rows: filteredRecords.length },
+            });
+        } finally {
+            setPdfExporting("");
+        }
+    };
+
+    const handleExportSummaryPdf = async () => {
+        setPdfExporting("summary");
+        try {
+            const filename = `KMFRI_Attendance_Summary_${Date.now()}.pdf`;
+            const ctx = await createVerifiedPdfContext({
+                type: "broader_statistics_summary",
+                title: "KMFRI Attendance Summary Report",
+                filename,
+                metadata: { rows: filteredSummaryRows.length },
+            });
+            const { doc, autoTable } = ctx;
+
+            autoTable(doc, {
+                startY: 45,
+                head: [["No.", "Employee ID", "Name", "Role", "Rank", "Station", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
+                body: filteredSummaryRows.map((row, index) => [
+                    index + 1,
+                    row.employeeId,
+                    row.name,
+                    humanizeFilterValue(row.role),
+                    humanizeFilterValue(row.rank),
+                    row.station,
+                    row.department,
+                    row.totalDays,
+                    row.workingDays,
+                    row.daysPresent,
+                    row.daysAbsent,
+                    formatPercent(row.attendanceRate),
+                ]),
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
+                styles: { fontSize: 7.2, cellPadding: 1.7, halign: "center" },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+            });
+
+            await finalizeVerifiedPdf({
+                ...ctx,
+                metadata: { exportKind: "summary", rows: filteredSummaryRows.length },
+            });
+        } finally {
+            setPdfExporting("");
+        }
+    };
+
+    const pageHeading = isSupervisorScope ? "Department Broader Statistics" : "Organisation Statistics";
+    const pageSubtitle = isSupervisorScope
+        ? `Attendance performance for ${scopeLabel}.`
+        : isStationScopedHr
+            ? `Attendance performance for ${supervisorStation || "your assigned station"}.`
+            : "Attendance performance across stations and departments.";
+    const scopeChipLabel = readOnly
+        ? "Read Only"
+        : isSupervisorScope
+            ? "Supervisor Scope"
+            : isStationScopedHr
+                ? "Station HR Scope"
+                : isFullHr
+                    ? "Super HR Scope"
+                    : "Privileged Analytics";
 
     if (loading && !kpis) {
         return (
@@ -968,7 +1622,7 @@ const OrganisationStats = () => {
                 <Stack spacing={2} alignItems="center">
                     <CircularProgress size={34} sx={{ color: theme.secondary }} />
                     <Typography sx={{ color: theme.muted, fontWeight: 700 }}>
-                        Loading organisation statistics...
+                        Loading {isSupervisorScope ? "department" : "organisation"} statistics...
                     </Typography>
                 </Stack>
             </Box>
@@ -1001,10 +1655,10 @@ const OrganisationStats = () => {
                     </Box>
                     <Box>
                         <Typography sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 900, color: theme.text, lineHeight: 1.1 }}>
-                            Organisation Statistics
+                            {pageHeading}
                         </Typography>
                         <Typography sx={{ mt: 0.5, fontSize: 13, color: theme.muted }}>
-                            Attendance performance across stations and departments.
+                            {pageSubtitle}
                         </Typography>
                     </Box>
                 </Stack>
@@ -1012,7 +1666,7 @@ const OrganisationStats = () => {
                 <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} flexWrap="wrap" useFlexGap>
                     <Chip
                         icon={<ShieldRounded sx={{ fontSize: 16 }} />}
-                        label="HR Manager"
+                        label={scopeChipLabel}
                         sx={{
                             height: 40,
                             borderRadius: "8px",
@@ -1030,21 +1684,17 @@ const OrganisationStats = () => {
                     >
                         Refresh
                     </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<DownloadRounded />}
-                        onClick={() => exportCsv({
-                            kpis,
-                            stations: sortedStations,
-                            departments: sortedDepartments,
-                            filters,
-                            overallTopEmployees,
-                            topEmployeesByStation,
-                        })}
-                        sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
-                    >
-                        Export
-                    </Button>
+                    {activeReportTab === "analytics" && (
+                        <Button
+                            variant="contained"
+                            startIcon={pdfExporting === "analytics" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
+                            onClick={handleExportAnalyticsPdf}
+                            disabled={pdfExporting === "analytics"}
+                            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+                        >
+                            {pdfExporting === "analytics" ? "Exporting..." : "Export Analytics PDF"}
+                        </Button>
+                    )}
                 </Stack>
             </Stack>
 
@@ -1113,18 +1763,25 @@ const OrganisationStats = () => {
                             <FormControl fullWidth size="small">
                                 <InputLabel shrink>Station</InputLabel>
                                 <Select
-                                    value={filters.station}
-                                    label="Station"
+                                    value={effectiveFilters.station}
+                                    label={(isSupervisorScope || isStationScopedHr) ? "Station Scope" : "Station"}
                                     onChange={handleFilterChange("station")}
+                                    disabled={isSupervisorScope || isStationScopedHr}
                                     displayEmpty
-                                    renderValue={(selected) => selected || "All Stations"}
+                                    renderValue={(selected) => selected || ((isSupervisorScope || isStationScopedHr) ? "No station assigned" : "All Stations")}
                                 >
-                                    <MenuItem value="">All Stations</MenuItem>
-                                    {filterOptions.stations.map((station) => (
-                                        <MenuItem key={station} value={station}>
-                                            {station}
-                                        </MenuItem>
-                                    ))}
+                                    {(isSupervisorScope || isStationScopedHr) ? (
+                                        <MenuItem value={supervisorStation}>{supervisorStation || "No station assigned"}</MenuItem>
+                                    ) : (
+                                        [
+                                            <MenuItem key="all-stations" value="">All Stations</MenuItem>,
+                                            ...displayedFilterOptions.stations.map((station) => (
+                                                <MenuItem key={station} value={station}>
+                                                    {station}
+                                                </MenuItem>
+                                            )),
+                                        ]
+                                    )}
                                 </Select>
                             </FormControl>
                         </Box>
@@ -1132,18 +1789,25 @@ const OrganisationStats = () => {
                             <FormControl fullWidth size="small">
                                 <InputLabel shrink>Department</InputLabel>
                                 <Select
-                                    value={filters.department}
-                                    label="Department"
+                                    value={effectiveFilters.department}
+                                    label={isSupervisorScope ? "Department Scope" : "Department"}
                                     onChange={handleFilterChange("department")}
+                                    disabled={isSupervisorScope}
                                     displayEmpty
-                                    renderValue={(selected) => selected || "All Departments"}
+                                    renderValue={(selected) => selected || (isSupervisorScope ? "No department assigned" : "All Departments")}
                                 >
-                                    <MenuItem value="">All Departments</MenuItem>
-                                    {filterOptions.departments.map((department) => (
-                                        <MenuItem key={department} value={department}>
-                                            {department}
-                                        </MenuItem>
-                                    ))}
+                                    {isSupervisorScope ? (
+                                        <MenuItem value={supervisorDepartment}>{supervisorDepartment || "No department assigned"}</MenuItem>
+                                    ) : (
+                                        [
+                                            <MenuItem key="all-departments" value="">All Departments</MenuItem>,
+                                            ...displayedFilterOptions.departments.map((department) => (
+                                                <MenuItem key={department} value={department}>
+                                                    {department}
+                                                </MenuItem>
+                                            )),
+                                        ]
+                                    )}
                                 </Select>
                             </FormControl>
                         </Box>
@@ -1221,17 +1885,13 @@ const OrganisationStats = () => {
                         </Box>
                         <Box sx={{ justifySelf: { xs: "stretch", lg: "end" } }}>
                             <Stack direction="row" justifyContent={{ xs: "flex-start", md: "flex-end" }} spacing={1}>
-                                <Button onClick={clearFilters} sx={{ textTransform: "none", fontWeight: 800, color: theme.primary }}>
-                                    Clear
-                                </Button>
                                 <Button
                                     variant="contained"
-                                    startIcon={<FilterAltRounded />}
-                                    onClick={loadDashboard}
+                                    onClick={clearFilters}
                                     disabled={loading}
                                     sx={{ textTransform: "none", fontWeight: 800, borderRadius: "8px", bgcolor: theme.primary }}
                                 >
-                                    Apply Filters
+                                    Clear
                                 </Button>
                             </Stack>
                         </Box>
@@ -1239,6 +1899,33 @@ const OrganisationStats = () => {
                 </CardContent>
             </Card>
 
+            <Card elevation={0} sx={{ mb: 2.5, border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
+                <Tabs
+                    value={activeReportTab}
+                    onChange={(_, value) => setActiveReportTab(value)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{
+                        minHeight: 48,
+                        bgcolor: "#fff",
+                        "& .MuiTab-root": {
+                            minHeight: 48,
+                            textTransform: "none",
+                            fontWeight: 900,
+                            color: theme.muted,
+                        },
+                        "& .Mui-selected": { color: theme.primary },
+                        "& .MuiTabs-indicator": { bgcolor: theme.primary, height: 3 },
+                    }}
+                >
+                    <Tab value="analytics" label="Analytics" icon={<AssessmentRounded fontSize="small" />} iconPosition="start" />
+                    <Tab value="records" label="Records" icon={<HistoryRounded fontSize="small" />} iconPosition="start" />
+                    <Tab value="summary" label="Summary" icon={<TableChartRounded fontSize="small" />} iconPosition="start" />
+                </Tabs>
+            </Card>
+
+            {activeReportTab === "analytics" && (
+                <>
             <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
                 <Grid item xs={6} sm={4} lg={2}>
                     <StatCard title="Total Staff" value={formatNumber(kpis?.totalEmployees)} subtitle="Active workforce in scope" icon={<GroupsRounded />} tone={theme.secondary} theme={theme} />
@@ -1256,7 +1943,7 @@ const OrganisationStats = () => {
                     <StatCard title="Late" value={formatNumber(lateToday)} subtitle="Arrived after grace period" icon={<HourglassBottomRounded />} tone={theme.purple} theme={theme} />
                 </Grid>
                 <Grid item xs={6} sm={4} lg={2}>
-                    <StatCard title="Attendance Rate" value={formatPercent(kpis?.attendanceRate)} subtitle={formatRangeLabel(filters.startDate, filters.endDate)} icon={<PieChartRounded />} tone={theme.secondary} theme={theme} />
+                    <StatCard title="Attendance Rate" value={formatPercent(kpis?.attendanceRate)} subtitle={formatRangeLabel(effectiveFilters.startDate, effectiveFilters.endDate)} icon={<PieChartRounded />} tone={theme.secondary} theme={theme} />
                 </Grid>
                 <Grid item xs={6} sm={4} lg={2}>
                     <StatCard title="Punctuality" value={formatPercent(kpis?.punctualityRate)} subtitle="On-time share of present staff" icon={<CheckCircleRounded />} tone={theme.success} theme={theme} />
@@ -1280,7 +1967,7 @@ const OrganisationStats = () => {
 
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} lg={4}>
-                    <SectionCard title="Overall Top 3 Employees" subtitle="Highest attendance rate across all stations" theme={theme}>
+                    <SectionCard title={isSupervisorScope ? "Top 3 Employees in Scope" : "Overall Top 3 Employees"} subtitle={isSupervisorScope ? "Highest attendance rate in your department and station" : "Highest attendance rate across all stations"} theme={theme}>
                         <EmployeeRankList
                             rows={overallTopEmployees}
                             theme={theme}
@@ -1292,7 +1979,7 @@ const OrganisationStats = () => {
                     </SectionCard>
                 </Grid>
                 <Grid item xs={12} lg={8}>
-                    <SectionCard title="Top 3 Employees by Station" subtitle="Station leaders by attendance rate" theme={theme}>
+                    <SectionCard title={isSupervisorScope ? "Top 3 Employees at Station" : "Top 3 Employees by Station"} subtitle={isSupervisorScope ? "Station-scoped leaders by attendance rate" : "Station leaders by attendance rate"} theme={theme}>
                         {topEmployeesByStation.length ? (
                             <Box
                                 sx={{
@@ -1344,7 +2031,9 @@ const OrganisationStats = () => {
                             <EmptyState label="No station employee ranking data available." theme={theme} />
                         )}
                         <InsightNote theme={theme}>
-                            Station-level top 3 lists help management recognise strong attendance locally without comparing small and large stations unfairly.
+                            {isSupervisorScope
+                                ? "This station-scoped ranking helps you recognise reliable attendance inside the department you supervise."
+                                : "Station-level top 3 lists help management recognise strong attendance locally without comparing small and large stations unfairly."}
                         </InsightNote>
                     </SectionCard>
                 </Grid>
@@ -1421,7 +2110,7 @@ const OrganisationStats = () => {
                 </Grid>
 
                 <Grid item xs={12} md={6} lg={3}>
-                    <SectionCard title="Attendance by Station" subtitle="Station performance after selected filters" theme={theme}>
+                    <SectionCard title={isSupervisorScope ? "Attendance at Assigned Station" : "Attendance by Station"} subtitle={isSupervisorScope ? "Performance for your station and department scope" : "Station performance after selected filters"} theme={theme}>
                         <TableContainer>
                             <Table size="small">
                                 <TableHead>
@@ -1479,7 +2168,9 @@ const OrganisationStats = () => {
                             </Table>
                         </TableContainer>
                         <InsightNote theme={theme}>
-                            Station ranking helps leadership spot whether a challenge is local to one site or shared across the organisation.
+                            {isSupervisorScope
+                                ? "This view is locked to your assigned station and department, so the figures stay within your supervisory responsibility."
+                                : "Station ranking helps leadership spot whether a challenge is local to one site or shared across the organisation."}
                         </InsightNote>
                     </SectionCard>
                 </Grid>
@@ -1541,7 +2232,7 @@ const OrganisationStats = () => {
                 </Box>
 
                 <Box sx={{ minWidth: 0 }}>
-                    <SectionCard title="Staff by Station" subtitle="Workforce concentration across stations" theme={theme}>
+                    <SectionCard title={isSupervisorScope ? "Staff at Assigned Station" : "Staff by Station"} subtitle={isSupervisorScope ? "Workforce count in your supervisor scope" : "Workforce concentration across stations"} theme={theme}>
                         <DonutVisualization
                             data={stationShareData}
                             theme={theme}
@@ -1549,7 +2240,9 @@ const OrganisationStats = () => {
                             centerLabel="Staff"
                         />
                         <InsightNote theme={theme}>
-                            Larger station slices show where attendance changes have the biggest operational impact.
+                            {isSupervisorScope
+                                ? "This only counts staff in the department and station assigned to your supervisor profile."
+                                : "Larger station slices show where attendance changes have the biggest operational impact."}
                         </InsightNote>
                     </SectionCard>
                 </Box>
@@ -1703,7 +2396,7 @@ const OrganisationStats = () => {
                                 <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: `${theme.success}12`, border: `1px solid ${theme.success}33` }}>
                                     <Stack direction="row" justifyContent="space-between" spacing={2}>
                                         <Box>
-                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.success }}>Best Performing Station</Typography>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.success }}>{isSupervisorScope ? "Assigned Station" : "Best Performing Station"}</Typography>
                                             <Typography sx={{ mt: 0.5, fontSize: 16, fontWeight: 900, color: theme.text }}>{topStation?.station || "N/A"}</Typography>
                                             <Typography sx={{ fontSize: 23, fontWeight: 900, color: theme.success }}>{formatPercent(topStation?.attendanceRate)}</Typography>
                                         </Box>
@@ -1715,7 +2408,7 @@ const OrganisationStats = () => {
                                 <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: `${theme.danger}10`, border: `1px solid ${theme.danger}33` }}>
                                     <Stack direction="row" justifyContent="space-between" spacing={2}>
                                         <Box>
-                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.danger }}>Lowest Attendance Station</Typography>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.danger }}>{isSupervisorScope ? "Scope Attendance" : "Lowest Attendance Station"}</Typography>
                                             <Typography sx={{ mt: 0.5, fontSize: 16, fontWeight: 900, color: theme.text }}>{lowestStation?.station || "N/A"}</Typography>
                                             <Typography sx={{ fontSize: 23, fontWeight: 900, color: theme.danger }}>{formatPercent(lowestStation?.attendanceRate)}</Typography>
                                         </Box>
@@ -1807,7 +2500,7 @@ const OrganisationStats = () => {
                     <SectionCard title="Summary" subtitle="Selected period snapshot" theme={theme}>
                         <Stack spacing={1.2}>
                             {[
-                                ["Scope", filters.station || filters.department || "All Stations and Departments"],
+                                ["Scope", scopeLabel],
                                 ["Staff Type / Rank", staffFilters.find((item) => item.value === filters.staffFilter)?.label || "All"],
                                 ["Period", quickRanges.find((item) => item.value === filters.quickRange)?.label || "Custom Period"],
                                 ["Performance Band", performanceBands.find((item) => item.value === filters.performanceBand)?.label || "All Performance"],
@@ -1840,6 +2533,263 @@ const OrganisationStats = () => {
                 </Grid>
             </Grid>
 
+                </>
+            )}
+
+            {activeReportTab !== "analytics" && (
+            <Box sx={{ mt: 2 }}>
+                <SectionCard
+                    title="Administrative Reference"
+                    subtitle="Attendance records and staff summary for audit, HR review, and station administration"
+                    theme={theme}
+                    action={
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Chip
+                                size="small"
+                                label={`${formatNumber(referenceMetrics.records)} records`}
+                                sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
+                            />
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={referenceLoading ? <CircularProgress size={12} /> : <RefreshRounded />}
+                                onClick={loadReferenceData}
+                                disabled={referenceLoading}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, borderColor: theme.border, color: theme.primary }}
+                            >
+                                Refresh Reference
+                            </Button>
+                        </Stack>
+                    }
+                >
+                    {referenceError && (
+                        <Alert severity="warning" sx={{ mb: 1.5, borderRadius: "8px" }}>
+                            {referenceError}
+                        </Alert>
+                    )}
+
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: { xs: "1fr", md: "repeat(5, minmax(0, 1fr))" },
+                            gap: 1.2,
+                            mb: 1.5,
+                        }}
+                    >
+                        <StatCard title="Reference Records" value={formatNumber(referenceMetrics.records)} subtitle="Clocking rows in scope" icon={<HistoryRounded />} tone={theme.secondary} theme={theme} />
+                        <StatCard title="Summary Staff" value={formatNumber(referenceMetrics.summaryRows)} subtitle="People in summary" icon={<GroupsRounded />} tone={theme.accent} theme={theme} />
+                        <StatCard title="Open Sessions" value={formatNumber(referenceMetrics.openSessions)} subtitle="Missing clock-out" icon={<WarningAmberRounded />} tone={referenceMetrics.openSessions ? theme.warning : theme.success} theme={theme} />
+                        <StatCard title="Late Records" value={formatNumber(referenceMetrics.lateRecords)} subtitle="Late arrivals in period" icon={<HourglassBottomRounded />} tone={referenceMetrics.lateRecords ? theme.danger : theme.success} theme={theme} />
+                        <StatCard title="Avg Summary Rate" value={formatPercent(referenceMetrics.averageAttendance)} subtitle="Mean staff attendance" icon={<TableChartRounded />} tone={theme.primary} theme={theme} />
+                    </Box>
+
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 1.5 }}>
+                        <TextField
+                            size="small"
+                            label="Search records and summary"
+                            value={referenceSearch}
+                            onChange={(event) => {
+                                setReferenceSearch(event.target.value);
+                                setRecordPage(0);
+                                setSummaryPage(0);
+                            }}
+                            sx={{ minWidth: { xs: "100%", md: 360 } }}
+                        />
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {activeReportTab === "records" && (
+                            <Button
+                                variant="contained"
+                                startIcon={pdfExporting === "records" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
+                                onClick={handleExportRecordsPdf}
+                                disabled={!filteredRecords.length}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+                            >
+                                {pdfExporting === "records" ? "Exporting..." : "Export Records PDF"}
+                            </Button>
+                            )}
+                            {activeReportTab === "summary" && (
+                            <Button
+                                variant="contained"
+                                startIcon={pdfExporting === "summary" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
+                                onClick={handleExportSummaryPdf}
+                                disabled={!filteredSummaryRows.length}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+                            >
+                                {pdfExporting === "summary" ? "Exporting..." : "Export Summary PDF"}
+                            </Button>
+                            )}
+                        </Stack>
+                    </Stack>
+
+                    <Grid container spacing={2}>
+                        {activeReportTab === "records" && (
+                        <Grid item xs={12}>
+                            <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.secondary}08` }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Records</Typography>
+                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>Clock-in and clock-out reference rows within {scopeLabel}</Typography>
+                                    </Box>
+                                    {referenceLoading && <CircularProgress size={16} sx={{ color: theme.secondary }} />}
+                                </Stack>
+                                <TableContainer sx={{ maxHeight: 430 }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                {["Employee", "Date", "Clock In", "Clock Out", "Duration", "Timing", "Status", "In Location", "Out Location", "Station", "Department"].map((heading) => (
+                                                    <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }}>
+                                                        {heading}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {paginatedRecords.map((row) => (
+                                                <TableRow key={row.id}>
+                                                    <TableCell sx={{ minWidth: 180 }}>
+                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
+                                                        <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ whiteSpace: "nowrap" }}>{row.date}</TableCell>
+                                                    <TableCell>{row.clockIn}</TableCell>
+                                                    <TableCell>{row.clockOut}</TableCell>
+                                                    <TableCell>{row.duration}</TableCell>
+                                                    <TableCell>
+                                                        <Chip size="small" label={row.timing} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.timing === "Late" ? `${theme.warning}18` : `${theme.success}16`, color: row.timing === "Late" ? "#B45309" : theme.success }} />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip size="small" label={row.status} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.status === "Open" ? `${theme.danger}12` : `${theme.secondary}12`, color: row.status === "Open" ? theme.danger : theme.secondary }} />
+                                                    </TableCell>
+                                                    <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                                        <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.inLocation}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                                        <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ minWidth: 130 }}>{row.station}</TableCell>
+                                                    <TableCell sx={{ minWidth: 170 }}>{row.department}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {!paginatedRecords.length && (
+                                                <TableRow>
+                                                    <TableCell colSpan={11}>
+                                                        <EmptyState label={referenceLoading ? "Loading attendance records..." : "No attendance records match the selected scope."} theme={theme} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                <TablePagination
+                                    component="div"
+                                    count={filteredRecords.length}
+                                    page={recordPage}
+                                    onPageChange={(_, pageValue) => setRecordPage(pageValue)}
+                                    rowsPerPage={recordRowsPerPage}
+                                    onRowsPerPageChange={(event) => {
+                                        setRecordRowsPerPage(Number(event.target.value));
+                                        setRecordPage(0);
+                                    }}
+                                    rowsPerPageOptions={[10, 25, 50, 100]}
+                                />
+                            </Box>
+                        </Grid>
+                        )}
+
+                        {activeReportTab === "summary" && (
+                        <Grid item xs={12}>
+                            <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.accent}08` }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Summary</Typography>
+                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>Working-day present and absent totals per staff member</Typography>
+                                    </Box>
+                                    <Chip size="small" label={`${workingDaysInReferenceRange} working days`} sx={{ borderRadius: "8px", fontWeight: 900, bgcolor: `${theme.accent}16`, color: theme.primary }} />
+                                </Stack>
+                                <TableContainer sx={{ maxHeight: 430 }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                {["Employee", "Role", "Rank", "Station", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
+                                                    <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent"].includes(heading) ? "right" : "left"}>
+                                                        {heading}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {paginatedSummaryRows.map((row) => (
+                                                <TableRow key={row.id}>
+                                                    <TableCell sx={{ minWidth: 180 }}>
+                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
+                                                        <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
+                                                    </TableCell>
+                                                    <TableCell>{humanizeFilterValue(row.role)}</TableCell>
+                                                    <TableCell>{humanizeFilterValue(row.rank)}</TableCell>
+                                                    <TableCell sx={{ minWidth: 130 }}>{row.station}</TableCell>
+                                                    <TableCell sx={{ minWidth: 180 }}>{row.department}</TableCell>
+                                                    <TableCell align="right">{formatNumber(row.totalDays)}</TableCell>
+                                                    <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
+                                                    <TableCell align="right">{formatNumber(row.daysPresent)}</TableCell>
+                                                    <TableCell align="right">{formatNumber(row.daysAbsent)}</TableCell>
+                                                    <TableCell sx={{ minWidth: 140 }}>
+                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                            <LinearProgress
+                                                                variant="determinate"
+                                                                value={safePercent(row.attendanceRate)}
+                                                                sx={{
+                                                                    width: 72,
+                                                                    height: 7,
+                                                                    borderRadius: 10,
+                                                                    bgcolor: "rgba(100,116,139,0.16)",
+                                                                    "& .MuiLinearProgress-bar": {
+                                                                        bgcolor: getAttendanceColor(row.attendanceRate, theme),
+                                                                        borderRadius: 10,
+                                                                    },
+                                                                }}
+                                                            />
+                                                            <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(row.attendanceRate, theme) }}>
+                                                                {formatPercent(row.attendanceRate)}
+                                                            </Typography>
+                                                        </Stack>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {!paginatedSummaryRows.length && (
+                                                <TableRow>
+                                                    <TableCell colSpan={10}>
+                                                        <EmptyState label={referenceLoading ? "Loading attendance summary..." : "No summary rows match the selected scope."} theme={theme} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                <TablePagination
+                                    component="div"
+                                    count={filteredSummaryRows.length}
+                                    page={summaryPage}
+                                    onPageChange={(_, pageValue) => setSummaryPage(pageValue)}
+                                    rowsPerPage={summaryRowsPerPage}
+                                    onRowsPerPageChange={(event) => {
+                                        setSummaryRowsPerPage(Number(event.target.value));
+                                        setSummaryPage(0);
+                                    }}
+                                    rowsPerPageOptions={[10, 25, 50, 100]}
+                                />
+                            </Box>
+                        </Grid>
+                        )}
+                    </Grid>
+
+                    <InsightNote theme={theme} tone={referenceMetrics.openSessions ? theme.warning : theme.secondary}>
+                        This reference layer turns the dashboard from a chart-only view into an administration workspace: trends reveal the issue, records prove it, and summary rows support follow-up.
+                    </InsightNote>
+                </SectionCard>
+            </Box>
+            )}
+
+            {activeReportTab === "analytics" && (
             <Grid container spacing={2} sx={{ mt: 2 }}>
                 <Grid item xs={12} lg={6}>
                     <SectionCard title="Lateness Concentration" subtitle="Departments with the highest late-arrival counts" theme={theme}>
@@ -1887,6 +2837,7 @@ const OrganisationStats = () => {
                     </SectionCard>
                 </Grid>
             </Grid>
+            )}
         </Box>
     );
 };
