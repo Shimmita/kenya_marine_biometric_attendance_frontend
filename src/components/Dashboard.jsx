@@ -67,8 +67,8 @@ const OrganisationStats = lazy(() => import('./dashboard/OrganisationStats'));
 const { colorPalette } = coreDataDetails;
 
 /* ─── Layout constants ──────────────────────────────────────────────────── */
-const DRAWER_WIDTH = 330;
-const DRAWER_COLLAPSED_WIDTH = 72;
+const DRAWER_WIDTH = 290;
+const DRAWER_COLLAPSED_WIDTH = 80;
 const APPBAR_HEIGHT = 64;
 
 /* ─── Rank helpers ──────────────────────────────────────────────────────── */

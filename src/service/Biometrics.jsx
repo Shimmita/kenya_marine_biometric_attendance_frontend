@@ -137,7 +137,8 @@ export const verifyFingerprint = async (
   userCoords,
   device_fingerprint,
   outsideLocation = null,
-  isWithinGeofence = null
+  isWithinGeofence = null,
+  expectedAction = null
 ) => {
   try {
     await ensureWebAuthnSupport();
@@ -164,6 +165,7 @@ export const verifyFingerprint = async (
         device_fingerprint,
         outsideLocation,
         isWithinGeofence,
+        expectedAction,
       },
       biometricRequestConfig
     );

@@ -684,6 +684,40 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const [locationStatus, setLocationStatus] = useState('idle');
 
     useEffect(() => {
+        if (!user?._id) return undefined;
+
+        let alive = true;
+        const refreshClockingState = async () => {
+            try {
+                const updated = await getUserProfile();
+                if (!alive) return;
+                dispatch(updateUserCurrentUserRedux(updated));
+                setIsClockedIn(Boolean(updated?.hasClockedIn));
+                setIsToClockOut(Boolean(updated?.isToClockOut));
+                setBiometricRegistered(Boolean(updated?.doneBiometric));
+            } catch (err) {
+                console.error("Dashboard profile refresh failed:", err);
+            }
+        };
+
+        const refreshWhenVisible = () => {
+            if (document.visibilityState !== 'hidden') {
+                refreshClockingState();
+            }
+        };
+
+        refreshClockingState();
+        window.addEventListener('focus', refreshClockingState);
+        document.addEventListener('visibilitychange', refreshWhenVisible);
+
+        return () => {
+            alive = false;
+            window.removeEventListener('focus', refreshClockingState);
+            document.removeEventListener('visibilitychange', refreshWhenVisible);
+        };
+    }, [dispatch, user?._id]);
+
+    useEffect(() => {
         let alive = true;
         const loadCurrentDevice = async () => {
             if (!canUseClocking) {
@@ -981,7 +1015,15 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                 console.warn('Reverse geocode failed:', e);
             }
 
-            const verifyRes = await verifyFingerprint(selectedStation.name, locationForClock, fp, outsideLocation, withinGeofenceForClock);
+            const expectedAction = isClockedIn && isToClockOut ? "clock_out" : "clock_in";
+            const verifyRes = await verifyFingerprint(
+                selectedStation.name,
+                locationForClock,
+                fp,
+                outsideLocation,
+                withinGeofenceForClock,
+                expectedAction
+            );
             console.debug('biometric verify response:', verifyRes);
             const [updated, biometricStatus] = await Promise.all([
                 getUserProfile(),
@@ -996,6 +1038,14 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             const now = new Date();
             notify(`${updated.name}, Clocked ${updated.hasClockedIn ? 'In' : 'Out'} At ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
         } catch (err) {
+            try {
+                const updated = await getUserProfile();
+                dispatch(updateUserCurrentUserRedux(updated));
+                setIsClockedIn(Boolean(updated?.hasClockedIn));
+                setIsToClockOut(Boolean(updated?.isToClockOut));
+            } catch (profileErr) {
+                console.error("Clocking state refresh failed:", profileErr);
+            }
             notify(`${err}`, 'error');
         } finally { setBiometricLoading(false); }
     };

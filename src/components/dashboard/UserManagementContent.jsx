@@ -1,9 +1,20 @@
-import { SupervisorAccountRounded } from "@mui/icons-material";
+import {
+    BadgeRounded,
+    CheckCircleRounded,
+    GroupsRounded,
+    RestartAltRounded,
+    SchoolRounded,
+    SearchRounded,
+    SupervisorAccountRounded,
+} from "@mui/icons-material";
 import {
     Box,
     Button,
+    Card,
+    CardContent,
     CircularProgress,
     FormControl,
+    InputAdornment,
     MenuItem,
     Select,
     Stack,
@@ -41,6 +52,7 @@ import UserTable from "../util/UserTable";
 export const C = {
     deepNavy: "#0A3D62",
     oceanBlue: "#005B96",
+    brightBlue: "#1167E8",
     marineBlue: "#1a237e",
     aquaVibrant: "#00e5ff",
     cyanFresh: "#3FC1FF",     // brighter
@@ -51,6 +63,11 @@ export const C = {
     cloudWhite: "#f8fafd",
     softGray: "#E8EEF7",
     charcoal: "#424242",
+    ink: "#172033",
+    muted: "#687386",
+    pageBg: "#F5F8FC",
+    line: "rgba(15, 23, 42, 0.08)",
+    cardShadow: "0 10px 26px rgba(15, 23, 42, 0.08)",
 
     // Surface / glass tokens
     glassBg: "rgba(10,61,98,0.68)",   // less transparent for readability
@@ -76,29 +93,31 @@ const glassCard = (elevated = false) => ({
 });
 
 const selectSx = {
-    color: C.textPrimary,
+    color: C.ink,
     willChange: 'transform',
-    fontSize: "0.83rem",
-    borderRadius: "10px",
-    background: "rgba(0,91,150,0.32)",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,229,255,0.22)" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: C.aquaVibrant },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: C.seafoamGreen },
-    "& .MuiSvgIcon-root": { color: C.cyanFresh },
+    fontSize: "0.86rem",
+    fontWeight: 700,
+    borderRadius: "8px",
+    background: "#FFFFFF",
+    minHeight: 42,
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: C.line },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(17,103,232,0.32)" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: C.brightBlue },
+    "& .MuiSvgIcon-root": { color: C.muted },
 };
 
 const menuProps = {
     PaperProps: {
         sx: {
-            background: "#05253D",
-            border: `1px solid ${C.glassBorder}`,
-            borderRadius: "12px",
+            background: "#FFFFFF",
+            border: `1px solid ${C.line}`,
+            borderRadius: "8px",
             willChange: 'transform',
-            color: C.textPrimary,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
-            "& .MuiMenuItem-root": { fontSize: "0.83rem", py: 0.8 },
-            "& .MuiMenuItem-root:hover": { background: "rgba(0,229,255,0.1)", color: C.aquaVibrant },
-            "& .MuiMenuItem-root.Mui-selected": { background: "rgba(72,201,176,0.14)", color: C.seafoamGreen },
+            color: C.ink,
+            boxShadow: "0 12px 30px rgba(15,23,42,0.14)",
+            "& .MuiMenuItem-root": { fontSize: "0.86rem", py: 0.9 },
+            "& .MuiMenuItem-root:hover": { background: "rgba(17,103,232,0.08)" },
+            "& .MuiMenuItem-root.Mui-selected": { background: "rgba(17,103,232,0.12)", color: C.brightBlue },
         },
     },
 };
@@ -128,224 +147,302 @@ export const FilterBar = ({
 }) => {
     const hasFilters = searchTerm || rankFilter || roleFilter || statusFilter || departmentFilter || stationFilter;
 
-    // Responsive stat pills – reduce size and text on small screens
-    const statPills = [
-        { label: "Total", value: totalCount, color: C.cyanFresh },
-        { label: "Shown", value: filteredCount, color: C.seafoamGreen },
-    ];
+    const fieldLabelSx = {
+        mb: 0.7,
+        fontSize: 11,
+        fontWeight: 900,
+        color: C.muted,
+        letterSpacing: 0,
+    };
+
+    const clearFilters = () => {
+        setSearchTerm("");
+        setRankFilter("");
+        setRoleFilter("");
+        setStatusFilter("");
+        setDepartmentFilter("");
+        setStationFilter("");
+    };
 
     return (
-        <Box sx={{ ...glassCard(true), p: { xs: 1.5, sm: 2, md: 2.5 } }}>
-            {/* Header: title + stat pills */}
-            <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                alignItems={{ xs: 'flex-start', sm: 'center' }}
-                justifyContent="space-between"
-                spacing={{ xs: 1.5, sm: 0 }}
-                mb={2}
-            >
-                {/* Left: Icon + title + count message */}
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                    <SupervisorAccountRounded />
-                    <Box>
-                        <Typography sx={{
-                            fontWeight: 800,
-                            fontSize: { xs: '0.85rem', sm: '0.95rem' },
-                            color: C.textPrimary,
-                            fontFamily: "'Exo 2', sans-serif",
-                            lineHeight: 1.25,
-                        }}>
-                            User Management
-                        </Typography>
-                        <Typography sx={{
-                            fontSize: { xs: '0.65rem', sm: '0.72rem' },
-                            color: C.textSecondary,
-                            fontWeight: 'bold',
-                        }}>
-                            Showing{" "}
-                            <Box component="span" sx={{ color: C.softGray, fontWeight: 800 }}>
-                                {filteredCount}
-                            </Box>{" "}
-                            of {totalCount} users
-                        </Typography>
-                    </Box>
-                </Stack>
+        <Box
+            sx={{
+                p: { xs: 1.5, md: 2 },
+                borderRadius: "8px",
+                background: "#FFFFFF",
+                border: `1px solid ${C.line}`,
+                boxShadow: C.cardShadow,
+            }}
+        >
 
-                {/* Right: Stat pills */}
-                <Stack
-                    direction="row"
-                    spacing={{ xs: 0.5, sm: 1 }}
-                    sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-                >
-                    {statPills.map(({ label, value, color }) => (
-                        <Box key={label} sx={{
-                            px: { xs: 1, sm: 1.3 },
-                            py: { xs: 0.3, sm: 0.5 },
-                            borderRadius: "8px",
-                            background: `${color}14`,
-                            border: `1px solid ${color}38`,
-                            textAlign: "center",
-                            flex: { xs: 1, sm: '0 1 auto' },
-                            minWidth: { xs: 40, sm: 46 },
-                        }}>
-                            <Typography sx={{
-                                fontSize: { xs: '0.9rem', sm: '1rem' },
-                                fontWeight: 900,
-                                color: C.cloudWhite,
-                                lineHeight: 1,
-                                fontFamily: "'Exo 2', sans-serif",
-                            }}>
-                                {value}
-                            </Typography>
-                            <Typography sx={{
-                                fontSize: { xs: '0.5rem', sm: '0.57rem' },
-                                fontWeight: 'bold',
-                                color: C.softGray,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                            }}>
-                                {label}
-                            </Typography>
-                        </Box>
-                    ))}
-                </Stack>
-            </Stack>
-
-            {/* Filters row – wraps naturally, becomes column on very small screens */}
-            <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={{ xs: 1, sm: 1.5 }}
-                flexWrap="wrap"
-                useFlexGap
-                alignItems={{ xs: 'stretch', sm: 'flex-end' }}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: {
+                        xs: "1fr",
+                        sm: "repeat(2, minmax(190px, 1fr))",
+                        lg: "minmax(280px, 1.65fr) repeat(5, minmax(128px, 0.75fr)) minmax(132px, 0.62fr)",
+                    },
+                    gap: 1,
+                    alignItems: "end",
+                }}
             >
-                {/* Search */}
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 200px' }, minWidth: { xs: '100%', sm: 160 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Search</Typography>
+
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ ml: 2, fontSize: 11, color: C.muted, fontWeight: 700 }}>
+                        Showing {filteredCount} of {totalCount} users
+                    </Typography>
                     <TextField
                         size="small"
                         fullWidth
-                        placeholder="ID, Name, email, department, station…"
+                        placeholder="search ID, Name, Station, Dept"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRounded sx={{ fontSize: 18, color: C.muted }} />
+                                </InputAdornment>
+                            ),
+                        }}
                         sx={{
                             "& .MuiOutlinedInput-root": {
-                                color: C.textPrimary,
-                                fontSize: { xs: '0.75rem', sm: '0.83rem' },
-                                borderRadius: "10px",
-                                background: "rgba(0,91,150,0.32)",
-                                "& fieldset": { borderColor: "rgba(0,229,255,0.22)" },
-                                "&:hover fieldset": { borderColor: C.aquaVibrant },
-                                "&.Mui-focused fieldset": { borderColor: C.seafoamGreen },
+                                height: 42,
+                                color: C.ink,
+                                fontSize: "0.86rem",
+                                fontWeight: 700,
+                                borderRadius: "8px",
+                                background: "#FFFFFF",
+                                "& fieldset": { borderColor: C.line },
+                                "&:hover fieldset": { borderColor: "rgba(17,103,232,0.32)" },
+                                "&.Mui-focused fieldset": { borderColor: C.brightBlue },
                             },
-                            "& input::placeholder": { color: C.textMuted, opacity: 1 },
+                            "& input::placeholder": { color: C.muted, opacity: 0.72 },
                         }}
                     />
                 </Box>
 
-                {/* Rank */}
-                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 128px' }, minWidth: { xs: '48%', sm: 128 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Rank</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={fieldLabelSx}>Rank</Typography>
+                    <FormControl fullWidth size="small" >
+                        <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                            <MenuItem value="">All</MenuItem>
                             {RANK_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>
 
-                {/* Role */}
-                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 148px' }, minWidth: { xs: '48%', sm: 148 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Role</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={fieldLabelSx}>Role</Typography>
+                    <FormControl size="small" fullWidth >
+                        <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                            <MenuItem value="">All</MenuItem>
                             {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>
 
-                {/* Status */}
-                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 128px' }, minWidth: { xs: '48%', sm: 128 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Status</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
-                            <MenuItem value="active" sx={{ color: C.seafoamGreen }}>● Active</MenuItem>
-                            <MenuItem value="inactive" sx={{ color: C.coralSunset }}>● Inactive</MenuItem>
-                            <MenuItem value="clockoutside" sx={{ color: C.coralSunset }}>● ClockOutside</MenuItem>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={fieldLabelSx}>Status</Typography>
+                    <FormControl fullWidth size="small" >
+                        <Select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            displayEmpty
+                            renderValue={(selected) => selected === "active" ? "Active" : selected === "inactive" ? "Inactive" : selected === "clockoutside" ? "Clock Outside" : "All"}
+                            sx={selectSx}
+                            MenuProps={menuProps}
+                        >
+                            <MenuItem value="">All</MenuItem>
+                            <MenuItem value="active">Active</MenuItem>
+                            <MenuItem value="inactive">Inactive</MenuItem>
+                            <MenuItem value="clockoutside">Clock Outside</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>
 
-                {/* Department */}
-                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Department</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={fieldLabelSx}>Department</Typography>
+                    <FormControl fullWidth size="small" >
+                        <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                            <MenuItem value="">All</MenuItem>
                             {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                         </Select>
                     </FormControl>
                 </Box>
 
-                <Box sx={{ flex: { xs: '1 1 48%', sm: '0 1 150px' }, minWidth: { xs: '48%', sm: 150 } }}>
-                    <Typography variant="caption" ml={2} color={C.softGray}>Station</Typography>
-                    <FormControl size="small" fullWidth>
-                        <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="" sx={{ color: C.textMuted }}>All</MenuItem>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={fieldLabelSx}>Station</Typography>
+                    <FormControl fullWidth size="small">
+                        <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                            <MenuItem value="">All</MenuItem>
                             {AvailableStations.map((station) => (
                                 <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
                 </Box>
+            </Box>
 
-                {/* Clear button – stays at the end, full width on small screens */}
-                <Box sx={{
-                    flex: { xs: '1 1 100%', sm: '0 0 auto' },
-                    minWidth: { xs: '100%', sm: 82 },
-                    mt: { xs: 0.5, sm: 0 },
-                }}>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={!hasFilters}
-                        onClick={() => {
-                            setSearchTerm("");
-                            setRankFilter("");
-                            setRoleFilter("");
-                            setStatusFilter("");
-                            setDepartmentFilter("");
-                            setStationFilter("");
-                        }}
-                        sx={{
-                            height: 36,
-                            width: { xs: '100%', sm: 'auto' },
-                            px: 2,
-                            borderRadius: "10px",
-                            fontWeight: 700,
-                            fontFamily: "'Exo 2', sans-serif",
-                            fontSize: { xs: '0.7rem', sm: '0.72rem' },
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            borderColor: hasFilters ? C.aquaVibrant : "rgba(0,229,255,0.18)",
-                            color: hasFilters ? C.aquaVibrant : C.textMuted,
-                            "&:hover": {
-                                background: "rgba(0,229,255,0.08)",
-                                borderColor: C.seafoamGreen,
-                                color: C.seafoamGreen,
-                            },
-                            transition: "all 0.2s ease",
-                        }}
-                    >
-                        Clear
-                    </Button>
-                </Box>
-            </Stack>
         </Box>
     );
 };
+
+export const buildUserSummary = (users = []) => {
+    const activeUsers = users.filter((user) => user.isAccountActive).length;
+    const employees = users.filter((user) => String(user.role || "").toLowerCase() === "employee").length;
+    const interns = users.filter((user) => ["intern", "attachee"].includes(String(user.role || "").toLowerCase())).length;
+
+    return {
+        total: users.length,
+        active: activeUsers,
+        employees,
+        interns,
+    };
+};
+
+export const UserManagementHeader = ({ title = "User Management", subtitle = "Manage system users, roles and access across the institute.", actionLabel = "Clear Filters", onAction, hideAction = false }) => (
+    <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={1}
+        alignItems={{ xs: "stretch", md: "center" }}
+        justifyContent="space-between"
+        sx={{ mb: 2.5 }}
+    >
+        <Stack direction="row" spacing={2} alignItems="center">
+            <Box
+                sx={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: "8px",
+                    bgcolor: C.brightBlue,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 12px 24px rgba(17,103,232,0.28)",
+                    flexShrink: 0,
+                }}
+            >
+                <SupervisorAccountRounded />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 950, color: C.ink, lineHeight: 1.1, letterSpacing: 0 }}>
+                    {title}
+                </Typography>
+                <Typography sx={{ mt: 0.6, fontSize: 13, color: C.muted, fontWeight: 700 }}>
+                    {subtitle}
+                </Typography>
+            </Box>
+        </Stack>
+
+        {!hideAction && (
+            <Button
+                variant="contained"
+                startIcon={<RestartAltRounded />}
+                onClick={onAction}
+                sx={{
+                    alignSelf: { xs: "flex-start", md: "center" },
+                    height: 48,
+                    px: 2.6,
+                    borderRadius: "8px",
+                    bgcolor: C.brightBlue,
+                    textTransform: "none",
+                    fontWeight: 900,
+                    boxShadow: "0 12px 24px rgba(17,103,232,0.24)",
+                    "&:hover": { bgcolor: "#0E55C4" },
+                }}
+            >
+                {actionLabel}
+            </Button>
+        )}
+    </Stack>
+);
+
+const SummaryCard = ({ title, value, subtitle, icon, color }) => (
+    <Card
+        elevation={0}
+        sx={{
+            height: "100%",
+            borderRadius: "8px",
+            border: `1px solid ${C.line}`,
+            boxShadow: C.cardShadow,
+            bgcolor: "#FFFFFF",
+        }}
+    >
+        <CardContent sx={{ p: { xs: 1.8, md: 2.3 } }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                    sx={{
+                        width: 58,
+                        height: 58,
+                        borderRadius: "8px",
+                        bgcolor: `${color}12`,
+                        color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                    }}
+                >
+                    {icon}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 25, fontWeight: 950, lineHeight: 1, color: C.ink }}>
+                        {value}
+                    </Typography>
+                    <Typography sx={{ mt: 0.7, fontSize: 13, fontWeight: 900, color: C.ink }}>
+                        {title}
+                    </Typography>
+                    <Typography sx={{ mt: 0.3, fontSize: 11.5, fontWeight: 700, color: C.muted }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+            </Stack>
+        </CardContent>
+    </Card>
+);
+
+export const UserSummaryCards = ({ users }) => {
+    const summary = buildUserSummary(users);
+    const cards = [
+        { title: "Total Users", value: summary.total, subtitle: "All registered users", icon: <GroupsRounded />, color: C.brightBlue },
+        { title: "Active Users", value: summary.active, subtitle: "Currently active", icon: <CheckCircleRounded />, color: "#16A34A" },
+        { title: "Employees", value: summary.employees, subtitle: "Staff members", icon: <BadgeRounded />, color: "#F97316" },
+        { title: "Interns", value: summary.interns, subtitle: "Interns & Attache", icon: <SchoolRounded />, color: "#8B5CF6" },
+    ];
+
+    return (
+        <Box
+            sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                    xs: "1fr",
+                    sm: "repeat(2, minmax(220px, 1fr))",
+                    lg: "repeat(4, minmax(0, 1fr))",
+                },
+                gap: 2,
+                mb: 2.5,
+            }}
+        >
+            {cards.map((card) => (
+                <SummaryCard key={card.title} {...card} />
+            ))}
+        </Box>
+    );
+};
+
+export const UserManagementShell = ({ children }) => (
+    <Box
+        sx={{
+            minHeight: "100%",
+            p: 1.5,
+            bgcolor: C.pageBg,
+        }}
+    >
+        {children}
+    </Box>
+);
 
 /* ─────────────────────────────────────────────
    ROOT COMPONENT
@@ -660,7 +757,7 @@ const UserManagementContent = ({ readOnly = false }) => {
             setLoading(true);
             setUpdatingId(id);
 
-           const resetResponse= await resetUserPassword(id);
+            const resetResponse = await resetUserPassword(id);
 
             await refreshUsers(id);
 
@@ -674,22 +771,34 @@ const UserManagementContent = ({ readOnly = false }) => {
         }
     }
 
+    const clearAllFilters = () => {
+        setSearchTerm("");
+        setRankFilter("");
+        setRoleFilter("");
+        setStatusFilter("");
+        setDepartmentFilter("");
+        setStationFilter("");
+        setPage(0);
+    };
+
 
 
     if (launchLoading) {
         return (
-            <Stack alignItems="center" justifyContent="center" height="60vh" spacing={2}>
-                <CircularProgress size={38} thickness={3} sx={{ color: C.deepNavy }} />
-                <Typography sx={{
-                    color: C.deepNavy,
-                    fontFamily: "'Exo 2', sans-serif",
-                    fontSize: "0.78rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                }}>
-                    refreshing ...
-                </Typography>
-            </Stack>
+            <UserManagementShell>
+                <Stack alignItems="center" justifyContent="center" height="60vh" spacing={2}>
+                    <CircularProgress size={38} thickness={3} sx={{ color: C.brightBlue }} />
+                    <Typography sx={{
+                        color: C.ink,
+                        fontSize: "0.78rem",
+                        letterSpacing: 0,
+                        textTransform: "uppercase",
+                        fontWeight: 900,
+                    }}>
+                        refreshing ...
+                    </Typography>
+                </Stack>
+            </UserManagementShell>
         );
     }
 
@@ -697,8 +806,10 @@ const UserManagementContent = ({ readOnly = false }) => {
 
 
     return (
-        <>
+        <UserManagementShell>
             <Stack spacing={2}>
+                <UserManagementHeader onAction={clearAllFilters} />
+                <UserSummaryCards users={users} />
                 {/* Filter Bar */}
                 <motion.div style={{ willChange: 'transform, opacity' }}
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -719,9 +830,8 @@ const UserManagementContent = ({ readOnly = false }) => {
                 {/* Empty state */}
                 {filteredUsers.length === 0 && (
                     <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <Box sx={{ ...glassCard(), p: 5, textAlign: "center" }}>
-                            <Typography sx={{ fontSize: "2rem", mb: 1 }}>🌊</Typography>
-                            <Typography sx={{ color: C.textSecondary, fontFamily: "'Exo 2', sans-serif", fontSize: "0.9rem" }}>
+                        <Box sx={{ p: 5, textAlign: "center", borderRadius: "8px", bgcolor: "#FFFFFF", border: `1px solid ${C.line}`, boxShadow: C.cardShadow }}>
+                            <Typography sx={{ color: C.muted, fontWeight: 800, fontSize: "0.9rem" }}>
                                 No users match your current filters
                             </Typography>
                         </Box>
@@ -789,7 +899,7 @@ const UserManagementContent = ({ readOnly = false }) => {
 
 
             </Stack>
-        </>
+        </UserManagementShell>
     );
 };
 

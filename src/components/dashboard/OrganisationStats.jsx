@@ -433,6 +433,7 @@ const SectionCard = ({ title, subtitle, action, children, theme }) => (
     </Card>
 );
 
+
 const EmptyState = ({ label, theme }) => (
     <Stack alignItems="center" justifyContent="center" sx={{ height: "100%", minHeight: 180 }}>
         <Typography sx={{ fontSize: 13, color: theme.muted, fontWeight: 700 }}>

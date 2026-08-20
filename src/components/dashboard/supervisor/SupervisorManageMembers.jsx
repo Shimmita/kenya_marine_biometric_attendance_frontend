@@ -27,7 +27,12 @@ import {
 import coreDataDetails from "../../CoreDataDetails";
 import UserDetailsDialog from "../../util/UserDetailsDialog";
 import UserTable from "../../util/UserTable";
-import { FilterBar } from "../UserManagementContent";
+import {
+    FilterBar,
+    UserManagementHeader,
+    UserManagementShell,
+    UserSummaryCards,
+} from "../UserManagementContent";
 
 /* ─────────────────────────────────────────────
    UPDATED COLOR PALETTE
@@ -175,11 +180,12 @@ const UserManagementContent = () => {
                 (!rankFilter || user.rank === rankFilter) &&
                 (!roleFilter || user.role === roleFilter) &&
                 (!departmentFilter || user.department === departmentFilter) &&
+                (!stationFilter || user.station === stationFilter) &&
                 (statusFilter === ""
                     ? true
                     : statusFilter === "active"
                         ? user.isAccountActive
-                        : !user.isAccountActive)
+                        : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
     }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
@@ -190,6 +196,16 @@ const UserManagementContent = () => {
         setPage(0);
     };
 
+    const clearAllFilters = () => {
+        setSearchTerm("");
+        setRankFilter("");
+        setRoleFilter("");
+        setStatusFilter("");
+        setDepartmentFilter("");
+        setStationFilter("");
+        setPage(0);
+    };
+
     const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
@@ -197,24 +213,32 @@ const UserManagementContent = () => {
 
     if (loading) {
         return (
-            <Stack alignItems="center" justifyContent="center" height="60vh" spacing={2}>
-                <CircularProgress size={38} thickness={3} sx={{ color: C.aquaVibrant }} />
-                <Typography sx={{
-                    color: C.textSecondary,
-                    fontFamily: "'Exo 2', sans-serif",
-                    fontSize: "0.78rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                }}>
-                    Loading Users…
-                </Typography>
-            </Stack>
+            <UserManagementShell>
+                <Stack alignItems="center" justifyContent="center" height="60vh" spacing={2}>
+                    <CircularProgress size={38} thickness={3} sx={{ color: "#1167E8" }} />
+                    <Typography sx={{
+                        color: "#172033",
+                        fontSize: "0.78rem",
+                        letterSpacing: 0,
+                        textTransform: "uppercase",
+                        fontWeight: 900,
+                    }}>
+                        Loading Users...
+                    </Typography>
+                </Stack>
+            </UserManagementShell>
         );
     }
 
     return (
-        <>
+        <UserManagementShell>
             <Stack spacing={2}>
+                <UserManagementHeader
+                    title="User Management"
+                    subtitle="Manage your department members, stations and access status."
+                    onAction={clearAllFilters}
+                />
+                <UserSummaryCards users={users} />
                 {/* Filter Bar */}
                 <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
                     <FilterBar
@@ -233,9 +257,8 @@ const UserManagementContent = () => {
                 {/* Empty state */}
                 {filteredUsers.length === 0 && (
                     <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <Box sx={{ ...glassCard(), p: 5, textAlign: "center" }}>
-                            <Typography sx={{ fontSize: "2rem", mb: 1 }}>🌊</Typography>
-                            <Typography sx={{ color: C.textSecondary, fontFamily: "'Exo 2', sans-serif", fontSize: "0.9rem" }}>
+                        <Box sx={{ p: 5, textAlign: "center", borderRadius: "8px", bgcolor: "#FFFFFF", border: "1px solid rgba(15, 23, 42, 0.08)", boxShadow: "0 10px 26px rgba(15, 23, 42, 0.08)" }}>
+                            <Typography sx={{ color: "#687386", fontWeight: 800, fontSize: "0.9rem" }}>
                                 No users match your current filters
                             </Typography>
                         </Box>
@@ -268,7 +291,7 @@ const UserManagementContent = () => {
                     hideRoleRankManagement
                 />
             </Stack>
-        </>
+        </UserManagementShell>
     );
 };
 
