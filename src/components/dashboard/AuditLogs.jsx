@@ -1,6 +1,10 @@
 import {
     AccountCircle,
+    AdminPanelSettingsRounded,
+    AssessmentRounded,
+    BoltRounded,
     Business,
+    CategoryRounded,
     Description,
     DownloadRounded,
     FilterListRounded,
@@ -12,9 +16,11 @@ import {
     SearchRounded,
     SecurityRounded,
     ShieldRounded,
+    TimelineRounded,
     TodayRounded,
-    VisibilityRounded
+    VisibilityRounded,
 } from "@mui/icons-material";
+
 import {
     Alert,
     Avatar,
@@ -42,16 +48,40 @@ import {
     Tabs,
     TextField,
     Tooltip,
-    Typography
+    Typography,
 } from "@mui/material";
-import { DataGrid } from '@mui/x-data-grid';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
+import { DataGrid } from "@mui/x-data-grid";
+
+import {
+    Area,
+    AreaChart,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip as RechartsTooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 import React, { useEffect, useMemo, useState } from "react";
+
 import { fetchAuditLogs } from "../../service/AuditorService.jsx";
 import coreDataDetails from "../CoreDataDetails.jsx";
 import { safeNewDate } from "../util/DateTimeFormater";
+
 const { colorPalette } = coreDataDetails;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DEBOUNCE
+───────────────────────────────────────────────────────────────────────────── */
 
 const useDebouncedValue = (value, delay = 350) => {
     const [debounced, setDebounced] = useState(value);
@@ -63,29 +93,49 @@ const useDebouncedValue = (value, delay = 350) => {
 
     return debounced;
 };
-/* ─── Glass Design Tokens ────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+───────────────────────────────────────────────────────────────────────────── */
+
 const G = {
+    page: {
+        minHeight: "100vh",
+        background:
+            "radial-gradient(circle at 5% 0%, rgba(0,91,150,.07), transparent 28%)," +
+            "radial-gradient(circle at 95% 5%, rgba(0,229,255,.05), transparent 24%)," +
+            "#f5f8fc",
+    },
+
     surface: {
-        background: 'rgba(255,255,255,0.82)',
-        backdropFilter: 'blur(3px) saturate(30%)',
-        WebkitBackdropFilter: 'blur(3px) saturate(30%)',
-        border: '1px solid rgba(148,163,184,0.18)',
-        boxShadow: '0 5px 10px rgba(15,23,42,0.08)',
-        willChange: 'transform',
+        bgcolor: "rgba(255,255,255,.96)",
+        border: "1px solid rgba(15,23,42,.07)",
+        boxShadow: "0 8px 30px rgba(15,23,42,.055)",
     },
-    cardHover: {
-        '&:hover': {
-            boxShadow: '0 20px 50px rgba(15,23,42,0.12)',
-            transform: 'translateY(-2px)',
-            transition: 'all 0.3s ease',
-            willChange: 'transform',
-        },
+
+    elevated: {
+        bgcolor: "#ffffff",
+        border: "1px solid #e8eef6",
+        boxShadow: "0 12px 35px rgba(15,23,42,.065)",
     },
-    gradientBg: {
-        background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(16,185,129,0.08) 100%)',
-        willChange: 'transform',
-    },
+
+    navy: "#062C4D",
+    blue: "#005B96",
+    cyan: "#00A8CC",
+    green: "#16A085",
+    amber: "#F59E0B",
+    red: "#DC2626",
+    purple: "#7C3AED",
+
+    text: "#102A43",
+    muted: "#6B7C93",
+    border: "#E8EEF6",
+    light: "#F7F9FC",
 };
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FILTER OPTIONS
+───────────────────────────────────────────────────────────────────────────── */
 
 const CATEGORY_TABS = [
     { value: "all", label: "All Logs" },
@@ -95,189 +145,501 @@ const CATEGORY_TABS = [
     { value: "profile", label: "Profile" },
     { value: "device", label: "Lost Device" },
     { value: "password_reset", label: "Password Reset" },
-    { value: "admin_action", label: "Admin / HR Actions" },
-    { value: "superadmin", label: "Superadmin Actions" },
+    { value: "admin_action", label: "Admin / HR" },
+    { value: "superadmin", label: "Superadmin" },
 ];
 
 const RANK_OPTIONS = [
     { value: "all", label: "All Ranks" },
-    ...coreDataDetails.RANK_OPTIONS.map((rank) => ({ value: rank, label: rank.charAt(0).toUpperCase() + rank.slice(1) })),
+    ...coreDataDetails.RANK_OPTIONS.map((rank) => ({
+        value: rank,
+        label: rank.charAt(0).toUpperCase() + rank.slice(1),
+    })),
 ];
 
-const columns = [
-    { field: 'occurredAt', headerName: 'Timestamp', width: 180, valueFormatter: (value) => formatDateTime(value) },
-    { field: 'category', headerName: 'Category', width: 120, valueFormatter: (value) => compactKey(value) },
-    { field: 'action', headerName: 'Action', width: 150, valueFormatter: (value) => compactKey(value) },
-    { field: 'actorName', headerName: 'Actor Name', width: 150, valueGetter: (value, row) => row.actor?.name || 'Unknown' },
-    { field: 'actorEmail', headerName: 'Actor Email', width: 200, valueGetter: (value, row) => row.actor?.email || 'No email' },
-    { field: 'actorRank', headerName: 'Actor Rank', width: 100, valueGetter: (value, row) => row.actor?.rank ? String(row.actor.rank).toUpperCase() : '' },
-    { field: 'targetName', headerName: 'Target Name', width: 150, valueGetter: (value, row) => row.target?.name || '' },
-    { field: 'targetEmail', headerName: 'Target Email', width: 200, valueGetter: (value, row) => row.target?.email || '' },
-    { field: 'description', headerName: 'Description', width: 300 },
-    {
-        field: 'metadata', headerName: 'Metadata', width: 200, valueFormatter: (value) => {
-            const entries = Object.entries(value || {}).filter(([, val]) => val !== null && val !== undefined && val !== "" && typeof val !== "object");
-            return entries.map(([key, val]) => `${compactKey(key)}: ${val}`).join(', ');
-        }
-    },
+/* ─────────────────────────────────────────────────────────────────────────────
+   CHART COLORS
+───────────────────────────────────────────────────────────────────────────── */
+
+const CHART_COLORS = [
+    "#005B96",
+    "#00A8CC",
+    "#16A085",
+    "#F59E0B",
+    "#7C3AED",
+    "#DC2626",
+    "#64748B",
+    "#0891B2",
+    "#84CC16",
 ];
 
-const exportToPDF = (logs) => {
-    try {
-        const doc = new jsPDF('l', 'mm', 'a4'); // landscape, millimeters, A4
-
-        // Add title
-        doc.setFontSize(18);
-        doc.text('System Audit Trail Report', 14, 20);
-
-        // Add timestamp
-        doc.setFontSize(10);
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-        doc.text(`Total Records: ${logs.length}`, 14, 35);
-
-        // Prepare table data
-        const tableColumns = columns.map(col => col.headerName);
-        const tableRows = logs.map(log =>
-            columns.map(col => {
-                let value;
-                if (col.valueGetter) {
-                    value = col.valueGetter(log[col.field], log);
-                } else if (col.valueFormatter) {
-                    value = col.valueFormatter(log[col.field]);
-                } else {
-                    value = log[col.field];
-                }
-                // Ensure value is a string and handle long text
-                const strValue = String(value || '');
-                return strValue.length > 50 ? strValue.substring(0, 47) + '...' : strValue;
-            })
-        );
-
-        // Add table using autoTable function
-        autoTable(doc, {
-            head: [tableColumns],
-            body: tableRows,
-            startY: 45,
-            styles: {
-                fontSize: 7,
-                cellPadding: 2,
-                overflow: 'linebreak',
-                cellWidth: 'wrap',
-            },
-            headStyles: {
-                fillColor: [59, 130, 246],
-                textColor: 255,
-                fontStyle: 'bold',
-                halign: 'center',
-            },
-            alternateRowStyles: {
-                fillColor: [245, 245, 245],
-            },
-            columnStyles: {
-                0: { cellWidth: 25 }, // Timestamp
-                1: { cellWidth: 20 }, // Category
-                2: { cellWidth: 25 }, // Action
-                3: { cellWidth: 25 }, // Actor Name
-                4: { cellWidth: 30 }, // Actor Email
-                5: { cellWidth: 15 }, // Actor Rank
-                6: { cellWidth: 25 }, // Target Name
-                7: { cellWidth: 30 }, // Target Email
-                8: { cellWidth: 40 }, // Description
-                9: { cellWidth: 30 }, // Metadata
-            },
-            margin: { top: 45, left: 10, right: 10 },
-            theme: 'grid',
-            didDrawPage: function (data) {
-                // Add page number
-                doc.setFontSize(8);
-                doc.text(`Page ${data.pageNumber}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-        });
-
-        // Save the PDF
-        doc.save('audit_logs.pdf');
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-        alert('Error generating PDF. Please try again.');
-    }
-};
+/* ─────────────────────────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────────────────────────── */
 
 const formatDateTime = (value) => {
     if (!value) return "Unknown time";
+
     const parsed = safeNewDate(value);
+
     if (!parsed) return "Invalid date";
-    return parsed.toLocaleString();
+
+    return parsed.toLocaleString("en-KE", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
 };
 
 const compactKey = (value = "") =>
     value
-        .split(".")
+        ?.split(".")
         .pop()
         ?.replaceAll("_", " ")
         .replace(/\b\w/g, (char) => char.toUpperCase()) || value;
 
-function MetricCard({ label, value, helper, icon }) {
-    return (
-        <Card sx={{
-            ...G.surface,
-            ...G.cardHover,
-            borderRadius: 4,
-            height: "100%",
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, #3b82f6, #10b981)',
+const getRankColor = (rank = "") => {
+    switch (String(rank).toLowerCase()) {
+        case "superadmin":
+            return "#7C3AED";
+        case "admin":
+            return "#DC2626";
+        case "hr":
+            return "#F59E0B";
+        case "auditor":
+            return "#005B96";
+        case "supervisor":
+            return "#16A085";
+        case "ceo":
+            return "#0891B2";
+        default:
+            return "#64748B";
+    }
+};
+
+const getCategoryColor = (category = "") => {
+    switch (category) {
+        case "authentication":
+            return "#005B96";
+        case "attendance":
+            return "#00A8CC";
+        case "leave":
+            return "#16A085";
+        case "profile":
+            return "#64748B";
+        case "device":
+            return "#F59E0B";
+        case "password_reset":
+            return "#DC2626";
+        case "admin_action":
+            return "#7C3AED";
+        case "superadmin":
+            return "#991B1B";
+        default:
+            return "#64748B";
+    }
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TABLE COLUMNS
+───────────────────────────────────────────────────────────────────────────── */
+
+const columns = [
+    {
+        field: "occurredAt",
+        headerName: "Timestamp",
+        width: 190,
+        valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+        field: "category",
+        headerName: "Category",
+        width: 165,
+        renderCell: (params) => {
+            const color = getCategoryColor(params.value);
+
+            return (
+                <Chip
+                    size="small"
+                    label={compactKey(params.value)}
+                    sx={{
+                        fontWeight: 800,
+                        fontSize: 10.5,
+                        bgcolor: `${color}12`,
+                        color,
+                        border: `1px solid ${color}22`,
+                    }}
+                />
+            );
+        },
+    },
+    {
+        field: "action",
+        headerName: "Action",
+        minWidth: 180,
+        flex: 0.7,
+        valueFormatter: (value) => compactKey(value),
+    },
+    {
+        field: "actorName",
+        headerName: "Actor",
+        minWidth: 170,
+        flex: 0.7,
+        valueGetter: (_, row) => row.actor?.name || "Unknown",
+    },
+    {
+        field: "actorEmail",
+        headerName: "Actor Email",
+        minWidth: 220,
+        flex: 1,
+        valueGetter: (_, row) => row.actor?.email || "No email",
+    },
+    {
+        field: "actorRank",
+        headerName: "Rank",
+        width: 125,
+        valueGetter: (_, row) => row.actor?.rank || "",
+        renderCell: (params) => {
+            const color = getRankColor(params.value);
+
+            return params.value ? (
+                <Chip
+                    size="small"
+                    label={String(params.value).toUpperCase()}
+                    sx={{
+                        height: 24,
+                        fontSize: 10,
+                        fontWeight: 900,
+                        bgcolor: `${color}12`,
+                        color,
+                    }}
+                />
+            ) : (
+                "—"
+            );
+        },
+    },
+    {
+        field: "targetName",
+        headerName: "Target",
+        minWidth: 160,
+        flex: 0.6,
+        valueGetter: (_, row) => row.target?.name || "—",
+    },
+    {
+        field: "description",
+        headerName: "Description",
+        minWidth: 300,
+        flex: 1.4,
+    },
+];
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PDF EXPORT
+───────────────────────────────────────────────────────────────────────────── */
+
+const exportToPDF = (logs) => {
+    try {
+        const doc = new jsPDF("l", "mm", "a4");
+
+        doc.setFontSize(18);
+        doc.setTextColor(6, 44, 77);
+        doc.text("KMFRI System Audit Trail Report", 14, 18);
+
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+
+        doc.text(
+            `Generated: ${new Date().toLocaleString("en-KE")}`,
+            14,
+            27
+        );
+
+        doc.text(`Total Records: ${logs.length}`, 14, 32);
+
+        const tableColumns = [
+            "Timestamp",
+            "Category",
+            "Action",
+            "Actor",
+            "Actor Email",
+            "Rank",
+            "Target",
+            "Description",
+        ];
+
+        const tableRows = logs.map((log) => [
+            formatDateTime(log.occurredAt),
+            compactKey(log.category),
+            compactKey(log.action),
+            log.actor?.name || "Unknown",
+            log.actor?.email || "",
+            String(log.actor?.rank || "").toUpperCase(),
+            log.target?.name || "",
+            String(log.description || "").substring(0, 90),
+        ]);
+
+        autoTable(doc, {
+            head: [tableColumns],
+            body: tableRows,
+            startY: 40,
+
+            styles: {
+                fontSize: 7,
+                cellPadding: 2,
+                overflow: "linebreak",
             },
-        }}>
-            <CardContent sx={{ p: 3 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        {label}
-                    </Typography>
-                    <Box sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "12px",
-                        display: "grid",
-                        placeItems: "center",
-                        bgcolor: 'rgba(59,130,246,0.1)',
-                        color: colorPalette.oceanBlue,
-                        boxShadow: '0 4px 12px rgba(59,130,246,0.2)',
-                    }}>
+
+            headStyles: {
+                fillColor: [6, 44, 77],
+                textColor: 255,
+                fontStyle: "bold",
+            },
+
+            alternateRowStyles: {
+                fillColor: [247, 249, 252],
+            },
+
+            margin: {
+                top: 40,
+                left: 10,
+                right: 10,
+            },
+
+            theme: "grid",
+
+            didDrawPage: (data) => {
+                doc.setFontSize(8);
+                doc.text(
+                    `Page ${data.pageNumber}`,
+                    data.settings.margin.left,
+                    doc.internal.pageSize.height - 7
+                );
+            },
+        });
+
+        doc.save(
+            `KMFRI_Audit_Trail_${new Date().toISOString().slice(0, 10)}.pdf`
+        );
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        alert("Unable to generate audit report.");
+    }
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   KPI CARD
+───────────────────────────────────────────────────────────────────────────── */
+
+function MetricCard({
+    label,
+    value,
+    helper,
+    icon,
+    accent = G.blue,
+    badge,
+}) {
+    return (
+        <Card
+            sx={{
+                ...G.elevated,
+                borderRadius: "18px",
+                height: "100%",
+                overflow: "hidden",
+                position: "relative",
+                transition: "all .22s ease",
+
+                "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: "0 16px 40px rgba(15,23,42,.09)",
+                },
+
+                "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 4,
+                    bgcolor: accent,
+                },
+            }}
+        >
+            <CardContent sx={{ p: 2.5 }}>
+                <Stack
+                    direction="row"
+                    alignItems="flex-start"
+                    justifyContent="space-between"
+                    spacing={2}
+                >
+                    <Box>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: G.muted,
+                                fontWeight: 800,
+                                letterSpacing: ".08em",
+                                textTransform: "uppercase",
+                            }}
+                        >
+                            {label}
+                        </Typography>
+
+                        <Typography
+                            sx={{
+                                mt: 0.7,
+                                fontSize: {
+                                    xs: 28,
+                                    lg: 32,
+                                },
+                                lineHeight: 1,
+                                fontWeight: 900,
+                                color: G.text,
+                            }}
+                        >
+                            {value}
+                        </Typography>
+                    </Box>
+
+                    <Box
+                        sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: "13px",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: `${accent}12`,
+                            color: accent,
+                            flexShrink: 0,
+                        }}
+                    >
                         {icon}
                     </Box>
                 </Stack>
-                <Typography variant="h4" fontWeight={900} color="#0f172a" sx={{ mb: 1 }}>
-                    {value}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                    {helper}
-                </Typography>
+
+                <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ mt: 2 }}
+                >
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: G.muted,
+                            lineHeight: 1.4,
+                        }}
+                    >
+                        {helper}
+                    </Typography>
+
+                    {badge && (
+                        <Chip
+                            size="small"
+                            label={badge}
+                            sx={{
+                                bgcolor: `${accent}10`,
+                                color: accent,
+                                fontWeight: 900,
+                            }}
+                        />
+                    )}
+                </Stack>
             </CardContent>
         </Card>
     );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   CHART HEADER
+───────────────────────────────────────────────────────────────────────────── */
+
+function ChartHeader({ title, subtitle, icon }) {
+    return (
+        <Stack
+            direction="row"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            spacing={2}
+            sx={{ mb: 2.5 }}
+        >
+            <Box>
+                <Typography
+                    fontWeight={900}
+                    color={G.text}
+                    sx={{ fontSize: 16 }}
+                >
+                    {title}
+                </Typography>
+
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: G.muted,
+                        display: "block",
+                        mt: 0.3,
+                    }}
+                >
+                    {subtitle}
+                </Typography>
+            </Box>
+
+            {icon && (
+                <Box
+                    sx={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 2.5,
+                        bgcolor: "rgba(0,91,150,.07)",
+                        color: G.blue,
+                        display: "grid",
+                        placeItems: "center",
+                    }}
+                >
+                    {icon}
+                </Box>
+            )}
+        </Stack>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────────────────────────────────────── */
+
 export default function AuditLogsContent() {
     const [category, setCategory] = useState("all");
     const [action, setAction] = useState("all");
     const [actorRank, setActorRank] = useState("all");
+
     const [search, setSearch] = useState("");
+
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [data, setData] = useState({ logs: [], metrics: {}, actionCounts: {} });
+
+    const [data, setData] = useState({
+        logs: [],
+        metrics: {},
+        actionCounts: {},
+    });
+
     const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedLog, setSelectedLog] = useState(null);
+
     const debouncedSearch = useDebouncedValue(search);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       LOAD LOGS
+    ───────────────────────────────────────────────────────────────────────── */
 
     useEffect(() => {
         let active = true;
@@ -298,11 +660,21 @@ export default function AuditLogsContent() {
                 });
 
                 if (active) {
-                    setData(response);
+                    setData({
+                        logs: response?.logs || [],
+                        metrics: response?.metrics || {},
+                        actionCounts: response?.actionCounts || {},
+                    });
                 }
             } catch (err) {
+                console.error(err);
+
                 if (active) {
-                    setError(typeof err === "string" ? err : "Failed to load audit logs");
+                    setError(
+                        typeof err === "string"
+                            ? err
+                            : "Failed to load audit logs."
+                    );
                 }
             } finally {
                 if (active) {
@@ -312,16 +684,170 @@ export default function AuditLogsContent() {
         };
 
         loadLogs();
-        return () => { active = false; };
-    }, [category, action, actorRank, debouncedSearch, dateFrom, dateTo]);
+
+        return () => {
+            active = false;
+        };
+    }, [
+        category,
+        action,
+        actorRank,
+        debouncedSearch,
+        dateFrom,
+        dateTo,
+    ]);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       ACTION OPTIONS
+    ───────────────────────────────────────────────────────────────────────── */
 
     const actionOptions = useMemo(() => {
         const entries = Object.keys(data.actionCounts || {});
+
         return [
-            { value: "all", label: "All Activities" },
-            ...entries.map((item) => ({ value: item, label: compactKey(item) })),
+            {
+                value: "all",
+                label: "All Activities",
+            },
+
+            ...entries.map((item) => ({
+                value: item,
+                label: compactKey(item),
+            })),
         ];
     }, [data.actionCounts]);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       ANALYTICS
+    ───────────────────────────────────────────────────────────────────────── */
+
+    const analytics = useMemo(() => {
+        const logs = data.logs || [];
+
+        const categoryMap = {};
+        const rankMap = {};
+        const actionMap = {};
+        const dailyMap = {};
+
+        logs.forEach((log) => {
+            /* CATEGORY */
+
+            const categoryKey = compactKey(
+                log.category || "unknown"
+            );
+
+            categoryMap[categoryKey] =
+                (categoryMap[categoryKey] || 0) + 1;
+
+            /* RANK */
+
+            const rankKey = String(
+                log.actor?.rank || "unknown"
+            ).toUpperCase();
+
+            rankMap[rankKey] =
+                (rankMap[rankKey] || 0) + 1;
+
+            /* ACTION */
+
+            const actionKey = compactKey(
+                log.action || "unknown"
+            );
+
+            actionMap[actionKey] =
+                (actionMap[actionKey] || 0) + 1;
+
+            /* DAILY ACTIVITY */
+
+            const parsedDate = safeNewDate(log.occurredAt);
+
+            if (parsedDate) {
+                const dayKey =
+                    parsedDate.getFullYear() +
+                    "-" +
+                    String(parsedDate.getMonth() + 1).padStart(2, "0") +
+                    "-" +
+                    String(parsedDate.getDate()).padStart(2, "0");
+
+                if (!dailyMap[dayKey]) {
+                    dailyMap[dayKey] = {
+                        rawDate: dayKey,
+                        count: 0,
+                        privileged: 0,
+                    };
+                }
+
+                dailyMap[dayKey].count += 1;
+
+                const rank = String(
+                    log.actor?.rank || ""
+                ).toLowerCase();
+
+                if (
+                    ["admin", "hr", "superadmin"].includes(rank)
+                ) {
+                    dailyMap[dayKey].privileged += 1;
+                }
+            }
+        });
+
+        const categoryData = Object.entries(categoryMap)
+            .map(([name, value]) => ({
+                name,
+                value,
+            }))
+            .sort((a, b) => b.value - a.value);
+
+        const rankData = Object.entries(rankMap)
+            .map(([name, value]) => ({
+                name,
+                value,
+            }))
+            .sort((a, b) => b.value - a.value);
+
+        const actionData = Object.entries(actionMap)
+            .map(([name, value]) => ({
+                name,
+                value,
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 7);
+
+        const trendData = Object.values(dailyMap)
+            .sort((a, b) =>
+                a.rawDate.localeCompare(b.rawDate)
+            )
+            .map((item) => ({
+                ...item,
+
+                date: new Date(
+                    `${item.rawDate}T00:00:00`
+                ).toLocaleDateString("en-KE", {
+                    month: "short",
+                    day: "numeric",
+                }),
+            }));
+
+        const privilegedPercentage = logs.length
+            ? Math.round(
+                  ((data.metrics?.privilegedActions || 0) /
+                      logs.length) *
+                      100
+              )
+            : 0;
+
+        return {
+            categoryData,
+            rankData,
+            actionData,
+            trendData,
+            privilegedPercentage,
+        };
+    }, [data.logs, data.metrics]);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       FILTER RESET
+    ───────────────────────────────────────────────────────────────────────── */
 
     const resetFilters = () => {
         setCategory("all");
@@ -332,6 +858,10 @@ export default function AuditLogsContent() {
         setDateTo("");
     };
 
+    /* ─────────────────────────────────────────────────────────────────────────
+       EXPORT
+    ───────────────────────────────────────────────────────────────────────── */
+
     const handleExportMenuOpen = (event) => {
         setExportMenuAnchor(event.currentTarget);
     };
@@ -341,455 +871,2111 @@ export default function AuditLogsContent() {
     };
 
     const handleExportPDF = () => {
-        exportToPDF(data.logs);
+        exportToPDF(data.logs || []);
         handleExportMenuClose();
     };
 
+    /* ─────────────────────────────────────────────────────────────────────────
+       ACTIVE FILTER COUNT
+    ───────────────────────────────────────────────────────────────────────── */
+
+    const activeFilterCount = [
+        category !== "all",
+        action !== "all",
+        actorRank !== "all",
+        Boolean(search),
+        Boolean(dateFrom),
+        Boolean(dateTo),
+    ].filter(Boolean).length;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       RENDER
+    ───────────────────────────────────────────────────────────────────────── */
+
     return (
-        <Box sx={{ maxWidth: 1400, mx: "auto" }}>
-            <Card sx={{ ...G.surface, borderRadius: 5, mb: 3 }}>
-                <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                        <Box>
-                            <Typography variant="h5" fontWeight={900} color="#0f172a">
-                                System Audit Trail
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.6, maxWidth: 760 }}>
-                                Review accountability logs for sign-in activity, attendance actions, leave requests, profile updates,
-                                lost-device workflows, password-reset workflows, and high-privilege admin or HR changes.
-                            </Typography>
-                        </Box>
-                        {/* Detail dialog for selected audit entry */}
-                        <Dialog
-                            open={dialogOpen}
-                            onClose={() => setDialogOpen(false)}
-                            maxWidth="md"
-                            fullWidth
-                            PaperProps={{
-                                sx: { borderRadius: '24px', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.15)' }
-                            }}
-                        >
-                            {/* Header */}
-                            <DialogTitle sx={{ bgcolor: 'rgba(14,165,233,0.04)', fontWeight: 800, px: 4, py: 3, color: '#062c4d' }}>
-                                {selectedLog?.action ? compactKey(selectedLog.action) : 'Audit Entry'}
-                            </DialogTitle>
+        <Box
+            sx={{
+                ...G.page,
+                py: { xs: 1, md: 2 },
+            }}
+        >
+            <Box
+                sx={{
+                    maxWidth: 1600,
+                    mx: "auto",
+                    px: { xs: 1, sm: 2, lg: 3 },
+                }}
+            >
+                {/* ============================================================
+                    PAGE HEADER
+                ============================================================ */}
 
-                            <DialogContent dividers sx={{ p: 4 }}>
-                                <Stack spacing={4}>
-
-                                    {/* Actor & Action Summary Card */}
-                                    <Card variant="outlined" sx={{ borderRadius: '16px', border: '1px solid #edf2f7', bgcolor: '#f8fafc' }}>
-                                        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-                                            <Stack spacing={2}>
-                                                <Stack direction="row" spacing={2} alignItems="center">
-                                                    <AccountCircle sx={{ color: colorPalette.aquaVibrant || '#0ea5e9' }} />
-                                                    <Box>
-                                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
-                                                            ACTOR SECURE PROFILE
-                                                        </Typography>
-                                                        <Typography variant="body1" fontWeight={700} color="#041421">
-                                                            {selectedLog?.actor?.name || 'Unknown User'}
-                                                        </Typography>
-                                                        {selectedLog?.actor?.email && (
-                                                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                                                                {selectedLog.actor.email}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                </Stack>
-
-                                                <Divider />
-
-                                                <Stack direction="row" spacing={2} alignItems="start">
-                                                    <Description sx={{ color: 'text.secondary', mt: 0.5 }} />
-                                                    <Box>
-                                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
-                                                            ACTIVITY DESCRIPTION
-                                                        </Typography>
-                                                        <Typography variant="body2" color="text.primary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
-                                                            {selectedLog?.description || 'No descriptive snapshot attached.'}
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* Target Records Display Block */}
-                                    {selectedLog?.metadata?.registeredUsers?.length ? (
-                                        <Box>
-                                            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, color: '#062c4d', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Person sx={{ fontSize: 20 }} /> Registered Users ({selectedLog.metadata.registeredUsers.length})
-                                            </Typography>
-                                            <List disablePadding sx={{ border: '1px solid #edf2f7', borderRadius: '16px', overflow: 'hidden' }}>
-                                                {selectedLog.metadata.registeredUsers.map((u, i) => (
-                                                    <React.Fragment key={u.id || i}>
-                                                        <ListItem sx={{ px: 3, py: 2, bgcolor: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
-                                                            <ListItemAvatar>
-                                                                <Avatar sx={{ bgcolor: colorPalette.aquaVibrant || '#0ea5e9', fontWeight: 700 }}>
-                                                                    {(u.name || "?").charAt(0).toUpperCase()}
-                                                                </Avatar>
-                                                            </ListItemAvatar>
-                                                            <ListItemText
-                                                                primary={<Typography fontWeight={700} color="#041421">{u.name}</Typography>}
-                                                                secondary={
-                                                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 0.5 }}>
-                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Business sx={{ fontSize: 12 }} /> Dept: {u.department || '—'}
-                                                                        </Typography>
-                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Place sx={{ fontSize: 12 }} /> Station: {u.station || '—'}
-                                                                        </Typography>
-                                                                       
-                                                                    </Stack>
-                                                                }
-                                                            />
-                                                        </ListItem>
-                                                        {i < selectedLog.metadata.registeredUsers.length - 1 && <Divider />}
-                                                    </React.Fragment>
-                                                ))}
-                                            </List>
-                                        </Box>
-                                    ) : selectedLog?.metadata?.registeredUser || selectedLog?.target ? (
-                                        (() => {
-                                            const singleUser = selectedLog?.metadata?.registeredUser || selectedLog?.target;
-                                            return (
-                                                <Box>
-                                                    <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, color: '#062c4d' }}>
-                                                        Target Registered User
-                                                    </Typography>
-                                                    <List disablePadding sx={{ border: '1px solid #edf2f7', borderRadius: '16px' }}>
-                                                        <ListItem sx={{ px: 3, py: 2 }}>
-                                                            <ListItemAvatar>
-                                                                <Avatar sx={{ bgcolor: colorPalette.aquaVibrant || '#0ea5e9', fontWeight: 700 }}>
-                                                                    {(singleUser?.name || "?").charAt(0).toUpperCase()}
-                                                                </Avatar>
-                                                            </ListItemAvatar>
-                                                            <ListItemText
-                                                                primary={<Typography fontWeight={700} color="#041421">{singleUser?.name}</Typography>}
-                                                                secondary={
-                                                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 0.5 }}>
-                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Business sx={{ fontSize: 12 }} /> Dept: {singleUser?.department || '—'}
-                                                                        </Typography>
-                                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Place sx={{ fontSize: 12 }} /> Station: {singleUser?.station || '—'}
-                                                                        </Typography>
-                                                                       
-                                                                    </Stack>
-                                                                }
-                                                            />
-                                                        </ListItem>
-                                                    </List>
-                                                </Box>
-                                            );
-                                        })()
-                                    ) : null}
-                                </Stack>
-                            </DialogContent>
-
-                            {/* Actions */}
-                            <DialogActions sx={{ p: 3, px: 4, bgcolor: '#f8fafc' }}>
-                                <Button
-                                    onClick={() => setDialogOpen(false)}
-                                    variant="outlined"
-                                    sx={{
-                                        borderRadius: '12px',
-                                        textTransform: 'none',
-                                        fontWeight: 700,
-                                        px: 4,
-                                        borderColor: '#edf2f7',
-                                        color: 'text.primary',
-                                        '&:hover': { borderColor: 'text.primary', bgcolor: 'rgba(0,0,0,0.02)' }
-                                    }}
-                                >
-                                    Close
-                                </Button>
-                            </DialogActions>
-                        </Dialog>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <Chip
-                                icon={<ShieldRounded />}
-                                label={`${data.logs?.length || 0} matched logs`}
-                                sx={{ fontWeight: 800, bgcolor: "rgba(14,165,233,0.10)", color: "#0369a1" }}
-                            />
-                        </Stack>
-                    </Stack>
-
-                    <Tabs
-                        value={category}
-                        onChange={(_, value) => { setCategory(value); setAction("all"); setActorRank("all"); }}
-                        variant="scrollable"
-                        allowScrollButtonsMobile
+                <Card
+                    sx={{
+                        ...G.surface,
+                        borderRadius: "22px",
+                        mb: 2.5,
+                        overflow: "hidden",
+                    }}
+                >
+                    <Box
                         sx={{
-                            mt: 2.5,
-                            '& .MuiTab-root': {
-                                borderRadius: '8px',
-                                mx: 0.5,
-                                minHeight: 40,
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                '&.Mui-selected': {
-                                    bgcolor: 'rgba(59,130,246,0.1)',
-                                    color: colorPalette.oceanBlue,
-                                },
+                            height: 4,
+                            background:
+                                "linear-gradient(90deg,#062C4D,#005B96,#00A8CC,#16A085)",
+                        }}
+                    />
+
+                    <CardContent
+                        sx={{
+                            p: {
+                                xs: 2,
+                                md: 3,
                             },
                         }}
                     >
-                        {CATEGORY_TABS.map((tab) => (
-                            <Tab key={tab.value} value={tab.value} label={tab.label} />
-                        ))}
-                    </Tabs>
+                        <Stack
+                            direction={{
+                                xs: "column",
+                                md: "row",
+                            }}
+                            justifyContent="space-between"
+                            alignItems={{
+                                xs: "flex-start",
+                                md: "center",
+                            }}
+                            spacing={2}
+                        >
+                            <Stack
+                                direction="row"
+                                spacing={2}
+                                alignItems="center"
+                            >
+                                <Box
+                                    sx={{
+                                        width: 52,
+                                        height: 52,
+                                        borderRadius: "15px",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        bgcolor:
+                                            "rgba(0,91,150,.08)",
+                                        color: G.blue,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <ShieldRounded />
+                                </Box>
 
-                    <Divider sx={{ my: 3 }} />
+                                <Box>
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        alignItems="center"
+                                        flexWrap="wrap"
+                                    >
+                                        <Typography
+                                            sx={{
+                                                fontSize: {
+                                                    xs: 20,
+                                                    md: 25,
+                                                },
+                                                fontWeight: 900,
+                                                color: G.navy,
+                                            }}
+                                        >
+                                            Audit Intelligence
+                                        </Typography>
 
-                    <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <FilterListRounded sx={{ color: "#0f172a" }} />
-                            <Typography variant="h6" fontWeight={800}>
-                                Filters
-                            </Typography>
+                                        <Chip
+                                            size="small"
+                                            label="SYSTEM AUDIT"
+                                            sx={{
+                                                fontSize: 9,
+                                                height: 21,
+                                                fontWeight: 900,
+                                                bgcolor:
+                                                    "rgba(22,160,133,.1)",
+                                                color: G.green,
+                                            }}
+                                        />
+                                    </Stack>
+
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: G.muted,
+                                            mt: 0.5,
+                                            maxWidth: 760,
+                                        }}
+                                    >
+                                        Monitor system activity,
+                                        accountability events,
+                                        administrative operations and
+                                        security-sensitive actions.
+                                    </Typography>
+                                </Box>
+                            </Stack>
+
+                            <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                                flexWrap="wrap"
+                            >
+                                <Chip
+                                    icon={<VisibilityRounded />}
+                                    label={`${
+                                        data.logs?.length || 0
+                                    } visible events`}
+                                    sx={{
+                                        fontWeight: 800,
+                                        bgcolor:
+                                            "rgba(0,91,150,.07)",
+                                        color: G.blue,
+                                    }}
+                                />
+
+                                <Chip
+                                    icon={<SecurityRounded />}
+                                    label="Audit monitoring active"
+                                    sx={{
+                                        fontWeight: 800,
+                                        bgcolor:
+                                            "rgba(22,160,133,.08)",
+                                        color: G.green,
+                                    }}
+                                />
+                            </Stack>
                         </Stack>
-                        <Tooltip title="Reset all filters to default values">
-                            <Chip
-                                icon={<RotateLeftRounded />}
-                                label="Reset"
-                                onClick={resetFilters}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                    borderColor: 'rgba(59,130,246,0.4)',
-                                    color: '#2563eb',
-                                    fontWeight: 700,
-                                    '&:hover': {
-                                        borderColor: '#2563eb',
-                                        bgcolor: 'rgba(59,130,246,0.08)',
-                                        cursor: 'pointer',
-                                    },
-                                    transition: 'all 0.2s ease',
-                                }}
-                            />
-                        </Tooltip>
-                    </Stack>
+                    </CardContent>
+                </Card>
 
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                            <Tooltip title="Search by actor name, email, target, or action details">
+                {/* ============================================================
+                    FILTER PANEL
+                ============================================================ */}
+
+                <Card
+                    sx={{
+                        ...G.surface,
+                        borderRadius: "20px",
+                        mb: 2.5,
+                    }}
+                >
+                    <CardContent
+                        sx={{
+                            p: {
+                                xs: 2,
+                                md: 2.5,
+                            },
+                        }}
+                    >
+                        {/* CATEGORY TABS */}
+
+                        <Tabs
+                            value={category}
+                            onChange={(_, value) => {
+                                setCategory(value);
+                                setAction("all");
+                            }}
+                            variant="scrollable"
+                            allowScrollButtonsMobile
+                            sx={{
+                                minHeight: 40,
+
+                                "& .MuiTabs-indicator": {
+                                    display: "none",
+                                },
+
+                                "& .MuiTab-root": {
+                                    minHeight: 38,
+                                    minWidth: "auto",
+                                    px: 1.6,
+                                    mr: 0.7,
+                                    borderRadius: "10px",
+                                    textTransform: "none",
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    color: G.muted,
+
+                                    "&.Mui-selected": {
+                                        bgcolor:
+                                            "rgba(0,91,150,.08)",
+                                        color: G.blue,
+                                    },
+                                },
+                            }}
+                        >
+                            {CATEGORY_TABS.map((tab) => (
+                                <Tab
+                                    key={tab.value}
+                                    value={tab.value}
+                                    label={tab.label}
+                                />
+                            ))}
+                        </Tabs>
+
+                        <Divider sx={{ my: 2.3 }} />
+
+                        {/* FILTER HEADER */}
+
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ mb: 1.8 }}
+                        >
+                            <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                            >
+                                <FilterListRounded
+                                    sx={{
+                                        color: G.blue,
+                                        fontSize: 20,
+                                    }}
+                                />
+
+                                <Typography
+                                    fontWeight={900}
+                                    color={G.text}
+                                >
+                                    Filters
+                                </Typography>
+
+                                {activeFilterCount > 0 && (
+                                    <Chip
+                                        size="small"
+                                        label={`${activeFilterCount} active`}
+                                        sx={{
+                                            height: 22,
+                                            fontSize: 10,
+                                            fontWeight: 900,
+                                            bgcolor:
+                                                "rgba(0,91,150,.08)",
+                                            color: G.blue,
+                                        }}
+                                    />
+                                )}
+                            </Stack>
+
+                            <Tooltip title="Reset all audit filters">
+                                <Button
+                                    size="small"
+                                    startIcon={
+                                        <RotateLeftRounded />
+                                    }
+                                    onClick={resetFilters}
+                                    sx={{
+                                        textTransform: "none",
+                                        fontWeight: 800,
+                                        color: G.blue,
+                                    }}
+                                >
+                                    Reset
+                                </Button>
+                            </Tooltip>
+                        </Stack>
+
+                        {/* FILTER CONTROLS */}
+
+                        <Grid container spacing={1.5}>
+                            <Grid
+                                item
+                                xs={12}
+                                md={4}
+                            >
                                 <TextField
                                     fullWidth
+                                    size="small"
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    label="Search actor, target, action"
+                                    onChange={(e) =>
+                                        setSearch(e.target.value)
+                                    }
+                                    placeholder="Search actor, target or activity..."
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <SearchRounded fontSize="small" />
+                                                <SearchRounded
+                                                    fontSize="small"
+                                                    sx={{
+                                                        color: G.muted,
+                                                    }}
+                                                />
                                             </InputAdornment>
                                         ),
                                     }}
                                 />
-                            </Tooltip>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={2.5}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Activity"
-                                value={action}
-                                onChange={(e) => setAction(e.target.value)}
+                            </Grid>
+
+                            <Grid
+                                item
+                                xs={12}
+                                sm={6}
+                                md={2.5}
                             >
-                                {actionOptions.map((item) => (
-                                    <MenuItem key={item.value} value={item.value}>
-                                        {item.label}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
-                            <Tooltip title="Filter by actor's rank/role">
                                 <TextField
                                     select
                                     fullWidth
-                                    label="Actor Rank"
-                                    value={actorRank}
-                                    onChange={(e) => setActorRank(e.target.value)}
+                                    size="small"
+                                    label="Activity"
+                                    value={action}
+                                    onChange={(e) =>
+                                        setAction(e.target.value)
+                                    }
                                 >
-                                    {RANK_OPTIONS.map((item) => (
-                                        <MenuItem key={item.value} value={item.value}>
+                                    {actionOptions.map((item) => (
+                                        <MenuItem
+                                            key={item.value}
+                                            value={item.value}
+                                        >
                                             {item.label}
                                         </MenuItem>
                                     ))}
                                 </TextField>
-                            </Tooltip>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={1.75}>
-                            <Tooltip title="Start date for filtering logs">
+                            </Grid>
+
+                            <Grid
+                                item
+                                xs={12}
+                                sm={6}
+                                md={1.8}
+                            >
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Actor Rank"
+                                    value={actorRank}
+                                    onChange={(e) =>
+                                        setActorRank(
+                                            e.target.value
+                                        )
+                                    }
+                                >
+                                    {RANK_OPTIONS.map((item) => (
+                                        <MenuItem
+                                            key={item.value}
+                                            value={item.value}
+                                        >
+                                            {item.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid
+                                item
+                                xs={12}
+                                sm={6}
+                                md={1.85}
+                            >
                                 <TextField
                                     fullWidth
+                                    size="small"
                                     label="From"
                                     type="date"
                                     value={dateFrom}
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
+                                    onChange={(e) =>
+                                        setDateFrom(
+                                            e.target.value
+                                        )
+                                    }
+                                    InputLabelProps={{
+                                        shrink: true,
+                                    }}
                                 />
-                            </Tooltip>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={1.75}>
-                            <Tooltip title="End date for filtering logs">
+                            </Grid>
+
+                            <Grid
+                                item
+                                xs={12}
+                                sm={6}
+                                md={1.85}
+                            >
                                 <TextField
                                     fullWidth
+                                    size="small"
                                     label="To"
                                     type="date"
                                     value={dateTo}
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
+                                    onChange={(e) =>
+                                        setDateTo(e.target.value)
+                                    }
+                                    InputLabelProps={{
+                                        shrink: true,
+                                    }}
                                 />
-                            </Tooltip>
+                            </Grid>
                         </Grid>
+                    </CardContent>
+                </Card>
+
+                {/* ============================================================
+                    ERRORS
+                ============================================================ */}
+
+                {error && (
+                    <Alert
+                        severity="error"
+                        sx={{
+                            mb: 2.5,
+                            borderRadius: 3,
+                        }}
+                    >
+                        {error}
+                    </Alert>
+                )}
+
+                {/* ============================================================
+                    KPI CARDS
+                ============================================================ */}
+
+                <Grid
+                    container
+                    spacing={2}
+                    sx={{ mb: 2.5 }}
+                >
+                    <Grid
+                        item
+                        xs={12}
+                        sm={6}
+                        lg={3}
+                    >
+                        <MetricCard
+                            label="Audit Events"
+                            value={data.metrics?.total || 0}
+                            helper="Events matching current filters"
+                            icon={<AssessmentRounded />}
+                            accent={G.blue}
+                        />
                     </Grid>
-                </CardContent>
-            </Card>
 
-            <Grid container spacing={2.2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={3}>
-                    <MetricCard
-                        label="Visible Logs"
-                        value={data.metrics?.total || 0}
-                        helper="All audit entries matching the current filters."
-                        icon={<VisibilityRounded fontSize="small" />}
-                    />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <MetricCard
-                        label="Active Users"
-                        value={data.metrics?.uniqueActors || 0}
-                        helper="Distinct actors represented in this filtered view."
-                        icon={<PeopleRounded fontSize="small" />}
-                    />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <MetricCard
-                        label="Privileged Actions"
-                        value={data.metrics?.privilegedActions || 0}
-                        helper="Actions performed by admin or HR users."
-                        icon={<SecurityRounded fontSize="small" />}
-                    />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <MetricCard
-                        label="Today"
-                        value={data.metrics?.today || 0}
-                        helper="Audit entries created today."
-                        icon={<TodayRounded fontSize="small" />}
-                    />
-                </Grid>
-            </Grid>
+                    <Grid
+                        item
+                        xs={12}
+                        sm={6}
+                        lg={3}
+                    >
+                        <MetricCard
+                            label="Unique Actors"
+                            value={
+                                data.metrics?.uniqueActors || 0
+                            }
+                            helper="Distinct users generating events"
+                            icon={<PeopleRounded />}
+                            accent={G.green}
+                        />
+                    </Grid>
 
-            {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                    {error}
-                </Alert>
-            )}
+                    <Grid
+                        item
+                        xs={12}
+                        sm={6}
+                        lg={3}
+                    >
+                        <MetricCard
+                            label="Privileged"
+                            value={
+                                data.metrics
+                                    ?.privilegedActions || 0
+                            }
+                            helper="Admin, HR and superadmin activity"
+                            icon={
+                                <AdminPanelSettingsRounded />
+                            }
+                            accent={G.amber}
+                            badge={`${analytics.privilegedPercentage}%`}
+                        />
+                    </Grid>
 
-            <Card sx={{
-                ...G.surface,
-                borderRadius: 5,
-                ...G.gradientBg,
-                position: 'relative',
-                '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #3b82f6, #10b981, #f59e0b)',
-                },
-            }}>
-                <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" sx={{ mb: 2 }}>
-                        <Typography variant="h6" fontWeight={800} color="#0f172a">
-                            Activity Stream
-                        </Typography>
-                        <Stack direction="row" spacing={1}>
-                            <Button
-                                variant="outlined"
-                                startIcon={<DownloadRounded />}
-                                onClick={handleExportMenuOpen}
-                                disabled={!data.logs?.length}
-                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                    <Grid
+                        item
+                        xs={12}
+                        sm={6}
+                        lg={3}
+                    >
+                        <MetricCard
+                            label="Today"
+                            value={data.metrics?.today || 0}
+                            helper="Audit events recorded today"
+                            icon={<BoltRounded />}
+                            accent={G.purple}
+                        />
+                    </Grid>
+                </Grid>
+
+                {/* ============================================================
+                    PRIMARY ANALYTICS
+                ============================================================ */}
+
+                <Grid
+                    container
+                    spacing={2.5}
+                    sx={{ mb: 2.5 }}
+                >
+                    {/* ACTIVITY TREND */}
+
+                    <Grid
+                        item
+                        xs={12}
+                        lg={8}
+                    >
+                        <Card
+                            sx={{
+                                ...G.elevated,
+                                borderRadius: "20px",
+                                height: "100%",
+                            }}
+                        >
+                            <CardContent sx={{ p: 3 }}>
+                                <ChartHeader
+                                    title="Audit Activity Trend"
+                                    subtitle="System event volume and privileged operations over time"
+                                    icon={<TimelineRounded />}
+                                />
+
+                                {analytics.trendData.length ? (
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            height: 310,
+                                        }}
+                                    >
+                                        <ResponsiveContainer>
+                                            <AreaChart
+                                                data={
+                                                    analytics.trendData
+                                                }
+                                                margin={{
+                                                    top: 5,
+                                                    right: 15,
+                                                    left: -15,
+                                                    bottom: 0,
+                                                }}
+                                            >
+                                                <defs>
+                                                    <linearGradient
+                                                        id="auditGradient"
+                                                        x1="0"
+                                                        y1="0"
+                                                        x2="0"
+                                                        y2="1"
+                                                    >
+                                                        <stop
+                                                            offset="5%"
+                                                            stopColor={
+                                                                G.blue
+                                                            }
+                                                            stopOpacity={
+                                                                0.25
+                                                            }
+                                                        />
+
+                                                        <stop
+                                                            offset="95%"
+                                                            stopColor={
+                                                                G.blue
+                                                            }
+                                                            stopOpacity={
+                                                                0
+                                                            }
+                                                        />
+                                                    </linearGradient>
+                                                </defs>
+
+                                                <CartesianGrid
+                                                    strokeDasharray="4 4"
+                                                    vertical={false}
+                                                    stroke="#edf2f7"
+                                                />
+
+                                                <XAxis
+                                                    dataKey="date"
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 11,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <YAxis
+                                                    allowDecimals={
+                                                        false
+                                                    }
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 11,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <RechartsTooltip
+                                                    contentStyle={{
+                                                        borderRadius:
+                                                            12,
+                                                        border:
+                                                            "1px solid #e8eef6",
+                                                        boxShadow:
+                                                            "0 10px 30px rgba(15,23,42,.08)",
+                                                        fontSize: 12,
+                                                    }}
+                                                />
+
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="count"
+                                                    name="Audit Events"
+                                                    stroke={G.blue}
+                                                    strokeWidth={2.5}
+                                                    fill="url(#auditGradient)"
+                                                />
+
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="privileged"
+                                                    name="Privileged Actions"
+                                                    stroke={
+                                                        G.amber
+                                                    }
+                                                    strokeWidth={2}
+                                                    fill="transparent"
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </Box>
+                                ) : (
+                                    <EmptyChart />
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    {/* CATEGORY DISTRIBUTION */}
+
+                    <Grid
+                        item
+                        xs={12}
+                        lg={4}
+                    >
+                        <Card
+                            sx={{
+                                ...G.elevated,
+                                borderRadius: "20px",
+                                height: "100%",
+                            }}
+                        >
+                            <CardContent sx={{ p: 3 }}>
+                                <ChartHeader
+                                    title="Activity Distribution"
+                                    subtitle="Audit events grouped by system category"
+                                    icon={<CategoryRounded />}
+                                />
+
+                                {analytics.categoryData.length ? (
+                                    <>
+                                        <Box
+                                            sx={{
+                                                height: 205,
+                                            }}
+                                        >
+                                            <ResponsiveContainer>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={
+                                                            analytics.categoryData
+                                                        }
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={
+                                                            55
+                                                        }
+                                                        outerRadius={
+                                                            80
+                                                        }
+                                                        paddingAngle={
+                                                            3
+                                                        }
+                                                    >
+                                                        {analytics.categoryData.map(
+                                                            (
+                                                                _,
+                                                                index
+                                                            ) => (
+                                                                <Cell
+                                                                    key={
+                                                                        index
+                                                                    }
+                                                                    fill={
+                                                                        CHART_COLORS[
+                                                                            index %
+                                                                                CHART_COLORS.length
+                                                                        ]
+                                                                    }
+                                                                />
+                                                            )
+                                                        )}
+                                                    </Pie>
+
+                                                    <RechartsTooltip />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </Box>
+
+                                        <Stack spacing={1}>
+                                            {analytics.categoryData
+                                                .slice(0, 5)
+                                                .map(
+                                                    (
+                                                        item,
+                                                        index
+                                                    ) => (
+                                                        <Stack
+                                                            key={
+                                                                item.name
+                                                            }
+                                                            direction="row"
+                                                            justifyContent="space-between"
+                                                            alignItems="center"
+                                                        >
+                                                            <Stack
+                                                                direction="row"
+                                                                spacing={
+                                                                    1
+                                                                }
+                                                                alignItems="center"
+                                                            >
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 8,
+                                                                        height: 8,
+                                                                        borderRadius:
+                                                                            "50%",
+                                                                        bgcolor:
+                                                                            CHART_COLORS[
+                                                                                index %
+                                                                                    CHART_COLORS.length
+                                                                            ],
+                                                                    }}
+                                                                />
+
+                                                                <Typography
+                                                                    variant="caption"
+                                                                    color={
+                                                                        G.muted
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        item.name
+                                                                    }
+                                                                </Typography>
+                                                            </Stack>
+
+                                                            <Typography
+                                                                variant="caption"
+                                                                fontWeight={
+                                                                    900
+                                                                }
+                                                                color={
+                                                                    G.text
+                                                                }
+                                                            >
+                                                                {
+                                                                    item.value
+                                                                }
+                                                            </Typography>
+                                                        </Stack>
+                                                    )
+                                                )}
+                                        </Stack>
+                                    </>
+                                ) : (
+                                    <EmptyChart />
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                {/* ============================================================
+                    SECONDARY ANALYTICS
+                ============================================================ */}
+
+                <Grid
+                    container
+                    spacing={2.5}
+                    sx={{ mb: 2.5 }}
+                >
+                    {/* FREQUENT ACTIVITIES */}
+
+                    <Grid
+                        item
+                        xs={12}
+                        lg={7}
+                    >
+                        <Card
+                            sx={{
+                                ...G.elevated,
+                                borderRadius: "20px",
+                            }}
+                        >
+                            <CardContent sx={{ p: 3 }}>
+                                <ChartHeader
+                                    title="Most Frequent Activities"
+                                    subtitle="Highest-volume operations in the selected audit period"
+                                    icon={<AssessmentRounded />}
+                                />
+
+                                {analytics.actionData.length ? (
+                                    <Box sx={{ height: 290 }}>
+                                        <ResponsiveContainer>
+                                            <BarChart
+                                                data={
+                                                    analytics.actionData
+                                                }
+                                                layout="vertical"
+                                                margin={{
+                                                    left: 20,
+                                                    right: 20,
+                                                }}
+                                            >
+                                                <CartesianGrid
+                                                    strokeDasharray="4 4"
+                                                    horizontal={
+                                                        false
+                                                    }
+                                                    stroke="#edf2f7"
+                                                />
+
+                                                <XAxis
+                                                    type="number"
+                                                    allowDecimals={
+                                                        false
+                                                    }
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 11,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <YAxis
+                                                    type="category"
+                                                    dataKey="name"
+                                                    width={145}
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 10,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <RechartsTooltip />
+
+                                                <Bar
+                                                    dataKey="value"
+                                                    name="Events"
+                                                    fill={G.blue}
+                                                    radius={[
+                                                        0,
+                                                        7,
+                                                        7,
+                                                        0,
+                                                    ]}
+                                                    barSize={18}
+                                                />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </Box>
+                                ) : (
+                                    <EmptyChart />
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    {/* ACTIVITY BY RANK */}
+
+                    <Grid
+                        item
+                        xs={12}
+                        lg={5}
+                    >
+                        <Card
+                            sx={{
+                                ...G.elevated,
+                                borderRadius: "20px",
+                            }}
+                        >
+                            <CardContent sx={{ p: 3 }}>
+                                <ChartHeader
+                                    title="Activity by Access Rank"
+                                    subtitle="Event distribution across account privilege levels"
+                                    icon={
+                                        <AdminPanelSettingsRounded />
+                                    }
+                                />
+
+                                {analytics.rankData.length ? (
+                                    <Box sx={{ height: 290 }}>
+                                        <ResponsiveContainer>
+                                            <BarChart
+                                                data={
+                                                    analytics.rankData
+                                                }
+                                                margin={{
+                                                    top: 5,
+                                                    right: 5,
+                                                    left: -15,
+                                                }}
+                                            >
+                                                <CartesianGrid
+                                                    strokeDasharray="4 4"
+                                                    vertical={false}
+                                                    stroke="#edf2f7"
+                                                />
+
+                                                <XAxis
+                                                    dataKey="name"
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 9,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <YAxis
+                                                    allowDecimals={
+                                                        false
+                                                    }
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fontSize: 10,
+                                                        fill: G.muted,
+                                                    }}
+                                                />
+
+                                                <RechartsTooltip />
+
+                                                <Bar
+                                                    dataKey="value"
+                                                    name="Events"
+                                                    fill={G.green}
+                                                    radius={[
+                                                        6,
+                                                        6,
+                                                        0,
+                                                        0,
+                                                    ]}
+                                                    maxBarSize={38}
+                                                />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </Box>
+                                ) : (
+                                    <EmptyChart />
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                {/* ============================================================
+                    AUDIT STREAM
+                ============================================================ */}
+
+                <Card
+                    sx={{
+                        ...G.elevated,
+                        borderRadius: "20px",
+                        overflow: "hidden",
+                    }}
+                >
+                    <CardContent
+                        sx={{
+                            p: {
+                                xs: 2,
+                                md: 3,
+                            },
+                        }}
+                    >
+                        <Stack
+                            direction={{
+                                xs: "column",
+                                sm: "row",
+                            }}
+                            justifyContent="space-between"
+                            alignItems={{
+                                xs: "flex-start",
+                                sm: "center",
+                            }}
+                            spacing={2}
+                            sx={{ mb: 2 }}
+                        >
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: 17,
+                                        fontWeight: 900,
+                                        color: G.text,
+                                    }}
+                                >
+                                    Audit Event Stream
+                                </Typography>
+
+                                <Typography
+                                    variant="caption"
+                                    color={G.muted}
+                                >
+                                    Select an event to inspect its
+                                    complete accountability record.
+                                </Typography>
+                            </Box>
+
+                            <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
                             >
-                                Export
-                            </Button>
-                            <Menu
-                                anchorEl={exportMenuAnchor}
-                                open={Boolean(exportMenuAnchor)}
-                                onClose={handleExportMenuClose}
-                                anchorOrigin={{
-                                    vertical: 'bottom',
-                                    horizontal: 'right',
-                                }}
-                                transformOrigin={{
-                                    vertical: 'top',
-                                    horizontal: 'right',
-                                }}
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: G.muted,
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    {data.logs?.length || 0} entries
+                                </Typography>
+
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={
+                                        <DownloadRounded />
+                                    }
+                                    onClick={
+                                        handleExportMenuOpen
+                                    }
+                                    disabled={
+                                        !data.logs?.length
+                                    }
+                                    sx={{
+                                        textTransform: "none",
+                                        fontWeight: 800,
+                                        borderRadius: 2.5,
+                                        borderColor: G.border,
+                                        color: G.blue,
+                                    }}
+                                >
+                                    Export
+                                </Button>
+
+                                <Menu
+                                    anchorEl={exportMenuAnchor}
+                                    open={Boolean(
+                                        exportMenuAnchor
+                                    )}
+                                    onClose={
+                                        handleExportMenuClose
+                                    }
+                                    anchorOrigin={{
+                                        vertical: "bottom",
+                                        horizontal: "right",
+                                    }}
+                                    transformOrigin={{
+                                        vertical: "top",
+                                        horizontal: "right",
+                                    }}
+                                    PaperProps={{
+                                        sx: {
+                                            mt: 1,
+                                            borderRadius: 2.5,
+                                            boxShadow:
+                                                "0 12px 35px rgba(15,23,42,.12)",
+                                        },
+                                    }}
+                                >
+                                    <MenuItem
+                                        onClick={
+                                            handleExportPDF
+                                        }
+                                    >
+                                        <PictureAsPdfRounded
+                                            sx={{
+                                                mr: 1.2,
+                                                color: G.red,
+                                            }}
+                                        />
+
+                                        Export PDF Report
+                                    </MenuItem>
+                                </Menu>
+                            </Stack>
+                        </Stack>
+
+                        <Divider sx={{ mb: 2 }} />
+
+                        {loading ? (
+                            <Stack
+                                alignItems="center"
+                                justifyContent="center"
+                                spacing={2}
+                                sx={{ py: 10 }}
                             >
-                                <MenuItem onClick={handleExportPDF}>
-                                    <PictureAsPdfRounded sx={{ mr: 1, color: '#d32f2f' }} />
-                                    Export as PDF
-                                </MenuItem>
-                            </Menu>
-                            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                                {data.logs?.length || 0} entries
-                            </Typography>
-                        </Stack>
-                    </Stack>
+                                <CircularProgress
+                                    size={35}
+                                    sx={{
+                                        color: G.blue,
+                                    }}
+                                />
 
-                    <Divider sx={{ mb: 2.5 }} />
-
-                    {loading ? (
-                        <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }}>
-                            <CircularProgress sx={{ color: colorPalette.oceanBlue }} />
-                        </Stack>
-                    ) : data.logs?.length ? (
-                        <Box sx={{ height: 600, width: '100%' }}>
-                            <DataGrid
-                                rows={data.logs}
-                                columns={columns}
-                                getRowId={(row) => row._id}
-                                pageSize={10}
-                                rowsPerPageOptions={[10, 25, 50]}
-                                disableSelectionOnClick
-                                onRowClick={(params) => {
-                                    setSelectedLog(params.row);
-                                    setDialogOpen(true);
-                                }}
+                                <Typography
+                                    variant="body2"
+                                    color={G.muted}
+                                >
+                                    Loading audit intelligence...
+                                </Typography>
+                            </Stack>
+                        ) : data.logs?.length ? (
+                            <Box
                                 sx={{
-                                    border: 'none',
-                                    '& .MuiDataGrid-cell': {
-                                        borderBottom: '1px solid rgba(148,163,184,0.1)',
-                                    },
-                                    '& .MuiDataGrid-columnHeaders': {
-                                        backgroundColor: 'rgba(59,130,246,0.05)',
-                                        borderBottom: '2px solid rgba(59,130,246,0.2)',
-                                    },
-                                    '& .MuiDataGrid-row:hover': {
-                                        backgroundColor: 'rgba(59,130,246,0.02)',
-                                    },
+                                    height: 620,
+                                    width: "100%",
                                 }}
-                            />
+                            >
+                                <DataGrid
+                                    rows={data.logs}
+                                    columns={columns}
+                                    getRowId={(row) =>
+                                        row._id
+                                    }
+                                    initialState={{
+                                        pagination: {
+                                            paginationModel: {
+                                                pageSize: 10,
+                                                page: 0,
+                                            },
+                                        },
+                                    }}
+                                    pageSizeOptions={[
+                                        10,
+                                        25,
+                                        50,
+                                    ]}
+                                    disableRowSelectionOnClick
+                                    onRowClick={(params) => {
+                                        setSelectedLog(
+                                            params.row
+                                        );
+
+                                        setDialogOpen(true);
+                                    }}
+                                    sx={{
+                                        border: 0,
+                                        color: G.text,
+
+                                        "& .MuiDataGrid-columnHeaders":
+                                            {
+                                                bgcolor:
+                                                    "#f7f9fc",
+                                                borderBottom:
+                                                    "1px solid #e8eef6",
+                                            },
+
+                                        "& .MuiDataGrid-columnHeaderTitle":
+                                            {
+                                                fontWeight: 900,
+                                                fontSize: 11,
+                                                color: "#52667A",
+                                                textTransform:
+                                                    "uppercase",
+                                                letterSpacing:
+                                                    ".035em",
+                                            },
+
+                                        "& .MuiDataGrid-cell":
+                                            {
+                                                borderBottom:
+                                                    "1px solid #f0f3f7",
+                                                fontSize: 12.5,
+                                            },
+
+                                        "& .MuiDataGrid-row":
+                                            {
+                                                cursor: "pointer",
+                                            },
+
+                                        "& .MuiDataGrid-row:hover":
+                                            {
+                                                bgcolor:
+                                                    "rgba(0,91,150,.035)",
+                                            },
+
+                                        "& .MuiDataGrid-footerContainer":
+                                            {
+                                                borderTop:
+                                                    "1px solid #e8eef6",
+                                            },
+
+                                        "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus":
+                                            {
+                                                outline: "none",
+                                            },
+                                    }}
+                                />
+                            </Box>
+                        ) : (
+                            <Box
+                                sx={{
+                                    py: 10,
+                                    textAlign: "center",
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        width: 60,
+                                        height: 60,
+                                        borderRadius: "18px",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        bgcolor:
+                                            "rgba(0,91,150,.06)",
+                                        color: G.blue,
+                                        mx: "auto",
+                                        mb: 2,
+                                    }}
+                                >
+                                    <SearchRounded />
+                                </Box>
+
+                                <Typography
+                                    variant="h6"
+                                    fontWeight={900}
+                                    color={G.text}
+                                >
+                                    No audit events found
+                                </Typography>
+
+                                <Typography
+                                    variant="body2"
+                                    color={G.muted}
+                                    sx={{
+                                        mt: 0.7,
+                                        maxWidth: 420,
+                                        mx: "auto",
+                                    }}
+                                >
+                                    Try changing the activity,
+                                    account rank, search term or
+                                    selected date range.
+                                </Typography>
+
+                                {activeFilterCount > 0 && (
+                                    <Button
+                                        onClick={resetFilters}
+                                        sx={{
+                                            mt: 2,
+                                            textTransform:
+                                                "none",
+                                            fontWeight: 800,
+                                        }}
+                                    >
+                                        Clear filters
+                                    </Button>
+                                )}
+                            </Box>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* ============================================================
+                    AUDIT INVESTIGATION DIALOG
+                ============================================================ */}
+
+                <Dialog
+                    open={dialogOpen}
+                    onClose={() => setDialogOpen(false)}
+                    maxWidth="md"
+                    fullWidth
+                    PaperProps={{
+                        sx: {
+                            borderRadius: "22px",
+                            overflow: "hidden",
+                            boxShadow:
+                                "0 30px 70px rgba(15,23,42,.2)",
+                        },
+                    }}
+                >
+                    <DialogTitle
+                        sx={{
+                            p: 0,
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                px: {
+                                    xs: 2.5,
+                                    md: 3.5,
+                                },
+                                py: 2.5,
+                                background:
+                                    "linear-gradient(135deg,#062C4D,#005B96)",
+                                color: "#fff",
+                            }}
+                        >
+                            <Stack
+                                direction="row"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                spacing={2}
+                            >
+                                <Stack
+                                    direction="row"
+                                    spacing={1.5}
+                                    alignItems="center"
+                                >
+                                    <Box
+                                        sx={{
+                                            width: 42,
+                                            height: 42,
+                                            borderRadius: 2.5,
+                                            display: "grid",
+                                            placeItems:
+                                                "center",
+                                            bgcolor:
+                                                "rgba(255,255,255,.12)",
+                                        }}
+                                    >
+                                        <ShieldRounded />
+                                    </Box>
+
+                                    <Box>
+                                        <Typography
+                                            fontWeight={900}
+                                            sx={{
+                                                fontSize: 18,
+                                            }}
+                                        >
+                                            {selectedLog?.action
+                                                ? compactKey(
+                                                      selectedLog.action
+                                                  )
+                                                : "Audit Event"}
+                                        </Typography>
+
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color:
+                                                    "rgba(255,255,255,.72)",
+                                            }}
+                                        >
+                                            Accountability event
+                                            investigation
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+
+                                {selectedLog?.category && (
+                                    <Chip
+                                        size="small"
+                                        label={compactKey(
+                                            selectedLog.category
+                                        )}
+                                        sx={{
+                                            bgcolor:
+                                                "rgba(255,255,255,.14)",
+                                            color: "#fff",
+                                            fontWeight: 800,
+                                        }}
+                                    />
+                                )}
+                            </Stack>
                         </Box>
-                    ) : (
-                        <Box sx={{ py: 8, textAlign: "center" }}>
-                            <Typography variant="h6" fontWeight={800} color="#0f172a">
-                                No audit logs found
+                    </DialogTitle>
+
+                    <DialogContent
+                        sx={{
+                            p: {
+                                xs: 2.5,
+                                md: 3.5,
+                            },
+                            bgcolor: "#f8fafc",
+                        }}
+                    >
+                        <Stack spacing={2.5}>
+                            {/* EVENT META */}
+
+                            <Grid
+                                container
+                                spacing={1.5}
+                            >
+                                <Grid
+                                    item
+                                    xs={12}
+                                    sm={6}
+                                >
+                                    <InfoBlock
+                                        label="Event Time"
+                                        value={formatDateTime(
+                                            selectedLog?.occurredAt
+                                        )}
+                                        icon={
+                                            <TodayRounded />
+                                        }
+                                    />
+                                </Grid>
+
+                                <Grid
+                                    item
+                                    xs={12}
+                                    sm={6}
+                                >
+                                    <InfoBlock
+                                        label="Actor Rank"
+                                        value={
+                                            selectedLog?.actor
+                                                ?.rank
+                                                ? String(
+                                                      selectedLog
+                                                          .actor
+                                                          .rank
+                                                  ).toUpperCase()
+                                                : "Unknown"
+                                        }
+                                        icon={
+                                            <SecurityRounded />
+                                        }
+                                    />
+                                </Grid>
+                            </Grid>
+
+                            {/* ACTOR */}
+
+                            <Card
+                                sx={{
+                                    borderRadius: "16px",
+                                    border:
+                                        "1px solid #e8eef6",
+                                    boxShadow: "none",
+                                }}
+                            >
+                                <CardContent
+                                    sx={{
+                                        p: 2.5,
+                                        "&:last-child": {
+                                            pb: 2.5,
+                                        },
+                                    }}
+                                >
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            color: G.muted,
+                                            fontWeight: 900,
+                                            letterSpacing:
+                                                ".07em",
+                                        }}
+                                    >
+                                        ACTOR
+                                    </Typography>
+
+                                    <Stack
+                                        direction="row"
+                                        spacing={1.5}
+                                        alignItems="center"
+                                        sx={{ mt: 1.5 }}
+                                    >
+                                        <Avatar
+                                            sx={{
+                                                bgcolor:
+                                                    "rgba(0,91,150,.1)",
+                                                color: G.blue,
+                                                fontWeight: 900,
+                                            }}
+                                        >
+                                            {(
+                                                selectedLog?.actor
+                                                    ?.name || "?"
+                                            )
+                                                .charAt(0)
+                                                .toUpperCase()}
+                                        </Avatar>
+
+                                        <Box>
+                                            <Typography
+                                                fontWeight={900}
+                                                color={G.text}
+                                            >
+                                                {selectedLog?.actor
+                                                    ?.name ||
+                                                    "Unknown User"}
+                                            </Typography>
+
+                                            <Typography
+                                                variant="caption"
+                                                color={G.muted}
+                                            >
+                                                {selectedLog?.actor
+                                                    ?.email ||
+                                                    "No email recorded"}
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
+                                </CardContent>
+                            </Card>
+
+                            {/* DESCRIPTION */}
+
+                            <Card
+                                sx={{
+                                    borderRadius: "16px",
+                                    border:
+                                        "1px solid #e8eef6",
+                                    boxShadow: "none",
+                                }}
+                            >
+                                <CardContent
+                                    sx={{
+                                        p: 2.5,
+                                        "&:last-child": {
+                                            pb: 2.5,
+                                        },
+                                    }}
+                                >
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        alignItems="center"
+                                    >
+                                        <Description
+                                            sx={{
+                                                color: G.blue,
+                                                fontSize: 19,
+                                            }}
+                                        />
+
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: G.muted,
+                                                fontWeight: 900,
+                                                letterSpacing:
+                                                    ".07em",
+                                            }}
+                                        >
+                                            ACTIVITY DESCRIPTION
+                                        </Typography>
+                                    </Stack>
+
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: G.text,
+                                            mt: 1.5,
+                                            lineHeight: 1.7,
+                                        }}
+                                    >
+                                        {selectedLog?.description ||
+                                            "No descriptive snapshot was attached to this event."}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* REGISTERED USERS */}
+
+                            {selectedLog?.metadata
+                                ?.registeredUsers?.length ? (
+                                <Box>
+                                    <Typography
+                                        fontWeight={900}
+                                        color={G.text}
+                                        sx={{ mb: 1.5 }}
+                                    >
+                                        Registered Users (
+                                        {
+                                            selectedLog.metadata
+                                                .registeredUsers
+                                                .length
+                                        }
+                                        )
+                                    </Typography>
+
+                                    <List
+                                        disablePadding
+                                        sx={{
+                                            bgcolor: "#fff",
+                                            border:
+                                                "1px solid #e8eef6",
+                                            borderRadius:
+                                                "16px",
+                                            overflow: "hidden",
+                                        }}
+                                    >
+                                        {selectedLog.metadata.registeredUsers.map(
+                                            (user, index) => (
+                                                <React.Fragment
+                                                    key={
+                                                        user.id ||
+                                                        index
+                                                    }
+                                                >
+                                                    <ListItem
+                                                        sx={{
+                                                            px: 2.5,
+                                                            py: 1.7,
+                                                        }}
+                                                    >
+                                                        <ListItemAvatar>
+                                                            <Avatar
+                                                                sx={{
+                                                                    bgcolor:
+                                                                        "rgba(0,91,150,.1)",
+                                                                    color: G.blue,
+                                                                    fontWeight: 900,
+                                                                }}
+                                                            >
+                                                                {(
+                                                                    user.name ||
+                                                                    "?"
+                                                                )
+                                                                    .charAt(
+                                                                        0
+                                                                    )
+                                                                    .toUpperCase()}
+                                                            </Avatar>
+                                                        </ListItemAvatar>
+
+                                                        <ListItemText
+                                                            primary={
+                                                                <Typography
+                                                                    fontWeight={
+                                                                        900
+                                                                    }
+                                                                    color={
+                                                                        G.text
+                                                                    }
+                                                                >
+                                                                    {user.name ||
+                                                                        "Unknown"}
+                                                                </Typography>
+                                                            }
+                                                            secondary={
+                                                                <Stack
+                                                                    direction={{
+                                                                        xs: "column",
+                                                                        sm: "row",
+                                                                    }}
+                                                                    spacing={
+                                                                        1.5
+                                                                    }
+                                                                    sx={{
+                                                                        mt: 0.4,
+                                                                    }}
+                                                                >
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        color={
+                                                                            G.muted
+                                                                        }
+                                                                    >
+                                                                        <Business
+                                                                            sx={{
+                                                                                fontSize: 12,
+                                                                                mr: 0.4,
+                                                                                verticalAlign:
+                                                                                    "middle",
+                                                                            }}
+                                                                        />
+                                                                        {user.department ||
+                                                                            "No department"}
+                                                                    </Typography>
+
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        color={
+                                                                            G.muted
+                                                                        }
+                                                                    >
+                                                                        <Place
+                                                                            sx={{
+                                                                                fontSize: 12,
+                                                                                mr: 0.4,
+                                                                                verticalAlign:
+                                                                                    "middle",
+                                                                            }}
+                                                                        />
+                                                                        {user.station ||
+                                                                            "No station"}
+                                                                    </Typography>
+                                                                </Stack>
+                                                            }
+                                                        />
+                                                    </ListItem>
+
+                                                    {index <
+                                                        selectedLog
+                                                            .metadata
+                                                            .registeredUsers
+                                                            .length -
+                                                            1 && (
+                                                        <Divider />
+                                                    )}
+                                                </React.Fragment>
+                                            )
+                                        )}
+                                    </List>
+                                </Box>
+                            ) : selectedLog?.metadata
+                                  ?.registeredUser ||
+                              selectedLog?.target ? (
+                                <SingleTarget
+                                    user={
+                                        selectedLog?.metadata
+                                            ?.registeredUser ||
+                                        selectedLog?.target
+                                    }
+                                />
+                            ) : null}
+
+                            {/* METADATA */}
+
+                            {selectedLog?.metadata &&
+                                Object.keys(
+                                    selectedLog.metadata
+                                ).length > 0 && (
+                                    <Card
+                                        sx={{
+                                            borderRadius:
+                                                "16px",
+                                            border:
+                                                "1px solid #e8eef6",
+                                            boxShadow: "none",
+                                        }}
+                                    >
+                                        <CardContent
+                                            sx={{
+                                                p: 2.5,
+                                                "&:last-child": {
+                                                    pb: 2.5,
+                                                },
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    color: G.muted,
+                                                    fontWeight: 900,
+                                                    letterSpacing:
+                                                        ".07em",
+                                                }}
+                                            >
+                                                EVENT METADATA
+                                            </Typography>
+
+                                            <Box
+                                                component="pre"
+                                                sx={{
+                                                    mt: 1.5,
+                                                    mb: 0,
+                                                    p: 2,
+                                                    borderRadius: 2.5,
+                                                    bgcolor:
+                                                        "#0f172a",
+                                                    color:
+                                                        "#dbeafe",
+                                                    fontSize: 11,
+                                                    overflowX:
+                                                        "auto",
+                                                    whiteSpace:
+                                                        "pre-wrap",
+                                                    wordBreak:
+                                                        "break-word",
+                                                    maxHeight: 280,
+                                                }}
+                                            >
+                                                {JSON.stringify(
+                                                    selectedLog.metadata,
+                                                    null,
+                                                    2
+                                                )}
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                        </Stack>
+                    </DialogContent>
+
+                    <DialogActions
+                        sx={{
+                            px: 3.5,
+                            py: 2,
+                            borderTop:
+                                "1px solid #e8eef6",
+                        }}
+                    >
+                        <Button
+                            onClick={() =>
+                                setDialogOpen(false)
+                            }
+                            variant="contained"
+                            sx={{
+                                bgcolor: G.navy,
+                                borderRadius: 2.5,
+                                textTransform: "none",
+                                fontWeight: 800,
+                                px: 3,
+
+                                "&:hover": {
+                                    bgcolor: G.blue,
+                                },
+                            }}
+                        >
+                            Close Investigation
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            </Box>
+        </Box>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   EMPTY CHART
+───────────────────────────────────────────────────────────────────────────── */
+
+function EmptyChart() {
+    return (
+        <Stack
+            alignItems="center"
+            justifyContent="center"
+            sx={{
+                height: 260,
+                textAlign: "center",
+            }}
+        >
+            <Box
+                sx={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: 3,
+                    display: "grid",
+                    placeItems: "center",
+                    bgcolor: "rgba(0,91,150,.06)",
+                    color: G.blue,
+                    mb: 1.5,
+                }}
+            >
+                <AssessmentRounded />
+            </Box>
+
+            <Typography
+                variant="body2"
+                fontWeight={800}
+                color={G.text}
+            >
+                No analytics available
+            </Typography>
+
+            <Typography
+                variant="caption"
+                color={G.muted}
+                sx={{ mt: 0.4 }}
+            >
+                Audit data will appear here when records are available.
+            </Typography>
+        </Stack>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INFORMATION BLOCK
+───────────────────────────────────────────────────────────────────────────── */
+
+function InfoBlock({ label, value, icon }) {
+    return (
+        <Box
+            sx={{
+                p: 2,
+                bgcolor: "#fff",
+                border: "1px solid #e8eef6",
+                borderRadius: "14px",
+                height: "100%",
+            }}
+        >
+            <Stack
+                direction="row"
+                spacing={1.3}
+                alignItems="center"
+            >
+                <Box
+                    sx={{
+                        width: 36,
+                        height: 36,
+                        display: "grid",
+                        placeItems: "center",
+                        borderRadius: 2,
+                        bgcolor: "rgba(0,91,150,.07)",
+                        color: G.blue,
+
+                        "& svg": {
+                            fontSize: 18,
+                        },
+                    }}
+                >
+                    {icon}
+                </Box>
+
+                <Box>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: G.muted,
+                            fontWeight: 700,
+                        }}
+                    >
+                        {label}
+                    </Typography>
+
+                    <Typography
+                        variant="body2"
+                        fontWeight={900}
+                        color={G.text}
+                    >
+                        {value}
+                    </Typography>
+                </Box>
+            </Stack>
+        </Box>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SINGLE TARGET
+───────────────────────────────────────────────────────────────────────────── */
+
+function SingleTarget({ user }) {
+    if (!user) return null;
+
+    return (
+        <Box>
+            <Typography
+                fontWeight={900}
+                color={G.text}
+                sx={{ mb: 1.5 }}
+            >
+                Target User
+            </Typography>
+
+            <Card
+                sx={{
+                    borderRadius: "16px",
+                    border: "1px solid #e8eef6",
+                    boxShadow: "none",
+                }}
+            >
+                <CardContent
+                    sx={{
+                        p: 2.5,
+                        "&:last-child": {
+                            pb: 2.5,
+                        },
+                    }}
+                >
+                    <Stack
+                        direction="row"
+                        spacing={1.5}
+                        alignItems="center"
+                    >
+                        <Avatar
+                            sx={{
+                                bgcolor:
+                                    "rgba(0,91,150,.1)",
+                                color: G.blue,
+                                fontWeight: 900,
+                            }}
+                        >
+                            {(user?.name || "?")
+                                .charAt(0)
+                                .toUpperCase()}
+                        </Avatar>
+
+                        <Box>
+                            <Typography
+                                fontWeight={900}
+                                color={G.text}
+                            >
+                                {user?.name || "Unknown User"}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                                Try broadening the selected activity, date range, or search filters.
-                            </Typography>
+
+                            {user?.email && (
+                                <Typography
+                                    variant="caption"
+                                    color={G.muted}
+                                    sx={{
+                                        display: "block",
+                                    }}
+                                >
+                                    {user.email}
+                                </Typography>
+                            )}
+
+                            <Stack
+                                direction={{
+                                    xs: "column",
+                                    sm: "row",
+                                }}
+                                spacing={{
+                                    xs: 0.3,
+                                    sm: 1.5,
+                                }}
+                                sx={{ mt: 0.4 }}
+                            >
+                                {user?.department && (
+                                    <Typography
+                                        variant="caption"
+                                        color={G.muted}
+                                    >
+                                        <Business
+                                            sx={{
+                                                fontSize: 12,
+                                                verticalAlign:
+                                                    "middle",
+                                                mr: 0.3,
+                                            }}
+                                        />
+                                        {user.department}
+                                    </Typography>
+                                )}
+
+                                {user?.station && (
+                                    <Typography
+                                        variant="caption"
+                                        color={G.muted}
+                                    >
+                                        <Place
+                                            sx={{
+                                                fontSize: 12,
+                                                verticalAlign:
+                                                    "middle",
+                                                mr: 0.3,
+                                            }}
+                                        />
+                                        {user.station}
+                                    </Typography>
+                                )}
+                            </Stack>
                         </Box>
-                    )}
+                    </Stack>
                 </CardContent>
             </Card>
         </Box>

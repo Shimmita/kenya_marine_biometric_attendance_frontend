@@ -15,11 +15,6 @@ import {
 import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-    Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, RadialBar,
-    RadialBarChart,
-    ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
-} from 'recharts';
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { fetchBiometricStatus, registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
@@ -69,7 +64,7 @@ const G = {
             '&.Mui-focused fieldset': { borderColor: colorPalette.oceanBlue, borderWidth: 2 },
         },
     },
-    clockBg: 'linear-gradient(140deg, #061e30 0%, #0a3560 42%, #073a52 68%, #052840 100%)',
+    clockBg: 'linear-gradient(135deg, #061D2E 0%, #0A3557 48%, #07506A 100%)',
     glassInput: {
         '& .MuiOutlinedInput-root': {
             borderRadius: '12px',
@@ -217,18 +212,18 @@ const shouldShowClockingReminder = (type) => {
 
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
 const AmbientOrbs = () => (
-    <>
-        {[
-            { s: 420, t: -60, l: -100, c: 'rgba(10,100,180,0.07)', b: 70 },
-            { s: 350, t: '40%', r: -80, c: 'rgba(32,178,170,0.06)', b: 60 },
-            { s: 500, bot: -120, l: '30%', c: 'rgba(10,61,98,0.05)', b: 80 },
-        ].map(({ s, t, l, r, bot, c, b }, i) => (
-            <Box key={i} sx={{
-                position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0,
-                top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)`
-            }} />
-        ))}
-    </>
+    <Box
+        aria-hidden="true"
+        sx={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+            overflow: 'hidden',
+            background:
+                'radial-gradient(circle at 8% 8%, rgba(0,91,150,0.055), transparent 28%), radial-gradient(circle at 92% 38%, rgba(72,201,176,0.045), transparent 25%)',
+        }}
+    />
 );
 
 /* ══ SCROLL REVEAL ══════════════════════════════════════════════════════════ */
@@ -244,402 +239,37 @@ const Reveal = ({ children, delay = 0, y = 20 }) => {
     );
 };
 
-/* ══ GLASS RECHARTS TOOLTIP ════════════════════════════════════════════════ */
-const GlassTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-        <Box sx={{
-            background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(10,61,98,0.12)', borderRadius: '14px',
-            px: 2, py: 1.5, boxShadow: '0 10px 32px rgba(10,61,98,0.16)', minWidth: 120
-        }}>
-            {label && <Typography variant="caption" fontWeight={800} color={colorPalette.deepNavy} sx={{ display: 'block', mb: 0.5 }}>{label}</Typography>}
-            {payload.map((p, i) => (
-                <Stack key={i} direction="row" alignItems="center" spacing={1} sx={{ mt: 0.3 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: p.fill || p.color, flexShrink: 0 }} />
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{p.name || p.dataKey}:</Typography>
-                    <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}>{p.value}{p.unit || ''}</Typography>
-                </Stack>
-            ))}
-        </Box>
-    );
-};
+
 
 /* ══ SECTION LABEL ══════════════════════════════════════════════════════════ */
 const SectionLabel = ({ children, accent, chip }) => (
     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
         <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: accent }} />
-        <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{children}</Typography>
-        {chip && <Chip label={chip} size="small" sx={{ bgcolor: `${accent}14`, color: accent, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />}
+        <Typography
+            variant="subtitle1"
+            fontWeight={900}
+            color={colorPalette.deepNavy}
+            sx={{ letterSpacing: 0.35 }}
+        >
+            {children}
+        </Typography>
+        {chip && (
+            <Chip
+                label={chip}
+                size="small"
+                sx={{
+                    height: 22,
+                    bgcolor: `${accent}12`,
+                    color: accent,
+                    fontWeight: 800,
+                    fontSize: '0.62rem',
+                    borderRadius: '7px',
+                    border: `1px solid ${accent}18`,
+                }}
+            />
+        )}
     </Stack>
 );
-
-/* ══ RADIAL GAUGE CHART CARD ════════════════════════════════════════════════
-   For percentage metrics: Punctuality, Attendance Rate
-   Uses RadialBarChart with a gauge arc from 0–100%
-════════════════════════════════════════════════════════════════════════════ */
-const RadialGaugeCard = ({ label, value, accent, icon, description, loading }) => {
-    const numVal = parseFloat(value) || 0;
-    const data = [{ name: label, value: numVal, fill: accent }];
-
-    const trendColor = numVal >= 90 ? '#22c55e' : numVal >= 75 ? '#f59e0b' : '#ef4444';
-    const trendText = numVal >= 90 ? 'Excellent' : numVal >= 75 ? 'Good' : 'Needs improvement';
-
-    return (
-        <Box sx={{
-            ...G.card, borderRadius: '20px', p: 2.2, height: '100%',
-            position: 'relative', overflow: 'hidden',
-            transition: 'all 0.26s ease',
-            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
-            '&::after': {
-                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                borderRadius: '20px 20px 0 0',
-                background: `linear-gradient(90deg, ${accent}, ${accent}55)`,
-            },
-        }}>
-            {loading ? (
-                <Skeleton variant="rounded" height={180} sx={{ borderRadius: '16px' }} />
-            ) : (
-                <Stack spacing={0.5} alignItems="center">
-                    {/* Label + icon */}
-                    <Stack direction="row" alignItems="center" spacing={0.8} sx={{ alignSelf: 'flex-start', width: '100%' }}>
-                        <Box sx={{
-                            width: 30, height: 30, borderRadius: '9px',
-                            bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>
-                            {icon}
-                        </Box>
-                        <Box>
-                            <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
-                                sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
-                                {label}
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontSize: '0.58rem', color: trendColor, fontWeight: 700 }}>
-                                {trendText}
-                            </Typography>
-                        </Box>
-                    </Stack>
-
-                    {/* Radial chart with center value */}
-                    <Box sx={{ position: 'relative', width: '100%' }}>
-                        <ResponsiveContainer width="100%" height={130}>
-                            <RadialBarChart
-                                cx="50%" cy="80%"
-                                innerRadius="55%" outerRadius="90%"
-                                startAngle={180} endAngle={0}
-                                data={data}
-                                barSize={14}
-                            >
-                                {/* Track */}
-                                <RadialBar
-                                    dataKey="value"
-                                    cornerRadius={8}
-                                    background={{ fill: `${accent}15` }}
-                                    clockWise
-                                />
-                            </RadialBarChart>
-                        </ResponsiveContainer>
-                        {/* Center overlay */}
-                        <Box sx={{
-                            position: 'absolute', bottom: 6, left: '50%',
-                            transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none'
-                        }}>
-                            <Typography fontWeight={900} sx={{ fontSize: '1.5rem', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                                {numVal}<span style={{ fontSize: '0.75rem', opacity: 0.75 }}>%</span>
-                            </Typography>
-                        </Box>
-                    </Box>
-
-                    {/* Description */}
-                    <Typography variant="caption" color="text.secondary" textAlign="center"
-                        sx={{ fontSize: '0.68rem', lineHeight: 1.45, mt: 0.2 }}>
-                        {description}
-                    </Typography>
-
-                    {/* Progress bar underneath */}
-                    <Box sx={{ width: '100%', mt: 0.5 }}>
-                        <Box sx={{ height: 5, borderRadius: 99, bgcolor: `${accent}14`, overflow: 'hidden' }}>
-                            <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(numVal, 100)}%` }}
-                                transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1], delay: 0.4 }}
-                                style={{ height: '100%', background: `linear-gradient(90deg, ${accent}, ${accent}88)`, borderRadius: 99 }}
-                            />
-                        </Box>
-                    </Box>
-                </Stack>
-            )}
-        </Box>
-    );
-};
-
-/* ══ DONUT COUNT CARD ═══════════════════════════════════════════════════════
-   For count metrics: Days Present, Absent, Half Days, Late Arrivals
-   Uses PieChart donut showing value vs total working days
-════════════════════════════════════════════════════════════════════════════ */
-const DonutCountCard = ({ label, value, total = 22, accent, trackColor, icon, description, loading, subtitle }) => {
-    const numVal = parseInt(value) || 0;
-    const remainder = Math.max(total - numVal, 0);
-
-    const data = [
-        { name: label, value: numVal, fill: accent },
-        { name: 'Remaining', value: remainder, fill: trackColor || `${accent}18` },
-    ];
-
-    const renderInnerLabel = ({ cx, cy }) => (
-        <>
-            <text x={cx} y={cy - 6} textAnchor="middle" fill={accent} fontWeight={900} fontSize={20} fontVariantNumeric="tabular-nums">{numVal}</text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontWeight={700} fontSize={9.5}>of {total}</text>
-        </>
-    );
-
-    const pct = total > 0 ? ((numVal / total) * 100).toFixed(0) : 0;
-
-    return (
-        <Box sx={{
-            ...G.card, borderRadius: '20px', p: 2.2, height: '100%',
-            position: 'relative', overflow: 'hidden',
-            transition: 'all 0.26s ease',
-            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
-            '&::after': {
-                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                borderRadius: '20px 20px 0 0',
-                background: `linear-gradient(90deg, ${accent}, ${accent}55)`,
-            },
-            '&::before': {
-                content: '""', position: 'absolute', top: -24, right: -24,
-                width: 70, height: 70, borderRadius: '50%', background: `${accent}0c`, zIndex: 0
-            },
-        }}>
-            {loading ? (
-                <Skeleton variant="rounded" height={190} sx={{ borderRadius: '16px' }} />
-            ) : (
-                <Stack spacing={0.5} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
-                    {/* Header */}
-                    <Stack direction="row" alignItems="center" spacing={0.8} sx={{ alignSelf: 'flex-start', width: '100%' }}>
-                        <Box sx={{
-                            width: 30, height: 30, borderRadius: '9px',
-                            bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>
-                            {icon}
-                        </Box>
-                        <Box>
-                            <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
-                                sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
-                                {label}
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontSize: '0.58rem', color: 'rgba(100,116,139,0.8)', fontWeight: 600 }}>
-                                {subtitle || `${pct}% of working days`}
-                            </Typography>
-                        </Box>
-                    </Stack>
-
-                    {/* Donut chart */}
-                    <ResponsiveContainer width="100%" height={130}>
-                        <PieChart>
-                            <defs>
-                                <linearGradient id={`donut-grad-${label.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={accent} stopOpacity={1} />
-                                    <stop offset="100%" stopColor={accent} stopOpacity={0.65} />
-                                </linearGradient>
-                            </defs>
-                            <Pie
-                                data={data}
-                                cx="50%" cy="50%"
-                                innerRadius="52%" outerRadius="78%"
-                                paddingAngle={3}
-                                dataKey="value"
-                                animationBegin={100}
-                                animationDuration={900}
-                                stroke="none"
-                                labelLine={false}
-                                label={renderInnerLabel}
-                            >
-                                <Cell fill={`url(#donut-grad-${label.replace(/\s/g, '')})`} />
-                                <Cell fill={trackColor || `${accent}15`} />
-                            </Pie>
-                            <RTooltip content={<GlassTooltip />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-
-                    {/* Description */}
-                    <Typography variant="caption" color="text.secondary" textAlign="center"
-                        sx={{ fontSize: '0.67rem', lineHeight: 1.45 }}>
-                        {description}
-                    </Typography>
-                </Stack>
-            )}
-        </Box>
-    );
-};
-
-/* ══ WEEKLY HOURS BAR CARD ═══════════════════════════════════════════════════
-   Horizontal segmented bar vs 40h target with per-day breakdown feel
-════════════════════════════════════════════════════════════════════════════ */
-const WeeklyHoursCard = ({ value, loading }) => {
-    const numVal = parseFloat(value) || 0;
-    const target = 40;
-    const pct = Math.min((numVal / target) * 100, 100).toFixed(0);
-    const remaining = Math.max(target - numVal, 0).toFixed(1);
-    const accent = colorPalette.oceanBlue;
-
-    // Simulate daily distribution for the bar chart
-    const dailyData = [
-        { day: 'Mon', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
-        { day: 'Tue', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
-        { day: 'Wed', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
-        { day: 'Thu', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
-        { day: 'Fri', hours: Math.min(numVal / 5, 9), fill: colorPalette.aquaVibrant },
-    ];
-
-    const statusColor = numVal >= 38 ? '#22c55e' : numVal >= 28 ? '#f59e0b' : '#ef4444';
-    const statusText = numVal >= 38 ? 'On track ✓' : numVal >= 28 ? 'In progress' : 'Behind target';
-
-    return (
-        <Box sx={{
-            ...G.card, borderRadius: '20px', p: 2.2,
-            position: 'relative', overflow: 'hidden',
-            transition: 'all 0.26s ease',
-            '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 16px 40px ${accent}18` },
-            '&::after': {
-                content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                borderRadius: '20px 20px 0 0',
-                background: `linear-gradient(90deg, ${accent}, ${colorPalette.aquaVibrant})`,
-            },
-        }}>
-            {loading ? <Skeleton variant="rounded" height={180} sx={{ borderRadius: '16px' }} /> : (
-                <Stack spacing={1.5}>
-                    {/* Header */}
-                    <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-                        <Stack direction="row" alignItems="center" spacing={0.8}>
-                            <Box sx={{
-                                width: 30, height: 30, borderRadius: '9px',
-                                bgcolor: `${accent}14`, border: `1px solid ${accent}22`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <AccessTime sx={{ color: accent, fontSize: '0.95rem' }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}
-                                    sx={{ textTransform: 'uppercase', letterSpacing: 0.7, fontSize: '0.62rem', display: 'block', lineHeight: 1.2 }}>
-                                    Weekly Hours
-                                </Typography>
-                                <Typography variant="caption" sx={{ fontSize: '0.58rem', color: statusColor, fontWeight: 700 }}>
-                                    {statusText}
-                                </Typography>
-                            </Box>
-                        </Stack>
-                        <Box sx={{ textAlign: 'right' }}>
-                            <Typography fontWeight={900} sx={{ fontSize: '1.4rem', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                                {numVal}<span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700 }}>h</span>
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#94a3b8' }}>/ {target}h target</Typography>
-                        </Box>
-                    </Stack>
-
-                    {/* Estimated daily hours bar chart */}
-                    <ResponsiveContainer width="100%" height={80}>
-                        <BarChart data={dailyData} margin={{ top: 2, right: 2, left: -30, bottom: 0 }} barCategoryGap="20%">
-                            <defs>
-                                <linearGradient id="weekHrsGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={colorPalette.aquaVibrant} stopOpacity={0.95} />
-                                    <stop offset="100%" stopColor={colorPalette.oceanBlue} stopOpacity={0.55} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
-                            <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 10]} />
-                            <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
-                            {/* Target line as reference bar */}
-                            <Bar dataKey={() => 8} fill="rgba(10,61,98,0.08)" radius={[3, 3, 0, 0]} name="Daily target (8h)" animationDuration={400} />
-                            <Bar dataKey="hours" fill="url(#weekHrsGrad)" radius={[5, 5, 0, 0]} name="Hours" animationDuration={900} animationBegin={200} />
-                        </BarChart>
-                    </ResponsiveContainer>
-
-                    {/* Segmented progress track */}
-                    <Stack spacing={0.5}>
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.63rem' }}>{pct}% complete</Typography>
-                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.63rem' }}>{remaining}h remaining</Typography>
-                        </Stack>
-                        <Box sx={{ height: 7, borderRadius: 99, bgcolor: `${accent}12`, overflow: 'hidden' }}>
-                            <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${pct}%` }}
-                                transition={{ duration: 1.3, ease: [0.4, 0, 0.2, 1], delay: 0.3 }}
-                                style={{
-                                    height: '100%',
-                                    background: `linear-gradient(90deg, ${colorPalette.oceanBlue}, ${colorPalette.aquaVibrant})`,
-                                    borderRadius: 99,
-                                }}
-                            />
-                        </Box>
-                    </Stack>
-
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.67rem', lineHeight: 1.45 }}>
-                        Track your weekly logged hours against the standard 40-hour work schedule.
-                    </Typography>
-                </Stack>
-            )}
-        </Box>
-    );
-};
-
-/* ══ COMBINED OVERVIEW BARCHART ═════════════════════════════════════════════
-   All 4 day-count metrics in one grouped bar for quick at-a-glance comparison
-════════════════════════════════════════════════════════════════════════════ */
-const AttendanceOverviewBar = ({ m, loading }) => {
-    const data = [
-        { name: 'Present', value: m?.presentDays || 0, fill: colorPalette.seafoamGreen },
-        { name: 'Absent', value: m?.absentDays || 0, fill: colorPalette.coralSunset },
-        { name: 'Half Days', value: m?.halfDays || 0, fill: '#f59e0b' },
-        { name: 'Late', value: m?.lateDays || 0, fill: '#8b5cf6' },
-    ];
-
-    return (
-        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.5 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.aquaVibrant }} />
-                    <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Monthly At-a-Glance</Typography>
-                    <Chip label={new Date().toLocaleString('default', { month: 'short' })} size="small"
-                        sx={{ height: 20, fontSize: '0.63rem', fontWeight: 700, bgcolor: `${colorPalette.aquaVibrant}12`, color: colorPalette.aquaVibrant, borderRadius: '6px' }} />
-                </Stack>
-            </Stack>
-            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>
-                Side-by-side comparison of all attendance day categories this month
-            </Typography>
-            {loading ? <Skeleton variant="rounded" height={150} sx={{ borderRadius: '12px' }} /> : (
-                <ResponsiveContainer width="100%" height={145}>
-                    <BarChart data={data} layout="vertical" margin={{ top: 0, right: 36, left: 4, bottom: 0 }}>
-                        <defs>
-                            {[colorPalette.seafoamGreen, colorPalette.coralSunset, '#f59e0b', '#8b5cf6'].map((c, i) => (
-                                <linearGradient key={i} id={`ovGrad${i}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor={c} stopOpacity={0.92} />
-                                    <stop offset="100%" stopColor={c} stopOpacity={0.55} />
-                                </linearGradient>
-                            ))}
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                        <YAxis type="category" dataKey="name"
-                            tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                            axisLine={false} tickLine={false} width={62} />
-                        <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
-                        <Bar dataKey="value" radius={[0, 8, 8, 0]} name="Days" animationDuration={900} animationBegin={200}
-                            label={{ position: 'right', fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}>
-                            {data.map((_, i) => <Cell key={i} fill={`url(#ovGrad${i})`} />)}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            )}
-        </Box>
-    );
-};
-
-
 
 /* ══ STATUS CHIP ════════════════════════════════════════════════════════════ */
 const timingCfg = {
@@ -1089,7 +719,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                 <InfoOutlined sx={{ color: colorPalette.oceanBlue, fontSize: '1.1rem' }} />
                             </Box>
                             <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy} sx={{ letterSpacing: 0.5 }}>
-                                How to Clock In / Out
+                               WELCOME {user?.name?.split(" ")[0].toUpperCase()}, HERE IS YOUR CLOCKING GUIDE
                             </Typography>
                         </Stack>
                         <Grid container spacing={1.5}>
@@ -1110,7 +740,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                             ))}
                         </Grid>
                         <Stack direction="row" spacing={1} mt={2} alignItems="center" flexWrap="wrap" gap={0.5}>
-                            <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.63rem' }}>YOUR PROGRESS:</Typography>
+                            <Typography variant="caption" color="text.disabled" fontWeight={700} sx={{ fontSize: '0.63rem' }}>CLOCKING READINESS:</Typography>
                             {['Location', 'Fingerprint', 'Ready'].map((step, i) => (
                                 <Stack key={step} direction="row" alignItems="center" spacing={0.5}>
                                     <Box sx={{
@@ -1193,19 +823,41 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                         {canUseClocking && (
                             <Reveal>
                                 <Box sx={{
-                                    borderRadius: '24px',
+                                    borderRadius: { xs: '20px', sm: '24px', md: '28px' },
                                     background: G.clockBg,
-                                    position: 'relative', overflow: 'hidden',
-                                    p: { xs: 3, md: 4 },
-                                    boxShadow: '0 20px 56px rgba(10,61,98,0.30)',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    p: { xs: 2.25, sm: 3, md: 3.5 },
+                                    border: '1px solid rgba(255,255,255,0.10)',
+                                    boxShadow: '0 18px 44px rgba(5,37,61,0.22)',
+                                    isolation: 'isolate',
                                 }}>
-                                    <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-                                    <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+                                    <Box aria-hidden="true" sx={{
+                                        position: 'absolute', inset: 0, pointerEvents: 'none',
+                                        background: 'radial-gradient(circle at 92% 5%, rgba(0,229,255,0.14), transparent 28%), radial-gradient(circle at 8% 100%, rgba(72,201,176,0.10), transparent 30%)',
+                                    }} />
+                                    <Box aria-hidden="true" sx={{
+                                        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.22,
+                                        backgroundImage: 'linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)',
+                                        backgroundSize: '28px 28px',
+                                        maskImage: 'linear-gradient(to bottom, black, transparent 72%)',
+                                    }} />
 
-                                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'center', md: 'center' }} spacing={{ xs: 4, md: 5 }} sx={{ position: 'relative', zIndex: 1 }}>
+                                    <Stack
+                                        direction={{ xs: 'column', md: 'row' }}
+                                        justifyContent="space-between"
+                                        alignItems={{ xs: 'stretch', md: 'center' }}
+                                        spacing={{ xs: 3, md: 4 }}
+                                        sx={{ position: 'relative', zIndex: 1 }}
+                                    >
 
                                         {/* Clock face */}
-                                        <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flexShrink: 0 }}>
+                                        <Box sx={{
+                                            textAlign: { xs: 'center', md: 'left' },
+                                            flex: { md: '1 1 48%' },
+                                            minWidth: 0,
+                                            py: { md: 1 },
+                                        }}>
                                             <LiveClock />
                                             <Stack direction="row" spacing={1} mt={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" gap={1}>
                                                 <Chip
@@ -1239,7 +891,16 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                         </Box>
 
                                         {/* Controls */}
-                                        <Stack spacing={2} sx={{ width: { xs: '100%', sm: '300px', md: '300px' } }}>
+                                        <Stack spacing={1.6} sx={{
+                                            width: '100%',
+                                            maxWidth: { xs: '100%', sm: 430, md: 390 },
+                                            flex: { md: '0 1 390px' },
+                                            mx: { xs: 'auto', md: 0 },
+                                            p: { xs: 1.4, sm: 1.7 },
+                                            borderRadius: '18px',
+                                            bgcolor: 'rgba(255,255,255,0.065)',
+                                            border: '1px solid rgba(255,255,255,0.11)',
+                                        }}>
                                             {outsideClockingAuthorized && (
                                                 <Alert
                                                     severity="info"
@@ -1412,39 +1073,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                         transition={{ duration: 0.28 }}>
 
                                                         <Box sx={{ position: 'relative', width: '100%' }}>
-                                                            {/* Animated glow aura */}
-                                                            {!biometricLoading && (
-                                                                <Box sx={{
-                                                                    position: 'absolute', inset: -4, borderRadius: '18px', zIndex: 0,
-                                                                    background: isClockedIn && isToClockOut
-                                                                        ? `${colorPalette.seafoamGreen}45`
-                                                                        : `${colorPalette.aquaVibrant}45`,
-                                                                    filter: 'blur(10px)',
-                                                                    animation: 'clockGlow 2.2s ease-in-out infinite',
-                                                                    '@keyframes clockGlow': {
-                                                                        '0%': { opacity: 0.55, transform: 'scale(0.96)' },
-                                                                        '50%': { opacity: 1, transform: 'scale(1.02)' },
-                                                                        '100%': { opacity: 0.55, transform: 'scale(0.96)' },
-                                                                    },
-                                                                }} />
-                                                            )}
 
-                                                            {/* Secondary shimmer ring */}
-                                                            {!biometricLoading && (
-                                                                <Box sx={{
-                                                                    position: 'absolute', inset: -8, borderRadius: '22px', zIndex: 0,
-                                                                    background: isClockedIn && isToClockOut
-                                                                        ? `${colorPalette.seafoamGreen}20`
-                                                                        : `${colorPalette.aquaVibrant}20`,
-                                                                    filter: 'blur(16px)',
-                                                                    animation: 'clockGlow2 2.2s ease-in-out infinite 0.4s',
-                                                                    '@keyframes clockGlow2': {
-                                                                        '0%': { opacity: 0.3, transform: 'scale(0.94)' },
-                                                                        '50%': { opacity: 0.85, transform: 'scale(1.04)' },
-                                                                        '100%': { opacity: 0.3, transform: 'scale(0.94)' },
-                                                                    },
-                                                                }} />
-                                                            )}
 
                                                             <Button
                                                                 variant="contained"
@@ -1467,8 +1096,12 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                                     position: 'relative', zIndex: 1,
                                                                     bgcolor: colorPalette.aquaVibrant,
                                                                     color: '#fff',
-                                                                    py: 1.8, borderRadius: '14px',
-                                                                    fontWeight: 900, fontSize: '0.9rem', letterSpacing: 0.9,
+                                                                    minHeight: 54,
+                                                                    py: 1.55,
+                                                                    borderRadius: '14px',
+                                                                    fontWeight: 900,
+                                                                    fontSize: { xs: '0.82rem', sm: '0.9rem' },
+                                                                    letterSpacing: 0.75,
                                                                     boxShadow: isClockedIn && isToClockOut
                                                                         ? `0 8px 28px ${colorPalette.seafoamGreen}55`
                                                                         : `0 8px 28px ${colorPalette.aquaVibrant}55`,
@@ -1499,10 +1132,10 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                         {/* ── RECENT ATTENDANCE TABLE ── */}
                         <Reveal>
                             <Box>
-                                <SectionLabel accent={colorPalette.deepNavy} chip="Last 7 days">Recent Attendance</SectionLabel>
+                                <SectionLabel accent={colorPalette.deepNavy} chip="LAST 7 DAYS">RECENT ATTENDANCE</SectionLabel>
                                 <Box sx={{ ...G.card, borderRadius: '20px', overflow: 'hidden' }}>
                                     <Box sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { height: 3 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(10,61,98,0.12)', borderRadius: 2 } }}>
-                                        <Table size="small" sx={{ width: '100%', minWidth: isMobile ? 400 : '100%' }}>
+                                        <Table size="small" sx={{ width: '100%', minWidth: isMobile ? 460 : '100%' }}>
                                             <TableHead>
                                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
                                                     {['Date', isMobile ? 'In' : 'Clock In', isMobile ? 'Out' : 'Clock Out'].map(h => (
@@ -1537,14 +1170,6 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                 </Box>
                             </Box>
                         </Reveal>
-
-                        {/* ── Weekly Hours bar card (full width) ── */}
-                        {/* <Reveal delay={0.20}>
-                            <WeeklyHoursCard
-                                value={w?.totalHours}
-                                loading={statsLoading}
-                            />
-                        </Reveal> */}
 
 
                     </Stack>

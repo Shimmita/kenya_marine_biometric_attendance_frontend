@@ -42,7 +42,6 @@ const PlatformConfigPanel = lazy(() => import('./dashboard/ConfigPanel'));
 const SuperadminPanel = lazy(() => import('./dashboard/SuperadminPanel'));
 const UserProfileDialog = lazy(() => import('./UserProfileDialog'));
 const SupervisorDeptRequest = lazy(() => import('./dashboard/supervisor/SupervisorDeptRequest'));
-const SupervisorDeptStats = lazy(() => import('./dashboard/supervisor/SupervisorDeptStats'));
 const SupervisorManageLeaves = lazy(() => import('./dashboard/supervisor/SupervisorManageLeaves'));
 const SupervisorManageMembers = lazy(() => import('./dashboard/supervisor/SupervisorManageMembers'));
 const UserManagementContent = lazy(() => import('./dashboard/UserManagementContent'));
@@ -67,7 +66,7 @@ const OrganisationStats = lazy(() => import('./dashboard/OrganisationStats'));
 const { colorPalette } = coreDataDetails;
 
 /* ─── Layout constants ──────────────────────────────────────────────────── */
-const DRAWER_WIDTH = 290;
+const DRAWER_WIDTH = 300;
 const DRAWER_COLLAPSED_WIDTH = 80;
 const APPBAR_HEIGHT = 64;
 
@@ -91,15 +90,32 @@ const normalizeStationAccessName = (value = '') =>
         .replace(/\bcenter\b/g, 'centre');
 const isMombasaCentreStation = (value) => normalizeStationAccessName(value) === 'mombasa centre';
 
-/* ─── Shared admin items — HR-specific items split out ─────────────────── */
-const ADMIN_SHARED_ITEMS = [
-    { text: 'User Management', icon: <SupervisorAccount /> },
-    { text: 'Feedback Statistics', icon: <InsightsRounded /> },
-];
+/* ─── Navigation presentation helpers ────────────────────────────────────────
+   IMPORTANT: item.text remains the internal routing key. We only transform the
+   visible label, so the existing switch/case navigation behaviour is untouched.
+───────────────────────────────────────────────────────────────────────────── */
+const NAV_DISPLAY_LABELS = {
+    'Clocking Dashboard': 'CLOCKING & ATTENDANCE',
+    'Attendance History': 'ATTENDANCE HISTORY',
+    // 'Request for Leave': 'Leave Requests',
+    'Platform Administration': 'Platform Administration',
+    'User Management': 'USER MANAGEMENT',
+    'Feedback Statistics': 'Feedback & Ratings',
+    'Lost Device Requests': 'Device Access Requests',
+    'Register Intern/Attache': 'Intern & Attache Registration',
+    'Staff Registration': 'Staff Registration',
+    'System Audit Logs': 'AUDIT INTELLIGENCE',
+    'Broader Statistics': 'Attendance Analytics',
+    'Manage Your Members': 'Team Management',
+    // 'Member Leave Requests': 'Team Leave Requests',
+    'Lost Device': 'Lost Device Access',
+    'Add Device': 'Register Device',
+    'Help & Support': 'Help & Support',
+};
 
-const ADMIN_ONLY_ITEMS = [
-    { text: 'Lost Device Requests', icon: <DevicesOther /> },
-];
+const getNavDisplayLabel = (text = '') => NAV_DISPLAY_LABELS[text] || text;
+
+
 
 const SUPERADMIN_GENERAL_ITEMS = [
     { text: 'Platform Administration', icon: <Settings /> },
@@ -114,30 +130,23 @@ const SUPERADMIN_HR_ITEMS = [
 ];
 
 const SUPERADMIN_AUDITOR_ITEMS = [
-    { text: 'Audit Logs', icon: <History /> },
+    { text: 'System Audit Logs', icon: <History /> },
 ];
 
 const SUPERADMIN_SUPERVISOR_ITEMS = [
-    { text: 'Departmental Statistics', icon: <QueryStats /> },
     { text: 'Broader Statistics', icon: <BarChartRounded /> },
     { text: 'Manage Your Members', icon: <SupervisorAccount /> },
-    { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
+    // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
 ];
 
 const SUPERADMIN_CEO_ITEMS = [
-    { text: 'Organisations Stats', icon: <QueryStats /> },
     { text: 'Broader Statistics', icon: <BarChartRounded /> },
 ];
 
-const HR_EXTRA_ITEMS = [
-    { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
-    { text: 'Staff Registration', icon: <PeopleRounded /> },
-    { text: 'Organisations Stats', icon: <QueryStats /> },
-    // { text: 'Leave Management', icon: <SensorOccupiedRounded /> },
-];
+
 
 const AUDITOR_ITEMS = [
-    { text: 'Audit Logs', icon: <History /> },
+    { text: 'System Audit Logs', icon: <History /> },
 ];
 
 /* ─── Glass tokens (CSS variable based) ───────────────────────────────────── */
@@ -214,8 +223,8 @@ const SectionLabel = React.memo(({ children }) => (
     <Box sx={{ px: 1.5, pt: 2.2, pb: 0.6 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
             <Typography sx={{
-                fontWeight: 800, fontSize: '0.56rem', letterSpacing: 2,
-                textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', whiteSpace: 'nowrap',
+                fontWeight: 900, fontSize: '0.58rem', letterSpacing: 1.8,
+                textTransform: 'uppercase', color: 'rgba(255,255,255,0.46)', whiteSpace: 'nowrap',
             }}>
                 {children}
             </Typography>
@@ -229,7 +238,7 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
     const [hovered, setHovered] = useState(false);
 
     return (
-        <Tooltip title={item.readOnly ? `${item.text} — Read only` : item.text} placement="right" arrow
+        <Tooltip title={item.readOnly ? `${getNavDisplayLabel(item.text)} — Read only` : getNavDisplayLabel(item.text)} placement="right" arrow
             componentsProps={{
                 tooltip: {
                     sx: {
@@ -321,9 +330,9 @@ const ActiveLine = ({ color }) => (
 
 /* ─── Full nav item ──────────────────────────────────────────────────────── */
 const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
-    <motion.div whileHover={{ x: isActive ? 0 : 4 }} transition={{ type: 'spring', stiffness: 440, damping: 34 }}>
+    <motion.div>
         <ListItem button onClick={onClick} sx={{
-            borderRadius: '14px', mb: 0.5, px: 1.4, py: 1,
+            borderRadius: '12px', mb: 0.45, px: 1.35, py: 0.95,
             position: 'relative', overflow: 'hidden',
             color: isActive ? '#fff' : item.readOnly ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.55)',
             opacity: item.readOnly ? 0.94 : 1,
@@ -332,8 +341,8 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
             '&:hover': { color: isActive ? '#fff' : 'rgba(255,255,255,0.88)', bgcolor: 'transparent' },
             '&::before': {
                 content: '""', position: 'absolute', inset: 0, borderRadius: '14px',
-                background: isActive ? `linear-gradient(120deg,${item.color}d8,${item.color}88)` : 'transparent',
-                boxShadow: isActive ? `0 6px 22px ${item.color}40` : 'none',
+                background: isActive ? 'linear-gradient(90deg, rgba(255,255,255,0.13), rgba(255,255,255,0.06))' : 'transparent',
+                boxShadow: isActive ? 'inset 3px 0 0 rgba(0,229,255,.95), 0 6px 18px rgba(0,0,0,.12)' : 'none',
                 transition: 'all 0.22s ease', zIndex: 0,
             },
             '&:hover::before': !isActive ? { background: `${item.color}16` } : {},
@@ -346,12 +355,13 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
                 {item.icon}
             </ListItemIcon>
             <ListItemText
-                primary={item.text}
+                primary={getNavDisplayLabel(item.text)}
                 sx={{ position: 'relative', zIndex: 1, my: 0 }}
                 primaryTypographyProps={{
-                    fontWeight: isActive ? 700 : 500,
-                    fontSize: '0.875rem',
-                    letterSpacing: isActive ? 0.15 : 0,
+                    fontWeight: isActive ? 900 : 700,
+                    fontSize: '0.72rem',
+                    letterSpacing: 0.65,
+                    textTransform: 'uppercase',
                     lineHeight: 1.25,
                     color: item.readOnly ? 'rgba(255,255,255,0.85)' : undefined,
                 }}
@@ -467,7 +477,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const baseItems = useMemo(() => [
         { text: 'Clocking Dashboard', icon: <DashIcon /> },
         { text: 'Attendance History', icon: <History /> },
-        { text: 'Request for Leave', icon: <SelfImprovementRounded /> },
+        // { text: 'Request for Leave', icon: <SelfImprovementRounded /> },
     ], [platformConfigVersion]);
 
     const techItems = useMemo(() => [
@@ -490,22 +500,18 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     const hrItems = useMemo(() => [
         { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
         { text: 'Staff Registration', icon: <PeopleRounded /> },
-        { text: 'Organisations Stats', icon: <QueryStats /> },
         { text: 'Broader Statistics', icon: <BarChartRounded /> },
         { text: 'User Management', icon: <SupervisorAccount /> },
         { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     ], [platformConfigVersion]);
 
     const supervisorItems = useMemo(() => [
-        { text: 'Departmental Statistics', icon: <QueryStats /> },
-        { text: 'Analytics Dashboard', icon: <InsightsRounded /> },
         { text: 'Broader Statistics', icon: <BarChartRounded /> },
         { text: 'Manage Your Members', icon: <SupervisorAccount />, },
-        { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
+        // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
     ], [platformConfigVersion]);
 
     const ceoItems = useMemo(() => [
-        { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
         { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
     ], [platformConfigVersion]);
 
@@ -516,11 +522,11 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
             {/* Profile card */}
             <Box sx={{ px: 1.5, pt: 2, pb: 0.5, position: 'relative', zIndex: 1 }}>
                 <Box sx={{
-                    borderRadius: '18px', p: 2.2, position: 'relative', overflow: 'hidden',
+                    borderRadius: '16px', p: 2, position: 'relative', overflow: 'hidden',
                     background: 'rgba(255,255,255,0.07)',
                     backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                     border: '1px solid rgba(255,255,255,0.13)',
-                    boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+                    boxShadow: '0 8px 22px rgba(0,0,0,0.16)',
                 }}>
                     <Box sx={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', bgcolor: 'rgba(0,220,255,0.07)', pointerEvents: 'none' }} />
                     <Box sx={{ position: 'absolute', bottom: -22, left: 10, width: 90, height: 90, borderRadius: '50%', bgcolor: 'rgba(0,185,175,0.06)', pointerEvents: 'none' }} />
@@ -556,12 +562,12 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                         <Box sx={{ minWidth: 0 }}>
                             <Tooltip arrow title={user?.name || 'User'} placement="top-start">
                                 <Typography noWrap sx={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff', lineHeight: 1.2 }}>
-                                    {user?.name?.split(' ')[0] || 'User'}
+                                    {user?.name?.split(' ')[0].toUpperCase() || 'User'}
                                 </Typography>
                             </Tooltip>
                             <Tooltip arrow title={user?.department || user?.email || ''} placement="top-start">
                                 <Typography noWrap sx={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.50)', mt: 0.2 }}>
-                                    {user?.department.slice(0, 30) || user?.email || ''}
+                                    {user?.department.slice(0, 30).toUpperCase() || user?.email || ''}
                                 </Typography>
                             </Tooltip>
                         </Box>
@@ -607,7 +613,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
                 '&::-webkit-scrollbar-thumb': { bgcolor: 'var(--kmfri-sidebar-hover, rgba(255,255,255,0.10))', borderRadius: 2 },
             }}>
-                <SectionLabel>Navigation</SectionLabel>
+                <SectionLabel>Attendance Workspace</SectionLabel>
                 <List disablePadding>
                     {baseItems.map(item => (
                         <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -617,7 +623,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* CEO Panel */}
                 {isCEO && (
                     <>
-                        <SectionLabel>CEO Panel</SectionLabel>
+                        <SectionLabel>Executive Insights</SectionLabel>
                         <List disablePadding>
                             {ceoItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -629,7 +635,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* Auditor Panel */}
                 {isAuditor && (
                     <>
-                        <SectionLabel>Auditor Panel</SectionLabel>
+                        <SectionLabel>Audit & Compliance</SectionLabel>
                         <List disablePadding>
                             {AUDITOR_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -641,7 +647,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* Admin Panel — no Orgs Stats or Leave Management */}
                 {isAdmin && (
                     <>
-                        <SectionLabel>Admin Tools</SectionLabel>
+                        <SectionLabel>Administration</SectionLabel>
 
                         <List disablePadding>
                             {adminItems.map(item => (
@@ -654,35 +660,35 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* Superadmin Panel */}
                 {isSuperadmin && (
                     <>
-                        <SectionLabel>Superadmin Console</SectionLabel>
+                        <SectionLabel>Platform Control</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_GENERAL_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
 
-                        <SectionLabel>HR Tools</SectionLabel>
+                        <SectionLabel>Human Resources</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_HR_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
 
-                        <SectionLabel>Auditor Tools</SectionLabel>
+                        <SectionLabel>Audit & Compliance</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_AUDITOR_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
 
-                        <SectionLabel>Supervisor Tools</SectionLabel>
+                        <SectionLabel>Supervisor Operations</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_SUPERVISOR_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
 
-                        <SectionLabel>CEO Tools</SectionLabel>
+                        <SectionLabel>Executive Insights</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_CEO_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -694,7 +700,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* HR Panel — includes Orgs Stats + Leave Management */}
                 {isHR && (
                     <>
-                        <SectionLabel>Human Resource</SectionLabel>
+                        <SectionLabel>Human Resources</SectionLabel>
                         <List disablePadding>
                             {hrItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -706,7 +712,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* Supervisor Panel */}
                 {isSupervisor && (
                     <>
-                        <SectionLabel>Supervisor Panel</SectionLabel>
+                        <SectionLabel>Supervisor Operations</SectionLabel>
                         <List disablePadding>
                             {supervisorItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -715,7 +721,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                     </>
                 )}
 
-                <SectionLabel>Technical Help</SectionLabel>
+                <SectionLabel>Devices & Support</SectionLabel>
                 <List disablePadding>
                     {techItems.map(item => (
                         <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -748,68 +754,6 @@ const SuspenseFallback = (
     </Stack>
 );
 
-/* ─── Page meta ─────────────────────────────────────────────────────────── */
-const PAGE_TITLES = {
-    'Clocking Dashboard': null, // set dynamically
-    'Attendance History': 'My Attendance History',
-    'Analytics Dashboard': 'Analytics Dashboard',
-    'Workforce Analytics': 'Workforce Analytics',
-    'Performance Analytics': 'Performance Analytics',
-    'Compliance Analytics': 'Compliance Analytics',
-    'Analytics Reports': 'Analytics Reports',
-    'Team Performance': 'Team Performance',
-    'Reports': 'Reports',
-    'Organisations Stats': 'Organisation Overview',
-    'Broader Statistics': 'Broader Organisation Statistics',
-    'Tasks & Activities': 'Tasks & Activities',
-    'Analytics & Reports': 'Analytics & Reports',
-    'Department Structure': 'Department Structure',
-    'Request for Leave': 'Request and Manage Your Leave',
-    'Leave Management': 'Administration Leave Management',
-    'Notification Panel': 'Notification Management',
-    'Lost Device Requests': 'Lost Device Requests',
-    'Lost Device': 'Lost Device Request',
-    'Add Device': 'Add Clocking Device',
-    'Our Mobile App': 'KMFRI Mobile Application',
-    'Register Intern/Attache': 'Register Intern/Attache',
-    'Staff Registration': 'Staff Registration Window',
-    'Help & Support': 'Help & Support Center',
-    'Feedback Statistics': 'Feedback Statistics Overview',
-    'Departmental Statistics': 'Departmental Statistics',
-    'Manage Your Members': 'Manage Your Members',
-    'Member Leave Requests': 'Member Leave Requests',
-    'Departmental Requests': 'Departmental Requests',
-    'Overall Organisation Stats': 'Overall Organisation Statistics',
-    'Station Statistics': 'Station Statistics',
-    'Audit Reports': 'Audit Reports',
-    'Document Verification': 'Document Verification',
-    'Compliance Check': 'Compliance Check',
-    'Audit Logs': 'Audit Logs',
-    'System Audit': 'System Audit',
-    'User Activity Logs': 'User Activity Logs',
-    'Compliance Reports': 'Compliance Reports',
-    'Data Integrity Check': 'Data Integrity Check',
-};
-
-const PAGE_SUBTITLES = {
-    'Lost Device Requests': 'Review and respond to employee lost-device requests awaiting your approval',
-    'Lost Device': 'Raise a temporary-access request to your Admin, Hiring Manager, or Supervisor',
-    'Add Device': 'Register additional devices to clock in and out seamlessly from multiple devices',
-    'Organisations Stats': 'Organisation-wide attendance insights for decision making',
-    'Broader Statistics': 'Organisation-wide and cross-organisation analytics',
-    'Our Mobile App': 'Clock in using either the Web Portal or Android Mobile App to ensure uninterrupted attendance tracking.',
-    'Staff Registration': 'Register new staff members to the KMFRI Attendance System for seamless attendance tracking.',
-    'Help & Support': 'Find guidance, report issues, and get assistance for the KMFRI Attendance System.',
-    'Feedback Statistics': 'View aggregated feedback data from employees and supervisors',
-    'Audit Reports': 'Review comprehensive audit reports and compliance documentation',
-    'Document Verification': 'Verify the authenticity and integrity of official documents',
-    'Compliance Check': 'Perform compliance checks and generate audit trails',
-    'Audit Logs': 'Access detailed audit logs and system activity records',
-    'System Audit': 'Conduct system-wide audits to ensure operational integrity',
-    'User Activity Logs': 'Monitor and review user activities and access logs',
-    'Compliance Reports': 'Generate and review compliance reports for regulatory adherence',
-    'Data Integrity Check': 'Check data integrity and perform validation audits',
-};
 
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -974,7 +918,7 @@ const EnhancedDashboard = () => {
         const base = [
             { text: 'Clocking Dashboard', icon: <DashIcon />, color: coreDataDetails.navPalette?.clocking || colorPalette.aquaVibrant },
             { text: 'Attendance History', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
-            { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: coreDataDetails.navPalette?.leaves || '#38bdf8' },
+            // { text: 'Request for Leave', icon: <EmojiPeopleRounded />, color: coreDataDetails.navPalette?.leaves || '#38bdf8' },
         ];
         const tech = [
             { text: 'Lost Device', icon: <PhoneLocked />, color: coreDataDetails.navPalette?.lost || '#fb923c' },
@@ -992,23 +936,20 @@ const EnhancedDashboard = () => {
             hr: [
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
-                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#34d399' },
                 { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
             ],
             supervisor: [
-                { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
                 { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
-                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
+                // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
             ],
             ceo: [
-                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
                 { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
             ],
             auditor: [
-                { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
+                { text: 'System Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
             ],
             superadmin: [
                 { text: 'Platform Administration', icon: <Settings />, color: coreDataDetails.navPalette?.platform || '#93c5fd' },
@@ -1017,11 +958,9 @@ const EnhancedDashboard = () => {
                 { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
-                { text: 'Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
-                { text: 'Departmental Statistics', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'System Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
-                { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
-                { text: 'Organisations Stats', icon: <QueryStats />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
                 { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
 
             ],
@@ -1053,21 +992,11 @@ const EnhancedDashboard = () => {
             case 'Clocking Dashboard': return <DashboardContent key={`clocking-${platformConfigVersion}`} {...sharedProps} />;
             case 'Tasks & Activities': return <TasksActivitiesContent {...sharedProps} />;
             case 'Attendance History': return <AttendanceHistoryContent {...sharedProps} />;
-            case 'Analytics & Reports':
-            case 'Analytics Dashboard':
-            case 'Workforce Analytics':
-            case 'Performance Analytics':
-            case 'Compliance Analytics':
-            case 'Analytics Reports':
-            case 'Team Performance':
-            case 'Reports':
-                return <OverallAttendanceStats />;
             case 'Department Structure': return <DepartmentStructureContent {...sharedProps} />;
-            case 'Request for Leave': return <LeaveManagementContent key={`leave-${platformConfigVersion}`} {...sharedProps} />;
+            // case 'Request for Leave': return <LeaveManagementContent key={`leave-${platformConfigVersion}`} {...sharedProps} />;
             case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager key={`admin-leave-${platformConfigVersion}`} {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} currentUser={user} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
-            case 'Organisations Stats': return canViewAdminFeatures ? <OverallAttendanceStats readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Broader Statistics': return canViewAdminFeatures ? <OrganisationStats user={user} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
@@ -1076,11 +1005,10 @@ const EnhancedDashboard = () => {
             case 'Register Intern/Attache': return canViewAdminFeatures ? <InternAttacheRegistration key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Staff Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
-            case 'Departmental Statistics': return <SupervisorDeptStats department={user?.department} />;
             case 'Manage Your Members': return <SupervisorManageMembers key={`supervisor-members-${platformConfigVersion}`} />;
-            case 'Member Leave Requests': return <SupervisorManageLeaves key={`supervisor-leaves-${platformConfigVersion}`} />;
+            // case 'Member Leave Requests': return <SupervisorManageLeaves key={`supervisor-leaves-${platformConfigVersion}`} />;
             case 'Departmental Requests': return <SupervisorDeptRequest />;
-            case 'Audit Logs': return <AuditLogsContent />;
+            case 'System Audit Logs': return <AuditLogsContent />;
             case 'Feedback Statistics': return <FeedbackStatistics />;
             case 'Platform Administration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
@@ -1089,17 +1017,20 @@ const EnhancedDashboard = () => {
 
     const pageTitle = useMemo(() => {
         if (activeTab === 'Clocking Dashboard') {
-            return `Welcome Back, ${user?.name?.split(' ')[0] || 'User'} 👋`;
+            return `Welcome Back, ${user?.name?.split(' ')[0] || 'User'}`;
         }
 
         if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
             return 'Department Broader Statistics';
         }
 
-        return PAGE_TITLES[activeTab] || activeTab;
     }, [activeTab, user?.name, user?.rank]);
 
     const pageSubtitle = useMemo(() => {
+        if (activeTab === 'Clocking Dashboard') {
+            return 'Clock in, clock out and monitor your attendance status from one secure workspace.';
+        }
+
         if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
             const department = user?.department || 'your department';
             const station = user?.station || 'your station';
@@ -1112,7 +1043,6 @@ const EnhancedDashboard = () => {
                 : `Station scoped HR analytics for ${user?.station || 'your station'}`;
         }
 
-        return PAGE_SUBTITLES[activeTab];
     }, [activeTab, user?.department, user?.rank, user?.station]);
 
     useEffect(() => {
@@ -1200,7 +1130,7 @@ const EnhancedDashboard = () => {
             {/* Main content */}
             <Box component="main" sx={{
                 flexGrow: 1,
-                p: { xs: 2, sm: 2.5, md: 3.5 },
+                p: { xs: 1.5, sm: 2.25, md: 3 },
                 mt: `${APPBAR_HEIGHT}px`,
                 width: { xs: '100%', md: `calc(100% - ${currentDrawerWidth}px)` },
                 minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
@@ -1209,33 +1139,10 @@ const EnhancedDashboard = () => {
             }}>
                 <AnimatePresence mode="wait">
                     <motion.div key={activeTab}
-                        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}>
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}>
 
-                        {/* Page header */}
-                        <Box sx={{ mb: 3.5 }}>
-                            <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
-                                <Typography variant="h5" fontWeight={900} sx={{
-                                    background: colorPalette.oceanGradient,
-                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                    lineHeight: 1.2, fontSize: { xs: '1.2rem', md: '1.45rem' },
-                                }}>
-                                    {pageTitle}
-                                </Typography>
-                                {activeTab === 'Lost Device Requests' && pendingCount > 0 && (
-                                    <Chip label={`${pendingCount} pending`} size="small" sx={{
-                                        fontWeight: 800, fontSize: '0.7rem', height: 22,
-                                        bgcolor: 'rgba(248,113,113,0.12)', color: '#f87171',
-                                        border: '1px solid rgba(248,113,113,0.28)',
-                                    }} />
-                                )}
-                            </Stack>
-                            {pageSubtitle && (
-                                <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mt: 0.5 }}>
-                                    {pageSubtitle}
-                                </Typography>
-                            )}
-                        </Box>
+                      
 
                         <Suspense fallback={SuspenseFallback}>
                             {renderContent()}

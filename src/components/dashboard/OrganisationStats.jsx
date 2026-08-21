@@ -1078,14 +1078,12 @@ const OrganisationStats = ({ user, readOnly = false }) => {
             rawDate: record.clock_in,
             clockIn: formatTime(record.clock_in),
             clockOut: record.missedClockOut ? "System" : record.clock_out ? formatTime(record.clock_out) : "Open",
-            duration: formatHoursBetween(record.clock_in, record.clock_out),
             inLocation: formatLocationLabel(record, true),
             outLocation: formatLocationLabel(record, false),
             reason: compactTitleCase(record.outSideReason || record.outsideReason || ""),
             station: record.station || "Unassigned",
             department: record.department || "Unassigned",
             role: record.role || "",
-            rank: record.rank || "",
             timing: record.isLate ? "Late" : "On Time",
             status: record.clock_out ? "Completed" : "Open",
         })),
@@ -1104,8 +1102,6 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 employeeId: row.employeeId || "N/A",
                 name: compactTitleCase(row.name),
                 role: row.role || "",
-                rank: row.rank || "",
-                station: row.station || "Unassigned",
                 department: row.department || "Unassigned",
                 totalDays: totalDaysInReferenceRange,
                 workingDays: workingDaysInReferenceRange,
@@ -1129,9 +1125,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 row.station,
                 row.department,
                 row.role,
-                row.rank,
                 row.timing,
-                row.status,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
         [processedRecords, referenceSearchText]
@@ -1146,7 +1140,6 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 row.station,
                 row.department,
                 row.role,
-                row.rank,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
         [processedSummaryRows, referenceSearchText]
@@ -1276,7 +1269,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
         doc.setFontSize(8.5);
         doc.text(scopeLabel.toUpperCase(), pw / 2, 17, { align: "center" });
         doc.text(`${effectiveFilters.startDate} TO ${effectiveFilters.endDate}`.toUpperCase(), pw / 2, 23, { align: "center" });
-        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || "AUTHORIZED PERSONNEL").toUpperCase()} | ${(user?.rank || "ADMIN").toUpperCase()}`, pw / 2, 29, { align: "center" });
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || "AUTHORIZED PERSONNEL").toUpperCase()} | ${(user?.rank || "").toUpperCase()}`, pw / 2, 29, { align: "center" });
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.text("VERIFICATION QR", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
@@ -1526,7 +1519,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Duration", "Timing", "Status", "In Location", "Out Location", "Station", "Department"]],
+                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Timing", "Status", "In Location", "Out Location",  "Department"]],
                 body: filteredRecords.map((row, index) => [
                     index + 1,
                     row.employeeId,
@@ -1534,12 +1527,9 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                     row.date,
                     row.clockIn,
                     row.clockOut,
-                    row.duration,
                     row.timing,
-                    row.status,
                     row.inLocation,
                     row.outLocation,
-                    row.station,
                     row.department,
                 ]),
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
@@ -1571,14 +1561,12 @@ const OrganisationStats = ({ user, readOnly = false }) => {
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Role", "Rank", "Station", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
+                head: [["No.", "Employee ID", "Name", "Role", "Rank",  "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
                 body: filteredSummaryRows.map((row, index) => [
                     index + 1,
                     row.employeeId,
                     row.name,
                     humanizeFilterValue(row.role),
-                    humanizeFilterValue(row.rank),
-                    row.station,
                     row.department,
                     row.totalDays,
                     row.workingDays,
@@ -2636,7 +2624,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                {["Employee", "Date", "Clock In", "Clock Out", "Duration", "Timing", "Status", "In Location", "Out Location", "Station", "Department"].map((heading) => (
+                                                {["Employee", "Date", "Clock In", "Clock Out","Timing", "In Location", "Out Location", "Department"].map((heading) => (
                                                     <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }}>
                                                         {heading}
                                                     </TableCell>
@@ -2653,20 +2641,16 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                                     <TableCell sx={{ whiteSpace: "nowrap" }}>{row.date}</TableCell>
                                                     <TableCell>{row.clockIn}</TableCell>
                                                     <TableCell>{row.clockOut}</TableCell>
-                                                    <TableCell>{row.duration}</TableCell>
                                                     <TableCell>
                                                         <Chip size="small" label={row.timing} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.timing === "Late" ? `${theme.warning}18` : `${theme.success}16`, color: row.timing === "Late" ? "#B45309" : theme.success }} />
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <Chip size="small" label={row.status} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.status === "Open" ? `${theme.danger}12` : `${theme.secondary}12`, color: row.status === "Open" ? theme.danger : theme.secondary }} />
-                                                    </TableCell>
+                                                  
                                                     <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
                                                         <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.inLocation}</Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
                                                         <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
                                                     </TableCell>
-                                                    <TableCell sx={{ minWidth: 130 }}>{row.station}</TableCell>
                                                     <TableCell sx={{ minWidth: 170 }}>{row.department}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -2710,7 +2694,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                {["Employee", "Role", "Rank", "Station", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
+                                                {["Employee", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
                                                     <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent"].includes(heading) ? "right" : "left"}>
                                                         {heading}
                                                     </TableCell>
@@ -2725,8 +2709,6 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                                         <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
                                                     </TableCell>
                                                     <TableCell>{humanizeFilterValue(row.role)}</TableCell>
-                                                    <TableCell>{humanizeFilterValue(row.rank)}</TableCell>
-                                                    <TableCell sx={{ minWidth: 130 }}>{row.station}</TableCell>
                                                     <TableCell sx={{ minWidth: 180 }}>{row.department}</TableCell>
                                                     <TableCell align="right">{formatNumber(row.totalDays)}</TableCell>
                                                     <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
