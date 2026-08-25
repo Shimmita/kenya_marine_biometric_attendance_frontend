@@ -512,6 +512,73 @@ const InsightTile = ({ label, value, subtitle, tone, theme, positive = true }) =
     </Box>
 );
 
+const RecommendationCard = ({ title, label, detail, metric, tone, chip, progress, theme, positive = true }) => (
+    <Box
+        sx={{
+            p: 1.45,
+            minHeight: 132,
+            borderRadius: "8px",
+            bgcolor: `${tone}0F`,
+            border: `1px solid ${tone}28`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+        }}
+    >
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+            <Chip
+                size="small"
+                label={chip}
+                sx={{
+                    height: 22,
+                    borderRadius: "6px",
+                    bgcolor: `${tone}18`,
+                    color: tone,
+                    fontSize: 10,
+                    fontWeight: 950,
+                    "& .MuiChip-label": { px: 0.9 },
+                }}
+            />
+            {positive ? (
+                <TrendingUpRounded sx={{ fontSize: 17, color: tone, flexShrink: 0 }} />
+            ) : (
+                <TrendingDownRounded sx={{ fontSize: 17, color: tone, flexShrink: 0 }} />
+            )}
+        </Stack>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 950, color: tone, letterSpacing: 0 }}>
+                {label}
+            </Typography>
+            <Typography sx={{ mt: 0.25, fontSize: 15, fontWeight: 950, color: theme.text, lineHeight: 1.2, overflowWrap: "anywhere" }}>
+                {title}
+            </Typography>
+            <Typography sx={{ mt: 0.55, fontSize: 11, color: theme.muted, lineHeight: 1.45, overflowWrap: "anywhere" }}>
+                {detail}
+            </Typography>
+        </Box>
+        <Box sx={{ mt: "auto" }}>
+            <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 0.45 }}>
+                <Typography sx={{ fontSize: 10, fontWeight: 900, color: theme.muted }}>
+                    Signal
+                </Typography>
+                <Typography sx={{ fontSize: 10, fontWeight: 950, color: tone }}>
+                    {metric}
+                </Typography>
+            </Stack>
+            <LinearProgress
+                variant="determinate"
+                value={safePercent(progress)}
+                sx={{
+                    height: 6,
+                    borderRadius: 999,
+                    bgcolor: `${tone}18`,
+                    "& .MuiLinearProgress-bar": { borderRadius: 999, bgcolor: tone },
+                }}
+            />
+        </Box>
+    </Box>
+);
+
 const ScrollableChartFrame = ({ children, minWidth = 720, theme }) => (
     <Box sx={{ position: "relative" }}>
         <Stack
@@ -1010,32 +1077,6 @@ const OrganisationStats = ({ user, readOnly = false }) => {
         [departments, filters.performanceBand, filters.sortBy]
     );
 
-    const latenessByDepartment = useMemo(() => {
-        const apiRows = Array.isArray(lateAnalytics?.lateByDepartment) ? lateAnalytics.lateByDepartment : [];
-        const rows = apiRows.length
-            ? apiRows.map((item) => ({
-                department: item.department || item._id || "Unassigned",
-                count: Number(item.count || item.totalLateCount || 0),
-            }))
-            : sortedDepartments.map((department) => ({
-                department: department.department || "Unassigned",
-                count: Number(department.totalLateCount || 0),
-            }));
-
-        return rows.filter((item) => item.count > 0).sort((a, b) => b.count - a.count);
-    }, [lateAnalytics, sortedDepartments]);
-
-    const earlyDepartureByDepartment = useMemo(() => {
-        const rows = Array.isArray(earlyAnalytics?.earlyByDepartment) ? earlyAnalytics.earlyByDepartment : [];
-        return rows
-            .map((item) => ({
-                department: item.department || item._id || "Unassigned",
-                count: Number(item.count || 0),
-            }))
-            .filter((item) => item.count > 0)
-            .sort((a, b) => b.count - a.count);
-    }, [earlyAnalytics]);
-
     const topEmployeesByStation = useMemo(
         () =>
             sortedStations.map((station) => ({
@@ -1402,6 +1443,320 @@ const OrganisationStats = ({ user, readOnly = false }) => {
         ],
         [attentionCount, biometricAnalytics, isSupervisorScope, kpis, lowestStation, punctualityDelta, supervisorDepartment, theme, topDepartment, topStation, userRank]
     );
+
+    const roleRecommendationCards = useMemo(() => {
+        const totalEmployees = Number(kpis?.totalEmployees || 0);
+        const attendanceRate = Number(kpis?.attendanceRate || 0);
+        const punctualityRate = Number(kpis?.punctualityRate || 0);
+        const absenteeismRate = Number(kpis?.absenteeismRate || 0);
+        const biometricRate = Number(biometricAnalytics?.enrollmentRate || 0);
+        const lowestDepartment = [...sortedDepartments]
+            .sort((a, b) => Number(a.attendanceRate || 0) - Number(b.attendanceRate || 0))[0];
+        const stationGap = topStation && lowestStation
+            ? Math.max(Number(topStation.attendanceRate || 0) - Number(lowestStation.attendanceRate || 0), 0)
+            : 0;
+        const targetGap = Math.max(90 - attendanceRate, 0);
+        const presentCoverage = totalEmployees
+            ? (Number(kpis?.presentToday || 0) / totalEmployees) * 100
+            : 0;
+        const topPerformerName = topPerformer?.name || topPerformer?.email || "top performers";
+        const scopedStationLabel = supervisorStation || "assigned station";
+        const scopedDepartmentLabel = supervisorDepartment || "assigned department";
+
+        if (userRank === "ceo") {
+            return [
+                {
+                    chip: "Executive",
+                    label: "Organisation Target",
+                    title: targetGap > 0 ? "Raise attendance toward 90%" : "Maintain attendance above target",
+                    detail: targetGap > 0
+                        ? `Attendance is ${formatPercent(attendanceRate)}. Ask HR to prioritise the stations and departments pulling the average below target.`
+                        : `Attendance is ${formatPercent(attendanceRate)}. Keep the same governance rhythm while watching station variance.`,
+                    metric: `${formatDelta(attendanceRate - 90, "pp")} vs 90%`,
+                    progress: attendanceRate,
+                    tone: targetGap > 0 ? theme.warning : theme.success,
+                    positive: targetGap <= 0,
+                },
+                {
+                    chip: "Station Equity",
+                    label: "Station Variance",
+                    title: `${formatDelta(stationGap, "pp")} best-to-lowest gap`,
+                    detail: `${lowestStation?.station || "Lowest station"} needs executive visibility if the gap persists against ${topStation?.station || "top station"}.`,
+                    metric: lowestStation?.station || "N/A",
+                    progress: Math.min(stationGap * 3, 100),
+                    tone: stationGap > 10 ? theme.danger : theme.secondary,
+                    positive: stationGap <= 10,
+                },
+                {
+                    chip: "Accountability",
+                    label: "Department Oversight",
+                    title: lowestDepartment?.department || "Department review",
+                    detail: `Use department heads to close absence, lateness, and missing-record patterns before they affect service delivery.`,
+                    metric: formatPercent(lowestDepartment?.attendanceRate),
+                    progress: lowestDepartment?.attendanceRate || 0,
+                    tone: theme.purple,
+                    positive: Number(lowestDepartment?.attendanceRate || 0) >= 85,
+                },
+                {
+                    chip: "Compliance",
+                    label: "Record Integrity",
+                    title: `${formatNumber(missingRecords)} incomplete records`,
+                    detail: "Require closure of missing clock-ins and clock-outs before monthly reporting, audit review, or payroll confirmation.",
+                    metric: `${formatNumber(referenceMetrics.openSessions)} open sessions`,
+                    progress: Math.min(missingRecords * 8, 100),
+                    tone: missingRecords > 0 ? theme.danger : theme.success,
+                    positive: missingRecords === 0,
+                },
+                {
+                    chip: "Infrastructure",
+                    label: "Biometric Resilience",
+                    title: formatPercent(biometricRate),
+                    detail: "Track enrolment, inactive devices, and lost devices as attendance infrastructure health indicators.",
+                    metric: `${formatNumber(biometricAnalytics?.usersWithBiometric || 0)} enrolled`,
+                    progress: biometricRate,
+                    tone: biometricRate >= 95 ? theme.success : theme.warning,
+                    positive: biometricRate >= 95,
+                },
+                {
+                    chip: "Continuity",
+                    label: "Workforce Availability",
+                    title: `${formatNumber(attentionCount)} staff need attention`,
+                    detail: "Ask HR to separate approved leave from unexplained absence so operational coverage decisions are fair.",
+                    metric: `${formatPercent(presentCoverage)} present today`,
+                    progress: presentCoverage,
+                    tone: attentionCount > 0 ? theme.warning : theme.success,
+                    positive: attentionCount === 0,
+                },
+            ];
+        }
+
+        if (isFullHr) {
+            return [
+                {
+                    chip: "Super HR",
+                    label: "Station Intervention",
+                    title: lowestStation?.station || "Station review",
+                    detail: `Coordinate with station HR to understand why attendance sits at ${formatPercent(lowestStation?.attendanceRate)} and agree a corrective action.`,
+                    metric: formatPercent(lowestStation?.attendanceRate),
+                    progress: lowestStation?.attendanceRate || 0,
+                    tone: theme.danger,
+                    positive: false,
+                },
+                {
+                    chip: "Cross-Dept",
+                    label: "Department Follow-up",
+                    title: lowestDepartment?.department || "Department review",
+                    detail: "Compare attendance, absenteeism, lateness, and early departures before deciding whether the issue is supervision, shift timing, or record quality.",
+                    metric: formatPercent(lowestDepartment?.attendanceRate),
+                    progress: lowestDepartment?.attendanceRate || 0,
+                    tone: theme.warning,
+                    positive: Number(lowestDepartment?.attendanceRate || 0) >= 85,
+                },
+                {
+                    chip: "Data Quality",
+                    label: "Compliance Closure",
+                    title: `${formatNumber(missingRecords)} missing records`,
+                    detail: "Push station HR teams to clean missing punches daily so monthly analytics remain credible.",
+                    metric: `${formatNumber(referenceMetrics.openSessions)} open sessions`,
+                    progress: Math.min(missingRecords * 8, 100),
+                    tone: missingRecords ? theme.danger : theme.success,
+                    positive: !missingRecords,
+                },
+                {
+                    chip: "Punctuality",
+                    label: "Late Arrival Review",
+                    title: `${formatNumber(lateToday)} late today`,
+                    detail: "Where lateness repeats across multiple stations, review reporting times, transport realities, and grace-period discipline.",
+                    metric: formatPercent(punctualityRate),
+                    progress: punctualityRate,
+                    tone: punctualityRate >= 90 ? theme.success : theme.warning,
+                    positive: punctualityRate >= 90,
+                },
+                {
+                    chip: "Access",
+                    label: "Outside Duty Governance",
+                    title: `${formatNumber(outsideClockingCount)} outside-duty records`,
+                    detail: "Audit authorisations against field assignments, especially where off-premise records cluster around one station or department.",
+                    metric: "Authorised records",
+                    progress: Math.min(outsideClockingCount * 10, 100),
+                    tone: theme.secondary,
+                    positive: true,
+                },
+                {
+                    chip: "Devices",
+                    label: "Biometric Coverage",
+                    title: formatPercent(biometricRate),
+                    detail: "Prioritise onboarding and device support in stations with pending enrolment or inactive devices.",
+                    metric: `${formatNumber(biometricAnalytics?.inactiveDevices || 0)} inactive devices`,
+                    progress: biometricRate,
+                    tone: biometricRate >= 95 ? theme.success : theme.purple,
+                    positive: biometricRate >= 95,
+                },
+            ];
+        }
+
+        if (isStationScopedHr) {
+            return [
+                {
+                    chip: "Station HR",
+                    label: "Daily Coverage",
+                    title: `${formatPercent(presentCoverage)} present today`,
+                    detail: `Use ${scopedStationLabel} attendance to confirm coverage before supervisors assign field or lab tasks.`,
+                    metric: `${formatNumber(kpis?.presentToday)} present`,
+                    progress: presentCoverage,
+                    tone: presentCoverage >= 85 ? theme.success : theme.warning,
+                    positive: presentCoverage >= 85,
+                },
+                {
+                    chip: "Absence",
+                    label: "Same-day Follow-up",
+                    title: `${formatNumber(kpis?.absentToday)} absent today`,
+                    detail: "Separate approved leave, duty travel, and unexplained absence before the end-of-day attendance close.",
+                    metric: formatPercent(absenteeismRate),
+                    progress: Math.min(absenteeismRate * 6, 100),
+                    tone: absenteeismRate > 8 ? theme.danger : theme.secondary,
+                    positive: absenteeismRate <= 8,
+                },
+                {
+                    chip: "Punctuality",
+                    label: "Station Start Discipline",
+                    title: formatPercent(punctualityRate),
+                    detail: "Discuss repeated late arrivals with line supervisors and confirm whether station-specific reporting constraints exist.",
+                    metric: `${formatNumber(lateToday)} late today`,
+                    progress: punctualityRate,
+                    tone: punctualityRate >= 90 ? theme.success : theme.warning,
+                    positive: punctualityRate >= 90,
+                },
+                {
+                    chip: "Records",
+                    label: "Punch Completion",
+                    title: `${formatNumber(missingRecords)} records to clean`,
+                    detail: "Close missing clock-ins and clock-outs before they become unresolved end-month exceptions.",
+                    metric: `${formatNumber(referenceMetrics.openSessions)} open`,
+                    progress: Math.min(missingRecords * 12, 100),
+                    tone: missingRecords ? theme.danger : theme.success,
+                    positive: !missingRecords,
+                },
+                {
+                    chip: "Department",
+                    label: "Local Department Watch",
+                    title: lowestDepartment?.department || "Department review",
+                    detail: "Use department-level attendance to brief the relevant HOD on the exact team that needs support.",
+                    metric: formatPercent(lowestDepartment?.attendanceRate),
+                    progress: lowestDepartment?.attendanceRate || 0,
+                    tone: theme.purple,
+                    positive: Number(lowestDepartment?.attendanceRate || 0) >= 85,
+                },
+                {
+                    chip: "Biometrics",
+                    label: "Station Readiness",
+                    title: formatPercent(biometricRate),
+                    detail: "Resolve pending enrolment and device issues locally so staff are not pushed into manual explanations.",
+                    metric: `${formatNumber(biometricAnalytics?.usersWithBiometric || 0)} enrolled`,
+                    progress: biometricRate,
+                    tone: biometricRate >= 95 ? theme.success : theme.warning,
+                    positive: biometricRate >= 95,
+                },
+            ];
+        }
+
+        if (isSupervisorScope) {
+            return [
+                {
+                    chip: "Supervisor",
+                    label: "Team Attendance",
+                    title: formatPercent(attendanceRate),
+                    detail: `Use ${scopedDepartmentLabel} attendance to identify whether the issue is a few staff members or a team-wide pattern.`,
+                    metric: `${formatNumber(totalEmployees)} staff`,
+                    progress: attendanceRate,
+                    tone: attendanceRate >= 90 ? theme.success : theme.warning,
+                    positive: attendanceRate >= 90,
+                },
+                {
+                    chip: "Follow-up",
+                    label: "Absence Review",
+                    title: `${formatNumber(kpis?.absentToday)} absent today`,
+                    detail: "Call or message absent staff early and record whether the reason is approved leave, field assignment, or unexplained absence.",
+                    metric: `${formatNumber(attentionReviewRows.length)} flagged`,
+                    progress: Math.min(Number(kpis?.absentToday || 0) * 20, 100),
+                    tone: Number(kpis?.absentToday || 0) ? theme.danger : theme.success,
+                    positive: !Number(kpis?.absentToday || 0),
+                },
+                {
+                    chip: "Coaching",
+                    label: "Punctuality Coaching",
+                    title: `${formatNumber(lateToday)} late today`,
+                    detail: "Review repeated lateness privately and agree realistic corrective action before escalation.",
+                    metric: formatPercent(punctualityRate),
+                    progress: punctualityRate,
+                    tone: punctualityRate >= 90 ? theme.success : theme.warning,
+                    positive: punctualityRate >= 90,
+                },
+                {
+                    chip: "Coverage",
+                    label: "Work Allocation",
+                    title: `${formatNumber(kpis?.onLeaveToday)} on leave`,
+                    detail: "Plan handovers and daily coverage when leave or absence reduces available team capacity.",
+                    metric: `${formatPercent(presentCoverage)} present`,
+                    progress: presentCoverage,
+                    tone: presentCoverage >= 85 ? theme.success : theme.secondary,
+                    positive: presentCoverage >= 85,
+                },
+                {
+                    chip: "Records",
+                    label: "Pending Reviews",
+                    title: `${formatNumber(missingRecords)} missing punches`,
+                    detail: "Ask staff to resolve missing clock-ins or clock-outs while the context is still fresh.",
+                    metric: `${formatNumber(referenceMetrics.openSessions)} open`,
+                    progress: Math.min(missingRecords * 15, 100),
+                    tone: missingRecords ? theme.warning : theme.success,
+                    positive: !missingRecords,
+                },
+                {
+                    chip: "Recognition",
+                    label: "Positive Reinforcement",
+                    title: titleCase(topPerformerName),
+                    detail: "Recognise consistent attendance and use reliable performers as examples for team attendance discipline.",
+                    metric: "Top performer",
+                    progress: attendanceRate,
+                    tone: theme.accent,
+                    positive: true,
+                },
+            ];
+        }
+
+        return managementRecommendations.map((note) => ({
+            chip: "Insight",
+            label: note.label,
+            title: note.value,
+            detail: note.subtitle,
+            metric: note.positive ? "Stable" : "Review",
+            progress: note.positive ? 86 : 48,
+            tone: note.tone,
+            positive: note.positive,
+        }));
+    }, [
+        attentionCount,
+        attentionReviewRows.length,
+        biometricAnalytics,
+        isFullHr,
+        isStationScopedHr,
+        isSupervisorScope,
+        kpis,
+        lateToday,
+        lowestStation,
+        managementRecommendations,
+        missingRecords,
+        outsideClockingCount,
+        referenceMetrics.openSessions,
+        sortedDepartments,
+        supervisorDepartment,
+        supervisorStation,
+        theme,
+        topPerformer,
+        topStation,
+        userRank,
+    ]);
 
     const handleFilterChange = (field) => (event) => {
         if ((isSupervisorScope || isStationScopedHr) && field === "station") return;
@@ -1812,16 +2167,16 @@ const OrganisationStats = ({ user, readOnly = false }) => {
 
             autoTable(doc, {
                 startY: doc.lastAutoTable.finalY + 6,
-                head: [["Lateness Department", "Late Arrivals", "Early Departure Department", "Early Departures"]],
-                body: Array.from({ length: Math.max(latenessByDepartment.length, earlyDepartureByDepartment.length, 1) }).map((_, index) => [
-                    latenessByDepartment[index]?.department || "",
-                    latenessByDepartment[index]?.count || "",
-                    earlyDepartureByDepartment[index]?.department || "",
-                    earlyDepartureByDepartment[index]?.count || "",
+                head: [["Audience", "Recommendation", "Signal", "Action"]],
+                body: roleRecommendationCards.map((card) => [
+                    card.chip,
+                    `${card.label}: ${card.title}`,
+                    card.metric,
+                    card.detail,
                 ]),
                 ...sectionStyles,
                 headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: "bold", halign: "center" },
-                columnStyles: { 0: { cellWidth: 86 }, 1: { cellWidth: 36, halign: "right" }, 2: { cellWidth: 86 }, 3: { cellWidth: 36, halign: "right" } },
+                columnStyles: { 0: { cellWidth: 34 }, 1: { cellWidth: 72 }, 2: { cellWidth: 42 }, 3: { cellWidth: 138 } },
             });
 
             await finalizeVerifiedPdf({
@@ -3295,65 +3650,55 @@ const OrganisationStats = ({ user, readOnly = false }) => {
             )}
 
             {activeReportTab === "analytics" && (
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-                <Grid item xs={12} lg={6}>
-                    <SectionCard title="Lateness Concentration" subtitle="Departments with the highest late-arrival counts" theme={theme}>
-                        {latenessByDepartment.length ? (
-                            <ScrollableChartFrame minWidth={chartMinWidth(latenessByDepartment.length, 122, 720)} theme={theme}>
-                                <Box sx={{ height: 300 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={latenessByDepartment} margin={{ top: 8, right: 10, left: -20, bottom: 64 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
-                                            <XAxis dataKey="department" tick={{ fontSize: 10, fill: theme.muted }} interval={0} angle={-22} textAnchor="end" height={78} />
-                                            <YAxis tick={{ fontSize: 10, fill: theme.muted }} allowDecimals={false} />
-                                            <RechartsTooltip formatter={(value) => [formatNumber(value), "Late arrivals"]} />
-                                            <Bar dataKey="count" name="Late Arrivals" radius={[6, 6, 0, 0]} fill={theme.warning} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </Box>
-                            </ScrollableChartFrame>
-                        ) : (
-                            <EmptyState label="No lateness concentration data available." theme={theme} />
-                        )}
-                        <ChartReading
+                <Grid container spacing={2} sx={{ mt: 2 }}>
+                    <Grid item xs={12}>
+                        <SectionCard
+                            title={
+                                userRank === "ceo"
+                                    ? "Executive Recommendations"
+                                    : isSupervisorScope
+                                        ? "Supervisor Recommendations"
+                                        : isFullHr
+                                            ? "Mombasa Centre HR Recommendations"
+                                            : isStationScopedHr
+                                                ? `${supervisorStation || "Station"} HR Recommendations`
+                                                : "Management Recommendations"
+                            }
+                            subtitle={
+                                userRank === "ceo"
+                                    ? "Strategic actions for organisation-wide attendance governance"
+                                    : isSupervisorScope
+                                        ? "Team-level actions for HOD and supervisor follow-up"
+                                        : isFullHr
+                                            ? "Cross-station and cross-department actions for headquarters HR"
+                                            : isStationScopedHr
+                                                ? "Station-specific actions for local HR administration"
+                                                : "Actionable recommendations from the selected attendance period"
+                            }
                             theme={theme}
-                            items={[
-                                { label: "Longer bar means more late arrivals", text: "Use this to focus coaching, transport timing checks, or shift-start clarification.", tone: theme.warning },
-                                { label: "Compare with attendance", text: "A department can have good attendance but still need punctuality intervention.", tone: theme.secondary },
-                            ]}
-                        />
-                    </SectionCard>
+                        >
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: {
+                                        xs: "1fr",
+                                        sm: "repeat(2, minmax(0, 1fr))",
+                                        xl: "repeat(3, minmax(0, 1fr))",
+                                    },
+                                    gap: 1.2,
+                                }}
+                            >
+                                {roleRecommendationCards.map((card) => (
+                                    <RecommendationCard
+                                        key={`${card.chip}-${card.label}`}
+                                        {...card}
+                                        theme={theme}
+                                    />
+                                ))}
+                            </Box>
+                        </SectionCard>
+                    </Grid>
                 </Grid>
-
-                <Grid item xs={12} lg={6}>
-                    <SectionCard title="Early Departure Concentration" subtitle="Departments with clock-outs before expected completion" theme={theme}>
-                        {earlyDepartureByDepartment.length ? (
-                            <ScrollableChartFrame minWidth={chartMinWidth(earlyDepartureByDepartment.length, 122, 720)} theme={theme}>
-                                <Box sx={{ height: 300 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={earlyDepartureByDepartment} margin={{ top: 8, right: 10, left: -20, bottom: 64 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
-                                            <XAxis dataKey="department" tick={{ fontSize: 10, fill: theme.muted }} interval={0} angle={-22} textAnchor="end" height={78} />
-                                            <YAxis tick={{ fontSize: 10, fill: theme.muted }} allowDecimals={false} />
-                                            <RechartsTooltip formatter={(value) => [formatNumber(value), "Early departures"]} />
-                                            <Bar dataKey="count" name="Early Departures" radius={[6, 6, 0, 0]} fill={theme.purple} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </Box>
-                            </ScrollableChartFrame>
-                        ) : (
-                            <EmptyState label="No early departure data available." theme={theme} />
-                        )}
-                        <ChartReading
-                            theme={theme}
-                            items={[
-                                { label: "Longer bar means more early exits", text: "Review whether these are approved assignments, partial days, or completion-risk patterns.", tone: theme.purple },
-                                { label: "Use with leave and outside duty", text: "Early exits are less concerning when they match approved leave or authorised off-premise work.", tone: theme.secondary },
-                            ]}
-                        />
-                    </SectionCard>
-                </Grid>
-            </Grid>
             )}
         </Box>
     );
