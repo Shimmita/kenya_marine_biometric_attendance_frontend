@@ -27,7 +27,7 @@ export const registerBatchUsers = async (users) => {
     const res = await api.post("/admin/batch-register", { users });
     return res.data;
   } catch (err) {
-    // Throwing the message allows the component's catch block to capture it
-    throw err.response?.data?.message || "Batch registration failed";
+    // Preserve row-level validation details for the editable batch preview.
+    throw err.response?.data || "Batch registration failed";
   }
 };

@@ -5,6 +5,7 @@ import {
     Dashboard as DashIcon,
     DevicesOther,
     EmojiPeopleRounded,
+    EventAvailableRounded,
     History,
     InsightsRounded,
     Logout,
@@ -25,17 +26,18 @@ import {
     List, ListItem, ListItemIcon, ListItemText, Stack,
     Tooltip, Typography
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import SuperadminAPI from '../service/SuperadminService';
-import { updateUserProfile, userSignOut } from '../service/UserProfile';
+import { completeRequiredPasswordReset, updateUserProfile, userSignOut } from '../service/UserProfile';
 import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import DialogAlert from './DialogAlert';
+import ForcedPasswordResetDialog from './ForcedPasswordResetDialog';
 import GuideDialog from './GuideDialog';
 const AdminLeaveManager = lazy(() => import('./dashboard/AdminLeaveManager'));
 const PlatformConfigPanel = lazy(() => import('./dashboard/ConfigPanel'));
@@ -62,6 +64,7 @@ const InternAttacheRegistration = lazy(() => import('./dashboard/InternAttacheRe
 const BatchRegistrationContent = lazy(() => import('./dashboard/BatchRegistration'));
 const AuditLogsContent = lazy(() => import('./dashboard/AuditLogs'));
 const OrganisationStats = lazy(() => import('./dashboard/OrganisationStats'));
+const HolidayManagement = lazy(() => import('./dashboard/HolidayManagement'));
 
 const { colorPalette } = coreDataDetails;
 
@@ -104,6 +107,7 @@ const NAV_DISPLAY_LABELS = {
     'Lost Device Requests': 'Device Access Requests',
     'Register Intern/Attache': 'Intern & Attache Registration',
     'Staff Registration': 'Staff Registration',
+    'Holiday Management': 'Holiday Management',
     'System Audit Logs': 'AUDIT INTELLIGENCE',
     'Broader Statistics': 'Attendance Analytics',
     'Manage Your Members': 'Team Management',
@@ -115,10 +119,98 @@ const NAV_DISPLAY_LABELS = {
 
 const getNavDisplayLabel = (text = '') => NAV_DISPLAY_LABELS[text] || text;
 
+const PAGE_META = {
+    'Clocking Dashboard': {
+        title: 'Clocking & Attendance',
+        subtitle: 'Clock in, clock out and monitor your attendance status from one secure workspace.',
+    },
+    'Tasks & Activities': {
+        title: 'Tasks & Activities',
+        subtitle: 'Review and manage assigned operational activities.',
+    },
+    'Attendance History': {
+        title: 'Attendance History',
+        subtitle: 'View attendance records, punctuality, and working-hour history.',
+    },
+    'Department Structure': {
+        title: 'Department Structure',
+        subtitle: 'Review organisational departments and reporting lines.',
+    },
+    'Leave Management': {
+        title: 'Leave Management',
+        subtitle: 'Review, approve, and track staff leave requests.',
+    },
+    'Notification Panel': {
+        title: 'Notification Panel',
+        subtitle: 'Manage staff communication and attendance reminders.',
+    },
+    'Our Mobile App': {
+        title: 'Our Mobile App',
+        subtitle: 'Download and install the KMFRI attendance mobile experience.',
+    },
+    'Broader Statistics': {
+        title: 'Attendance Analytics',
+        subtitle: 'Explore attendance performance across staff, departments, and stations.',
+    },
+    'Lost Device Requests': {
+        title: 'Device Access Requests',
+        subtitle: 'Review staff requests for temporary device access.',
+    },
+    'Lost Device': {
+        title: 'Lost Device Access',
+        subtitle: 'Report a lost device and request temporary attendance access.',
+    },
+    'Add Device': {
+        title: 'Register Device',
+        subtitle: 'Register and manage trusted attendance devices.',
+    },
+    'User Management': {
+        title: 'User Management',
+        subtitle: 'Manage system users, roles, and access.',
+    },
+    'Register Intern/Attache': {
+        title: 'Intern & Attache Registration',
+        subtitle: 'Register interns and industrial attaches individually or in batch.',
+    },
+    'Staff Registration': {
+        title: 'Staff Registration',
+        subtitle: 'Register staff individually or through an editable batch upload.',
+    },
+    'Holiday Management': {
+        title: 'Holiday Management',
+        subtitle: 'Configure Kenya public holidays used by clocking, reminders, and attendance analytics.',
+    },
+    'Help & Support': {
+        title: 'Help & Support',
+        subtitle: 'Get support and share feedback about the platform.',
+    },
+    'Manage Your Members': {
+        title: 'Team Management',
+        subtitle: 'Manage assigned department or station team members.',
+    },
+    'Departmental Requests': {
+        title: 'Departmental Requests',
+        subtitle: 'Review requests from your assigned team scope.',
+    },
+    'System Audit Logs': {
+        title: 'Audit Intelligence',
+        subtitle: 'Inspect system activity, privileged actions, and audit trails.',
+    },
+    'Feedback Statistics': {
+        title: 'Feedback & Ratings',
+        subtitle: 'Review user feedback trends and platform ratings.',
+    },
+    'Platform Administration': {
+        title: 'Platform Administration',
+        subtitle: 'Configure platform identity, stations, departments, and policies.',
+    },
+};
+
 
 
 const SUPERADMIN_GENERAL_ITEMS = [
     { text: 'Platform Administration', icon: <Settings /> },
+    { text: 'Holiday Management', icon: <EventAvailableRounded /> },
     { text: 'User Management', icon: <SupervisorAccount /> },
     { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     { text: 'Lost Device Requests', icon: <DevicesOther /> },
@@ -313,7 +405,7 @@ const CollapsedNavItem = React.memo(({ item, isActive, pendingCount, onClick }) 
 
 /* ─── Animated active underline ─────────────────────────────────────────── */
 const ActiveLine = ({ color }) => (
-    <motion.div
+    <Motion.div
         layoutId="activeUnderline"
         initial={{ scaleX: 0, opacity: 0 }}
         animate={{ scaleX: 1, opacity: 1 }}
@@ -330,7 +422,7 @@ const ActiveLine = ({ color }) => (
 
 /* ─── Full nav item ──────────────────────────────────────────────────────── */
 const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
-    <motion.div>
+    <Motion.div>
         <ListItem button onClick={onClick} sx={{
             borderRadius: '12px', mb: 0.45, px: 1.35, py: 0.95,
             position: 'relative', overflow: 'hidden',
@@ -377,7 +469,7 @@ const NavItem = React.memo(({ item, isActive, pendingCount, onClick }) => (
                 )}
             </Box>
         </ListItem>
-    </motion.div>
+    </Motion.div>
 ));
 
 /* ─── Collapsed drawer ──────────────────────────────────────────────────── */
@@ -489,6 +581,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
     const adminItems = useMemo(() => {
         const items = [
+            { text: 'Holiday Management', icon: <EventAvailableRounded /> },
             { text: 'User Management', icon: <SupervisorAccount /> },
             { text: 'Feedback Statistics', icon: <InsightsRounded /> },
             { text: 'Lost Device Requests', icon: <DevicesOther /> },
@@ -498,6 +591,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
 
     /* HR gets base admin items PLUS Orgs Stats and Leave Management */
     const hrItems = useMemo(() => [
+        { text: 'Holiday Management', icon: <EventAvailableRounded /> },
         { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
         { text: 'Staff Registration', icon: <PeopleRounded /> },
         { text: 'Broader Statistics', icon: <BarChartRounded /> },
@@ -905,6 +999,11 @@ const EnhancedDashboard = () => {
         dispatch(updateUserCurrentUserRedux(updatedUser));
     }, [dispatch]);
 
+    const handleRequiredPasswordReset = useCallback(async ({ newPassword, confirmPassword }) => {
+        const updatedUser = await completeRequiredPasswordReset({ newPassword, confirmPassword });
+        dispatch(updateUserCurrentUserRedux(updatedUser));
+    }, [dispatch]);
+
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
     const isAuditor = useMemo(() => user?.rank === 'auditor', [user?.rank]);
     const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
@@ -928,12 +1027,14 @@ const EnhancedDashboard = () => {
         const roleMap = {
             /* Admin: no Orgs Stats / Leave Management */
             admin: [
+                { text: 'Holiday Management', icon: <EventAvailableRounded />, color: coreDataDetails.navPalette?.holiday || '#14b8a6' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
                 { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
             ],
             /* HR: full set including Orgs Stats + Leave Management */
             hr: [
+                { text: 'Holiday Management', icon: <EventAvailableRounded />, color: coreDataDetails.navPalette?.holiday || '#14b8a6' },
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
                 { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
@@ -953,6 +1054,7 @@ const EnhancedDashboard = () => {
             ],
             superadmin: [
                 { text: 'Platform Administration', icon: <Settings />, color: coreDataDetails.navPalette?.platform || '#93c5fd' },
+                { text: 'Holiday Management', icon: <EventAvailableRounded />, color: coreDataDetails.navPalette?.holiday || '#14b8a6' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
                 { text: 'Lost Device Requests', icon: <DevicesOther />, color: coreDataDetails.navPalette?.lost || '#a78bfa' },
@@ -1004,6 +1106,7 @@ const EnhancedDashboard = () => {
             case 'User Management': return canViewAdminFeatures ? <UserManagementContent key={`users-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Register Intern/Attache': return canViewAdminFeatures ? <InternAttacheRegistration key={`register-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Staff Registration': return canViewAdminFeatures ? <BatchRegistrationContent key={`batch-${platformConfigVersion}`} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Holiday Management': return ['admin', 'hr', 'superadmin'].includes(user?.rank) ? <HolidayManagement key={`holidays-${platformConfigVersion}`} /> : <DashboardContent {...sharedProps} />;
             case 'Help & Support': return <HelpSupport />;
             case 'Manage Your Members': return <SupervisorManageMembers key={`supervisor-members-${platformConfigVersion}`} />;
             // case 'Member Leave Requests': return <SupervisorManageLeaves key={`supervisor-leaves-${platformConfigVersion}`} />;
@@ -1016,21 +1119,14 @@ const EnhancedDashboard = () => {
     }, [activeTab, canViewAdminFeatures, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user]);
 
     const pageTitle = useMemo(() => {
-        if (activeTab === 'Clocking Dashboard') {
-            return `Welcome Back, ${user?.name?.split(' ')[0] || 'User'}`;
-        }
-
         if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
             return 'Department Broader Statistics';
         }
 
-    }, [activeTab, user?.name, user?.rank]);
+        return PAGE_META[activeTab]?.title || getNavDisplayLabel(activeTab) || 'Dashboard';
+    }, [activeTab, user?.rank]);
 
     const pageSubtitle = useMemo(() => {
-        if (activeTab === 'Clocking Dashboard') {
-            return 'Clock in, clock out and monitor your attendance status from one secure workspace.';
-        }
-
         if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
             const department = user?.department || 'your department';
             const station = user?.station || 'your station';
@@ -1043,12 +1139,14 @@ const EnhancedDashboard = () => {
                 : `Station scoped HR analytics for ${user?.station || 'your station'}`;
         }
 
-    }, [activeTab, user?.department, user?.rank, user?.station]);
+        return PAGE_META[activeTab]?.subtitle || `${pageTitle} workspace`;
+    }, [activeTab, pageTitle, user?.department, user?.rank, user?.station]);
 
     useEffect(() => {
-        const cleanTitle = String(pageTitle).replace('👋', '').trim();
+        const cleanTitle = String(pageTitle || 'Dashboard').trim();
         document.title = `${cleanTitle} | KMFRI Attendance`;
-    }, [pageTitle]);
+        document.querySelector('meta[name="description"]')?.setAttribute('content', pageSubtitle);
+    }, [pageSubtitle, pageTitle]);
 
     /* ── Render ─────────────────────────────────────────────────────────── */
     return (
@@ -1106,7 +1204,7 @@ const EnhancedDashboard = () => {
                     }}>
                     <AnimatePresence mode="wait" initial={false}>
                         {sidebarCollapsed ? (
-                            <motion.div key="collapsed" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
+                            <Motion.div key="collapsed" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
                                 <CollapsedDrawerContent
                                     user={user}
                                     isElevated={isElevated}
@@ -1117,11 +1215,11 @@ const EnhancedDashboard = () => {
                                     onExpand={expandSidebar}
                                     allItems={allNavItems}
                                 />
-                            </motion.div>
+                            </Motion.div>
                         ) : (
-                            <motion.div key="expanded" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
+                            <Motion.div key="expanded" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.22 }} style={{ height: '100%' }}>
                                 <DrawerContent {...drawerProps} />
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
                 </Drawer>
@@ -1138,7 +1236,7 @@ const EnhancedDashboard = () => {
                 transition: 'width 0.32s cubic-bezier(0.4,0,0.2,1)',
             }}>
                 <AnimatePresence mode="wait">
-                    <motion.div key={activeTab}
+                    <Motion.div key={activeTab}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         transition={{ duration: 0.16, ease: 'easeOut' }}>
 
@@ -1147,12 +1245,19 @@ const EnhancedDashboard = () => {
                         <Suspense fallback={SuspenseFallback}>
                             {renderContent()}
                         </Suspense>
-                    </motion.div>
+                    </Motion.div>
                 </AnimatePresence>
             </Box>
 
             {/* Account not active */}
             {(user?.isAccountActive === false || user?.isOnLeave === true) && <DialogAlert />}
+
+            <ForcedPasswordResetDialog
+                open={user?.isAccountActive !== false && user?.isPasswordReset === true}
+                user={user}
+                onSubmit={handleRequiredPasswordReset}
+                onSignOut={handleLogout}
+            />
 
             {/* Profile dialog */}
             <UserProfileDialog open={profileOpen} onClose={closeProfile} user={user} onSave={handleProfileSave} />

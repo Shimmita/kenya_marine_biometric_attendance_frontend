@@ -64,6 +64,20 @@ api.interceptors.response.use(
       };
     }
 
+    if (
+      typeof window !== "undefined" &&
+      error.response?.data?.code === "MAINTENANCE_MODE"
+    ) {
+      window.sessionStorage.setItem(
+        "kmfri_maintenance_status",
+        JSON.stringify(error.response.data.maintenance || {})
+      );
+
+      if (window.location.pathname !== "/maintenance") {
+        window.location.assign("/maintenance");
+      }
+    }
+
     return Promise.reject(error);
   }
 );

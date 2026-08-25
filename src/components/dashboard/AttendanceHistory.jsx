@@ -1,12 +1,12 @@
 import {
     AccessTimeRounded, ClearRounded, Download,
     History, LocationOnRounded, ManageSearchRounded, Refresh,
-    SearchRounded, TaskAltRounded, TipsAndUpdatesRounded, TrendingDown, TrendingUp, VerifiedRounded,
+    SearchRounded, TaskAltRounded, TipsAndUpdatesRounded, VerifiedRounded,
     WarningAmberRounded, WorkHistoryRounded
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Chip, CircularProgress, Divider, Grid, InputAdornment,
-    LinearProgress, MenuItem, Skeleton, Snackbar, Stack, Table, TableBody,
+    MenuItem, Skeleton, Snackbar, Stack, Table, TableBody,
     TableCell, TableContainer, TableHead, TablePagination, TableRow,
     TextField, Typography,
 } from '@mui/material';
@@ -31,11 +31,29 @@ const { colorPalette } = coreDataDetails;
 
 /* ══ GLASS TOKENS ══════════════════════════════════════════════════════════ */
 const G = {
-    card: { background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '1px solid rgba(255,255,255,0.60)', boxShadow: '0 4px 24px rgba(10,61,98,0.08), inset 0 1px 0 rgba(255,255,255,0.80)' },
-    cardStrong: { background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)', border: '1px solid rgba(255,255,255,0.72)', boxShadow: '0 8px 32px rgba(10,61,98,0.12), inset 0 1px 0 rgba(255,255,255,0.90)' },
-    tile: { background: 'rgba(255,255,255,0.13)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.22)' },
-    heroBg: 'linear-gradient(140deg, #061e30 0%, #0a3560 42%, #073a52 68%, #052840 100%)',
-    input: { '& .MuiOutlinedInput-root': { borderRadius: '12px', background: 'rgba(10,61,98,0.03)', '&:hover fieldset': { borderColor: colorPalette.oceanBlue }, '&.Mui-focused fieldset': { borderColor: colorPalette.oceanBlue, borderWidth: 2 } } },
+    card: {
+        background: '#fff',
+        border: '1px solid rgba(10,61,98,0.09)',
+        boxShadow: '0 8px 24px rgba(10,61,98,0.07)',
+    },
+    subtleCard: {
+        background: 'rgba(255,255,255,0.88)',
+        border: '1px solid rgba(10,61,98,0.08)',
+        boxShadow: '0 4px 18px rgba(10,61,98,0.05)',
+    },
+    input: {
+        '& .MuiOutlinedInput-root': {
+            borderRadius: '8px',
+            background: '#fff',
+            '&:hover fieldset': { borderColor: colorPalette.oceanBlue },
+            '&.Mui-focused fieldset': { borderColor: colorPalette.oceanBlue, borderWidth: 2 },
+        },
+        '& .MuiInputLabel-root': { fontWeight: 700 },
+    },
+    tableCell: {
+        borderBottom: '1px solid rgba(10,61,98,0.06)',
+        fontSize: '0.82rem',
+    },
 };
 
 const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
@@ -66,17 +84,6 @@ const normalizeExportTextValue = (value) => {
     return toTitleCase(value);
 };
 
-
-/* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
-const AmbientOrbs = () => (
-    <>
-        {[{ s: 420, t: -60, l: -100, c: 'rgba(10,100,180,0.07)', b: 70 }, { s: 350, t: '40%', r: -80, c: 'rgba(32,178,170,0.06)', b: 60 }, { s: 500, bot: -120, l: '30%', c: 'rgba(10,61,98,0.05)', b: 80 }]
-            .map(({ s, t, l, r, bot, c, b }, i) => (
-                <Box key={i} sx={{ position: 'absolute', width: s, height: s, pointerEvents: 'none', zIndex: 0, top: t, left: l, right: r, bottom: bot, borderRadius: '50%', background: c, filter: `blur(${b}px)` }} />
-            ))}
-    </>
-);
-
 /* ══ SCROLL-TRIGGERED REVEAL ═══════════════════════════════════════════════ */
 const Reveal = ({ children, delay = 0, y = 22 }) => {
     const ref = useRef(null);
@@ -106,87 +113,6 @@ const GlassTooltip = ({ active, payload, label }) => {
     );
 };
 
-/* ══ ANIMATED STAT CARD ════════════════════════════════════════════════════ */
-const StatCard = ({ label, value, subtitle, icon, accent, trend, trendLabel, progress }) => (
-    <Box sx={{
-        ...G.card, p: 2.5, height: '100%', borderRadius: '20px', position: 'relative', overflow: 'hidden',
-        transition: 'all 0.26s ease',
-        '&:hover': { transform: 'translateY(-5px)', boxShadow: `0 16px 42px rgba(10,61,98,0.16)` },
-        '&::after': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '20px 20px 0 0', background: `linear-gradient(90deg,${accent},${accent}66)` },
-        '&::before': { content: '""', position: 'absolute', top: -24, right: -24, width: 84, height: 84, borderRadius: '50%', background: `${accent}10`, zIndex: 0 },
-    }}>
-        <Stack spacing={1.5} sx={{ position: 'relative', zIndex: 1 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Box sx={{ width: 44, height: 44, borderRadius: '14px', bgcolor: `${accent}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${accent}22` }}>
-                    {icon}
-                </Box>
-                {trend != null && <Chip size="small"
-                    icon={trend >= 0 ? <TrendingUp sx={{ fontSize: '0.78rem !important', color: '#22c55e !important' }} /> : <TrendingDown sx={{ fontSize: '0.78rem !important', color: '#ef4444 !important' }} />}
-                    label={trendLabel || `${Math.abs(trend)}%`}
-                    sx={{ height: 22, fontSize: '0.7rem', fontWeight: 800, bgcolor: trend >= 0 ? '#22c55e18' : '#ef444418', color: trend >= 0 ? '#16a34a' : '#dc2626', borderRadius: '8px', '& .MuiChip-label': { px: 0.8 } }}
-                />}
-            </Stack>
-            <Box>
-                <Typography variant="h4" fontWeight={900} sx={{ color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value ?? <Skeleton width={60} />}</Typography>
-                <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', mt: 0.3 }}>{label}</Typography>
-                {subtitle && <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 0.2 }}>{subtitle}</Typography>}
-            </Box>
-            {progress != null && <Box>
-                <LinearProgress variant="determinate" value={Math.min(Number(progress), 100)}
-                    sx={{ height: 6, borderRadius: 99, bgcolor: `${accent}14`, '& .MuiLinearProgress-bar': { bgcolor: accent, borderRadius: 99 } }} />
-                <Typography variant="caption" color="text.disabled" sx={{ mt: 0.4, display: 'block' }}>{progress}%</Typography>
-            </Box>}
-        </Stack>
-    </Box>
-);
-
-/* ══ HERO BANNER ═══════════════════════════════════════════════════════════ */
-const HeroBanner = ({ stats, loading }) => (
-    <Box sx={{ borderRadius: '24px', background: G.heroBg, position: 'relative', overflow: 'hidden', mb: 3, p: { xs: 3, md: 4 } }}>
-        <Box sx={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(0,180,200,0.10)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-        <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(10,61,98,0.30)', filter: 'blur(50px)', pointerEvents: 'none' }} />
-        <Box sx={{ position: 'absolute', top: '30%', left: '42%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(0,220,255,0.07)', filter: 'blur(35px)', pointerEvents: 'none' }} />
-        <Grid container spacing={3} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
-            <Grid item xs={12} md={5}>
-                <Typography variant="caption" sx={{ opacity: 0.55, fontWeight: 900, letterSpacing: 2.2, textTransform: 'uppercase', color: '#fff', display: 'block' }}>
-                    {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-                </Typography>
-                <Stack direction="row" alignItems="baseline" spacing={1.5} mt={0.5}>
-                    <Motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
-                        <Typography variant="h2" fontWeight={900} sx={{ fontSize: { xs: '3rem', md: '4.2rem' }, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: '#fff', textShadow: '0 4px 24px rgba(0,0,0,0.28)' }}>
-                            {loading ? '—' : safe(stats?.monthly?.attendanceRate, '%')}
-                        </Typography>
-                    </Motion.div>
-                    <Typography variant="h6" sx={{ opacity: 0.65, color: '#fff' }}>Attendance</Typography>
-                </Stack>
-                <Motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
-                    <Stack direction="row" alignItems="center" spacing={0.8} mt={1}>
-                        <TrendingUp sx={{ fontSize: '1rem', opacity: 0.65, color: '#00e5ff' }} />
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)' }}>
-                            {loading ? 'Loading stats…' : stats?.summary || ''}
-                        </Typography>
-                    </Stack>
-                </Motion.div>
-            </Grid>
-            <Grid item xs={12} md={7}>
-                <Grid container spacing={1.8}>
-                    {[{ label: 'Days Present', val: stats?.monthly?.presentDays }, { label: 'Total Hours', val: stats?.monthly?.totalHours }, { label: 'Overtime', val: stats?.monthly?.overtimeHours }, { label: 'Avg Hrs/Day', val: stats?.monthly?.avgHoursPerDay }]
-                        .map(({ label, val }, i) => (
-                            <Grid item xs={6} sm={3} key={label}>
-                                <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + i * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
-                                    <Box sx={{ ...G.tile, p: 1.6, borderRadius: '16px', transition: 'all 0.22s ease', '&:hover': { background: 'rgba(255,255,255,0.22)', transform: 'translateY(-4px)' } }}>
-                                        <Typography variant="h5" fontWeight={900} sx={{ fontVariantNumeric: 'tabular-nums', color: '#fff', lineHeight: 1.2 }}>{loading ? '…' : val ?? '—'}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.62, color: '#fff', display: 'block', mt: 0.3 }}>{label}</Typography>
-                                    </Box>
-                                </Motion.div>
-                            </Grid>
-                        ))}
-                </Grid>
-            </Grid>
-        </Grid>
-    </Box>
-);
-
 const SectionLabel = ({ children, accent, chip }) => (
     <Stack direction="row" alignItems="center" spacing={1} mb={2}>
         <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: accent }} />
@@ -201,7 +127,7 @@ const ChartSection = ({ history }) => {
     const hoursData = useMemo(() =>
         [...history].slice(0, 14).reverse().map(r => ({
             date: r.date?.slice(0, 5) || '',
-            hours: r.hours !== '—' ? parseFloat(r.hours) : 0,
+            hours: Number((Number(r.durationHours) || 0).toFixed(1)),
             target: 9,
         }))
         , [history]);
@@ -223,10 +149,10 @@ const ChartSection = ({ history }) => {
     const monthlyHoursData = useMemo(() => {
         const map = {};
         history.forEach(r => {
-            if (!r.rawDate || r.hours === '—') return;
+            if (!r.rawDate) return;
             const key = r.rawDate.toLocaleString('default', { month: 'short', year: '2-digit' });
             if (!map[key]) map[key] = { month: key, hours: 0, days: 0 };
-            map[key].hours += parseFloat(r.hours) || 0;
+            map[key].hours += Number(r.durationHours) || 0;
             map[key].days++;
         });
         return Object.values(map).slice(-6).reverse().map(m => ({ ...m, hours: parseFloat(m.hours.toFixed(1)) }));
@@ -234,17 +160,17 @@ const ChartSection = ({ history }) => {
 
 
     return (
-        <Box mb={4} sx={{ position: 'relative', zIndex: 1 }}>
+        <Box mb={3} sx={{ position: 'relative', zIndex: 1 }}>
             <Reveal>
                 <SectionLabel accent={colorPalette.cyanFresh} chip="Interactive charts">Visual Insights</SectionLabel>
             </Reveal>
             <Grid container spacing={2.5}>
 
                 {/* ── Bar: Daily Hours (last 14 days) ── */}
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} lg={8}>
                     <Reveal delay={0.07}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
-                            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
+                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1} mb={0.5}>
                                 <Stack direction="row" alignItems="center" spacing={1}>
                                     <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.oceanBlue }} />
                                     <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Daily Hours Logged</Typography>
@@ -287,7 +213,7 @@ const ChartSection = ({ history }) => {
                 {/* ── Stacked Area: Punctuality trend ── */}
                 <Grid item xs={12} md={7}>
                     <Reveal delay={0.12}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8 }}>
+                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
                             <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
                                 <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.seafoamGreen }} />
                                 <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Punctuality Trend</Typography>
@@ -321,7 +247,7 @@ const ChartSection = ({ history }) => {
                 {/* ── Bar: Monthly total hours ── */}
                 <Grid item xs={12} md={5}>
                     <Reveal delay={0.17}>
-                        <Box sx={{ ...G.card, borderRadius: '22px', p: 2.8, height: '100%' }}>
+                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 }, height: '100%' }}>
                             <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
                                 <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: '#f59e0b' }} />
                                 <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Monthly Hours</Typography>
@@ -359,48 +285,26 @@ const getDateDaysAgoInput = (days) => {
     return getLocalDateInputValue(date);
 };
 
-const getRecordStatus = ({ durationHours, missedClockOut, rawClockOut }) => {
-    if (missedClockOut) return "System Clock-out";
-    if (!rawClockOut) return "Open Session";
-    if (durationHours >= 5) return "Present";
-    if (durationHours > 0) return "Half Day";
-    return "Incomplete";
-};
-
-const durationBandMatches = (row, band) => {
-    if (band === "All") return true;
-    if (band === "Under 5h") return row.durationHours > 0 && row.durationHours < 5;
-    if (band === "5-9h") return row.durationHours >= 5 && row.durationHours <= 9;
-    if (band === "Overtime") return row.durationHours > 9;
-    return true;
-};
-
-const getStatusChipSx = (status) => {
-    const map = {
-        Present: { bgcolor: "#dcfce7", color: "#166534" },
-        "Half Day": { bgcolor: "#fef3c7", color: "#92400e" },
-        "System Clock-out": { bgcolor: "#e0f2fe", color: "#075985" },
-        "Open Session": { bgcolor: "#fee2e2", color: "#991b1b" },
-        Incomplete: { bgcolor: "#f1f5f9", color: "#475569" },
-    };
-    return { ...(map[status] || map.Incomplete), fontWeight: 800, borderRadius: "8px", height: 24 };
-};
-
 const MetricTile = ({ icon, label, value, detail, accent = colorPalette.oceanBlue }) => (
     <Box sx={{
         ...G.card,
-        p: 2,
+        p: { xs: 1.8, md: 2 },
         height: "100%",
         borderRadius: "8px",
         borderColor: "rgba(10,61,98,0.10)",
         boxShadow: "0 4px 18px rgba(10,61,98,0.06)",
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+        '&:hover': {
+            borderColor: `${accent}45`,
+            boxShadow: '0 10px 24px rgba(10,61,98,0.10)',
+        },
     }}>
         <Stack direction="row" spacing={1.4} alignItems="flex-start">
             <Box sx={{ width: 38, height: 38, borderRadius: "8px", bgcolor: `${accent}14`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {icon}
             </Box>
             <Box sx={{ minWidth: 0 }}>
-                <Typography variant="h5" fontWeight={900} sx={{ color: colorPalette.deepNavy, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</Typography>
+                <Typography variant="h5" fontWeight={900} sx={{ color: colorPalette.deepNavy, lineHeight: 1, fontVariantNumeric: "tabular-nums", wordBreak: 'break-word' }}>{value}</Typography>
                 <Typography variant="caption" fontWeight={900} color="text.secondary" sx={{ display: "block", mt: 0.45, textTransform: "uppercase", letterSpacing: 0 }}>{label}</Typography>
                 {detail && <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.35 }}>{detail}</Typography>}
             </Box>
@@ -444,6 +348,60 @@ const RecommendationPanel = ({ recommendation, filteredCount }) => (
     </Box>
 );
 
+const getTimingChipSx = (timing) => ({
+    height: 24,
+    borderRadius: '8px',
+    fontWeight: 800,
+    bgcolor: timing === 'Late' ? '#fee2e2' : '#dcfce7',
+    color: timing === 'Late' ? '#991b1b' : '#166534',
+});
+
+const getPremiseChipSx = (premise) => ({
+    height: 24,
+    borderRadius: '8px',
+    fontWeight: 800,
+    bgcolor: premise === 'Off Premise' ? '#fee2e2' : '#ccfbf1',
+    color: premise === 'Off Premise' ? '#991b1b' : '#0f766e',
+});
+
+const RecordMobileCard = ({ row }) => (
+    <Box sx={{ ...G.subtleCard, borderRadius: '8px', p: 1.6 }}>
+        <Stack spacing={1.3}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                <Box>
+                    <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy}>
+                        {row.date}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {row.clockIn} to {row.clockOut}
+                    </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.6} flexWrap="wrap" justifyContent="flex-end">
+                    <Chip size="small" label={row.timing} sx={getTimingChipSx(row.timing)} />
+                    <Chip size="small" icon={<LocationOnRounded sx={{ fontSize: '0.88rem !important' }} />} label={row.premise} sx={getPremiseChipSx(row.premise)} />
+                </Stack>
+            </Stack>
+
+            <Grid container spacing={1.2}>
+                {[
+                    ['In Location', row.inLocation],
+                    ['Out Location', row.outLocation],
+                    ['Why Out', row.whyOut || '—'],
+                ].map(([label, value]) => (
+                    <Grid item xs={12} key={label}>
+                        <Typography variant="caption" fontWeight={900} color="text.disabled" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>
+                            {label}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.2, overflowWrap: 'anywhere' }}>
+                            {value}
+                        </Typography>
+                    </Grid>
+                ))}
+            </Grid>
+        </Stack>
+    </Box>
+);
+
 /* ══ MAIN ══════════════════════════════════════════════════════════════════ */
 export default function AttendanceHistoryContent() {
     const { user } = useSelector(s => s.currentUser);
@@ -453,13 +411,11 @@ export default function AttendanceHistoryContent() {
     const [historyLoading, setHistoryLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
-    const [filterStatus, setFilterStatus] = useState('All');
     const [filterTiming, setFilterTiming] = useState('All');
     const [filterStartDate, setFilterStartDate] = useState(getDateDaysAgoInput(30));
     const [filterEndDate, setFilterEndDate] = useState(getLocalDateInputValue());
     const [filterPremise, setFilterPremise] = useState('All');
     const [filterClockOut, setFilterClockOut] = useState('All');
-    const [filterDuration, setFilterDuration] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -487,8 +443,6 @@ export default function AttendanceHistoryContent() {
                     rec.clockedOutSide ||
                     whyOut
                 ) ? "Off Premise" : "In Premise";
-                const status = getRecordStatus({ durationHours, missedClockOut: rec.missedClockOut, rawClockOut });
-
                 return {
                     date: createdDate ? formatDate(createdDate) : 'Invalid date',
                     rawDate: createdDate,
@@ -499,12 +453,10 @@ export default function AttendanceHistoryContent() {
                     outLocation,
                     whyOut,
                     durationHours,
-                    duration: rawClockIn && rawClockOut ? durationHours.toFixed(2) : '—',
                     timing: rec.isLate ? 'Late' : 'Early',
-                    status,
                     premise,
                     clockOutState: rec.missedClockOut ? "System Closed" : rawClockOut ? "Completed" : "Open",
-                    searchable: [formatDate(createdDate), formatTime(rawClockIn), formatTime(rawClockOut), inLocation, outLocation, whyOut, status, premise].join(" ").toLowerCase(),
+                    searchable: [formatDate(createdDate), formatTime(rawClockIn), formatTime(rawClockOut), inLocation, outLocation, whyOut, premise].join(" ").toLowerCase(),
                 };
             }));
         } catch {
@@ -527,48 +479,50 @@ export default function AttendanceHistoryContent() {
     const filtersForExport = useMemo(() => ({
         startDate: filterStartDate || "all",
         endDate: filterEndDate || "all",
-        status: filterStatus,
         timing: filterTiming,
         premise: filterPremise,
         clockOut: filterClockOut,
-        duration: filterDuration,
         search: searchTerm || "none",
-    }), [filterStartDate, filterEndDate, filterStatus, filterTiming, filterPremise, filterClockOut, filterDuration, searchTerm]);
+    }), [filterStartDate, filterEndDate, filterTiming, filterPremise, filterClockOut, searchTerm]);
 
     const filteredRows = useMemo(() => rawHistory.filter(row => {
         if (!row?.rawDate) return false;
         if (filterStartDate && row.dateKey < filterStartDate) return false;
         if (filterEndDate && row.dateKey > filterEndDate) return false;
-        if (filterStatus !== 'All' && row.status !== filterStatus) return false;
         if (filterTiming !== 'All' && row.timing !== filterTiming) return false;
         if (filterPremise !== 'All' && row.premise !== filterPremise) return false;
         if (filterClockOut !== 'All' && row.clockOutState !== filterClockOut) return false;
-        if (!durationBandMatches(row, filterDuration)) return false;
         if (searchTerm.trim() && !row.searchable.includes(searchTerm.trim().toLowerCase())) return false;
         return true;
-    }), [rawHistory, filterStartDate, filterEndDate, filterStatus, filterTiming, filterPremise, filterClockOut, filterDuration, searchTerm]);
+    }), [rawHistory, filterStartDate, filterEndDate, filterTiming, filterPremise, filterClockOut, searchTerm]);
+
+    const activeFilterChips = useMemo(() => ([
+        filterStartDate ? `From ${filterStartDate}` : null,
+        filterEndDate ? `To ${filterEndDate}` : null,
+        filterTiming !== 'All' ? `Timing: ${filterTiming}` : null,
+        filterPremise !== 'All' ? `Premise: ${filterPremise}` : null,
+        filterClockOut !== 'All' ? `Clock-out: ${filterClockOut}` : null,
+        searchTerm.trim() ? `Search: ${searchTerm.trim()}` : null,
+    ].filter(Boolean)), [filterClockOut, filterEndDate, filterPremise, filterStartDate, filterTiming, searchTerm]);
 
     const personalMetrics = useMemo(() => {
         const source = filteredRows;
         const totalHours = source.reduce((sum, row) => sum + (Number(row.durationHours) || 0), 0);
         const completedRows = source.filter(row => row.clockOutState !== "Open").length;
-        const presentRows = source.filter(row => ["Present", "System Clock-out"].includes(row.status)).length;
         const lateRows = source.filter(row => row.timing === "Late").length;
         const offPremiseRows = source.filter(row => row.premise === "Off Premise").length;
-        const attentionRows = source.filter(row => ["Open Session", "Incomplete", "System Clock-out"].includes(row.status)).length;
+        const attentionRows = source.filter(row => row.clockOutState !== "Completed").length;
         const averageHours = source.length ? totalHours / source.length : 0;
         const completionRate = source.length ? (completedRows / source.length) * 100 : 0;
-        const overtimeRows = source.filter(row => row.durationHours > 9).length;
 
         return {
             totalHours: totalHours.toFixed(1),
             averageHours: averageHours.toFixed(1),
-            presentRows,
+            completedRows,
             lateRows,
             offPremiseRows,
             attentionRows,
             completionRate: completionRate.toFixed(0),
-            overtimeRows,
         };
     }, [filteredRows]);
 
@@ -579,7 +533,7 @@ export default function AttendanceHistoryContent() {
         const offPremiseCount = Number(personalMetrics.offPremiseRows || 0);
 
         const supportingActions = [];
-        if (reviewCount > 0) supportingActions.push(`Review ${reviewCount} open, incomplete, or system-closed record${reviewCount === 1 ? "" : "s"} before exporting official records.`);
+        if (reviewCount > 0) supportingActions.push(`Review ${reviewCount} open or system-closed record${reviewCount === 1 ? "" : "s"} before exporting official records.`);
         if (lateCount > 0) supportingActions.push(`Reduce late arrivals by planning clock-in buffer time on the days that commonly run tight.`);
         if (offPremiseCount > 0) supportingActions.push(`Keep off-premise reasons clear so supervisors can verify field or remote activity.`);
 
@@ -611,7 +565,7 @@ export default function AttendanceHistoryContent() {
                 accent: "#2563eb",
                 actions: supportingActions.length ? supportingActions : [
                     "Watch for missed clock-outs and late arrivals so the percentage does not slip.",
-                    "Use the date and status filters to inspect any days that look unusual.",
+                    "Use the date and timing filters to inspect any days that look unusual.",
                 ],
             };
         }
@@ -646,13 +600,11 @@ export default function AttendanceHistoryContent() {
     ), [filteredRows, page, rowsPerPage]);
 
     const resetFilters = () => {
-        setFilterStatus('All');
         setFilterTiming('All');
         setFilterStartDate(getDateDaysAgoInput(30));
         setFilterEndDate(getLocalDateInputValue());
         setFilterPremise('All');
         setFilterClockOut('All');
-        setFilterDuration('All');
         setSearchTerm('');
         setPage(0);
     };
@@ -795,7 +747,7 @@ export default function AttendanceHistoryContent() {
             );
 
             doc.text(
-                `FILTERS: STATUS ${filterStatus.toUpperCase()} | TIMING ${filterTiming.toUpperCase()} | PREMISE ${filterPremise.toUpperCase()}`,
+                `FILTERS: TIMING ${filterTiming.toUpperCase()} | PREMISE ${filterPremise.toUpperCase()} | CLOCK-OUT ${filterClockOut.toUpperCase()}`,
                 pw / 2,
                 34,
                 { align: "center" }
@@ -823,7 +775,7 @@ export default function AttendanceHistoryContent() {
                     ["Completion Rate", `${personalMetrics.completionRate}%`, "Records with a closed clock-out"],
                     ["Late Arrivals", personalMetrics.lateRows, "Matching late records"],
                     ["Off-Premise Records", personalMetrics.offPremiseRows, "Clocking activity outside premise"],
-                    ["Records Needing Review", personalMetrics.attentionRows, "Open, incomplete, or system-closed rows"],
+                    ["Records Needing Review", personalMetrics.attentionRows, "Open or system-closed rows"],
                 ],
                 theme: "striped",
                 headStyles: { fillColor: [7, 58, 82], textColor: 255, halign: "center", fontStyle: "bold" },
@@ -839,8 +791,6 @@ export default function AttendanceHistoryContent() {
                         "DATE",
                         "CLOCK IN",
                         "CLOCK OUT",
-                        "DURATION",
-                        "STATUS",
                         "TIMING",
                         "PREMISE",
                         "IN LOCATION",
@@ -853,8 +803,6 @@ export default function AttendanceHistoryContent() {
                     normalizeExportValue(r.date),
                     normalizeExportValue(r.clockIn),
                     normalizeExportValue(r.clockOut),
-                    normalizeExportValue(r.duration === "—" ? r.duration : `${r.duration}h`),
-                    normalizeExportTextValue(r.status),
                     normalizeExportTextValue(r.timing),
                     normalizeExportTextValue(r.premise),
                     normalizeExportTextValue(r.inLocation),
@@ -884,9 +832,9 @@ export default function AttendanceHistoryContent() {
                 },
                 columnStyles: {
                     0: { cellWidth: 9 },
-                    8: { cellWidth: 42 },
-                    9: { cellWidth: 42 },
-                    10: { cellWidth: 34 },
+                    6: { cellWidth: 42 },
+                    7: { cellWidth: 42 },
+                    8: { cellWidth: 34 },
                 },
             });
 
@@ -960,32 +908,40 @@ export default function AttendanceHistoryContent() {
             </Snackbar>
 
             <Reveal>
-                <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" spacing={2} sx={{ mb: 3, position: "relative", zIndex: 1 }}>
-                    <Stack spacing={0.7}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                            <VerifiedRounded sx={{ color: colorPalette.oceanBlue }} />
-                            <Typography variant="h5" fontWeight={900} color={colorPalette.deepNavy}>My Attendance History</Typography>
-                            <Chip size="small" label="Personal records" sx={{ bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: "8px" }} />
+                <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.6 }, mb: 2.5, position: 'relative', zIndex: 1 }}>
+                    <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" spacing={2}>
+                        <Stack direction="row" spacing={1.4} alignItems="flex-start" sx={{ minWidth: 0 }}>
+                            <Box sx={{ width: 42, height: 42, borderRadius: "8px", bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <VerifiedRounded />
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
+                                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                                    <Typography variant="h5" fontWeight={900} color={colorPalette.deepNavy} sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+                                        My Attendance History
+                                    </Typography>
+                                    <Chip size="small" label="Personal records" sx={{ bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: "8px" }} />
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55, maxWidth: 760 }}>
+                                    Review your attendance pattern, resolve incomplete records, and export verifiable KMFRI records.
+                                </Typography>
+                            </Box>
                         </Stack>
-                        <Typography variant="body2" color="text.secondary">
-                            Review your attendance pattern, resolve incomplete records, and export verifiable KMFRI records.
-                        </Typography>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+                            <Button variant="outlined" startIcon={<Refresh sx={{ fontSize: '1rem' }} />} onClick={loadData} disabled={loading} fullWidth
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: '#fff', borderColor: 'rgba(10,61,98,0.18)', color: colorPalette.deepNavy, whiteSpace: 'nowrap', '&:hover': { borderColor: colorPalette.oceanBlue } }}>
+                                Refresh
+                            </Button>
+                            <Button variant="contained" startIcon={exporting ? <CircularProgress size={14} sx={{ color: 'white' }} /> : <Download />} onClick={handleExportPDF} disabled={exporting || historyLoading} fullWidth
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: colorPalette.oceanGradient, boxShadow: `0 6px 18px ${colorPalette.oceanBlue}30`, whiteSpace: 'nowrap', '&:hover': { boxShadow: `0 8px 24px ${colorPalette.oceanBlue}40` }, transition: 'all 0.22s' }}>
+                                {exporting ? 'Generating...' : 'Export Records PDF'}
+                            </Button>
+                        </Stack>
                     </Stack>
-                    <Stack direction="row" spacing={1.5}>
-                        <Button variant="outlined" startIcon={<Refresh sx={{ fontSize: '1rem' }} />} onClick={loadData} disabled={loading}
-                            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: '#fff', borderColor: 'rgba(10,61,98,0.18)', color: colorPalette.deepNavy, '&:hover': { borderColor: colorPalette.oceanBlue } }}>
-                            Refresh
-                        </Button>
-                        <Button variant="contained" startIcon={exporting ? <CircularProgress size={14} sx={{ color: 'white' }} /> : <Download />} onClick={handleExportPDF} disabled={exporting || historyLoading}
-                            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: colorPalette.oceanGradient, boxShadow: `0 6px 18px ${colorPalette.oceanBlue}35`, '&:hover': { boxShadow: `0 8px 24px ${colorPalette.oceanBlue}45` }, transition: 'all 0.22s' }}>
-                            {exporting ? 'Generating…' : 'Export Records PDF'}
-                        </Button>
-                    </Stack>
-                </Stack>
+                </Box>
             </Reveal>
 
             <Reveal delay={0.03}>
-                <Box sx={{ ...G.card, borderRadius: "8px", p: { xs: 2, md: 2.4 }, mb: 3, position: "relative", zIndex: 1 }}>
+                <Box sx={{ ...G.card, borderRadius: "8px", p: { xs: 2, md: 2.4 }, mb: 2.5, position: "relative", zIndex: 1 }}>
                     <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 2 }}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                             <Box sx={{ width: 34, height: 34, borderRadius: "8px", bgcolor: `${colorPalette.deepNavy}10`, color: colorPalette.deepNavy, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1001,31 +957,41 @@ export default function AttendanceHistoryContent() {
                             Reset Filters
                         </Button>
                     </Stack>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
+                    <Grid container spacing={1.5}>
+                        <Grid item xs={12} md={6} lg={3.6}>
                             <TextField fullWidth size="small" label="Search records" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(0); }} sx={G.input}
                                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment> }} />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid item xs={12} sm={6} md={3} lg={1.8}>
                             <TextField fullWidth size="small" type="date" label="From" value={filterStartDate} onChange={e => { setFilterStartDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid item xs={12} sm={6} md={3} lg={1.8}>
                             <TextField fullWidth size="small" type="date" label="To" value={filterEndDate} onChange={e => { setFilterEndDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
                         </Grid>
                         {[
-                            { label: 'Status', val: filterStatus, set: setFilterStatus, items: ['All', 'Present', 'Half Day', 'System Clock-out', 'Open Session', 'Incomplete'] },
                             { label: 'Timing', val: filterTiming, set: setFilterTiming, items: ['All', 'Early', 'Late'] },
                             { label: 'Premise', val: filterPremise, set: setFilterPremise, items: ['All', 'In Premise', 'Off Premise'] },
                             { label: 'Clock-out', val: filterClockOut, set: setFilterClockOut, items: ['All', 'Completed', 'System Closed', 'Open'] },
-                            { label: 'Duration', val: filterDuration, set: setFilterDuration, items: ['All', 'Under 5h', '5-9h', 'Overtime'] },
                         ].map(({ label, val, set, items }) => (
-                            <Grid item xs={12} sm={6} md={2.4} key={label}>
+                            <Grid item xs={12} sm={6} md={4} lg={1.6} key={label}>
                                 <TextField select fullWidth size="small" label={label} value={val} onChange={e => { set(e.target.value); setPage(0); }} sx={G.input}>
                                     {items.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
                                 </TextField>
                             </Grid>
                         ))}
                     </Grid>
+                    {activeFilterChips.length > 0 && (
+                        <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+                            {activeFilterChips.map((item) => (
+                                <Chip
+                                    key={item}
+                                    size="small"
+                                    label={item}
+                                    sx={{ borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}0f`, color: colorPalette.deepNavy, fontWeight: 800 }}
+                                />
+                            ))}
+                        </Stack>
+                    )}
                 </Box>
             </Reveal>
 
@@ -1035,10 +1001,10 @@ export default function AttendanceHistoryContent() {
                         <MetricTile icon={<WorkHistoryRounded />} label="Monthly Attendance" value={loading ? "..." : safe(stats?.monthly?.attendanceRate, "%")} detail={`${stats?.monthly?.presentDays ?? "—"} present days this month`} accent={colorPalette.oceanBlue} />
                     </Grid>
                     <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<AccessTimeRounded />} label="Filtered Hours" value={`${personalMetrics.totalHours}h`} detail={`${personalMetrics.averageHours}h average per record`} accent="#0f766e" />
+                        <MetricTile icon={<AccessTimeRounded />} label="Hours Logged" value={`${personalMetrics.totalHours}h`} detail={`${personalMetrics.averageHours}h average per record`} accent="#0f766e" />
                     </Grid>
                     <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<TaskAltRounded />} label="Completion Rate" value={`${personalMetrics.completionRate}%`} detail={`${personalMetrics.overtimeRows} overtime records`} accent="#2563eb" />
+                        <MetricTile icon={<TaskAltRounded />} label="Clock-Out Completion" value={`${personalMetrics.completionRate}%`} detail={`${personalMetrics.completedRows} closed records`} accent="#2563eb" />
                     </Grid>
                     <Grid item xs={12} sm={6} lg={3}>
                         <MetricTile icon={<WarningAmberRounded />} label="Needs Review" value={personalMetrics.attentionRows} detail={`${personalMetrics.offPremiseRows} off-premise records`} accent="#dc2626" />
@@ -1057,7 +1023,7 @@ export default function AttendanceHistoryContent() {
 
             {/* Records Table */}
             <Reveal>
-                <Box sx={{ ...G.card, borderRadius: '22px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                <Box sx={{ ...G.card, borderRadius: '8px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ px: { xs: 2, md: 3 }, pt: 3, pb: 2, gap: 1.5 }}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                             <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: `${colorPalette.deepNavy}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1068,32 +1034,39 @@ export default function AttendanceHistoryContent() {
                         </Stack>
                     </Stack>
                     <Divider sx={{ borderColor: 'rgba(10,61,98,0.07)' }} />
-                    <TableContainer>
-                        <Table>
+
+                    <Box sx={{ display: { xs: 'block', md: 'none' }, p: 1.5 }}>
+                        {historyLoading
+                            ? <Stack spacing={1.2}>{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} variant="rounded" height={138} sx={{ borderRadius: '8px' }} />)}</Stack>
+                            : paginatedRows.length === 0
+                                ? <Stack alignItems="center" spacing={1.5} sx={{ py: 6 }}><Box sx={{ width: 68, height: 68, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ManageSearchRounded sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records match the selected filters</Typography><Button size="small" onClick={resetFilters} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack>
+                                : <Stack spacing={1.2}>{paginatedRows.map((row, index) => <RecordMobileCard key={`${row.date}-${index}`} row={row} />)}</Stack>}
+                    </Box>
+
+                    <TableContainer sx={{ display: { xs: 'none', md: 'block' }, maxHeight: 620, overflowX: 'auto' }}>
+                        <Table stickyHeader size="small" sx={{ minWidth: 1040 }}>
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Date', 'Clock In', 'Clock Out', 'Duration', 'Status', 'Timing', 'Premise', 'In Location', 'Out Location', 'Why Out'].map(h => (
-                                        <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.6, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                                    {['Date', 'Clock In', 'Clock Out', 'Timing', 'Premise', 'In Location', 'Out Location', 'Why Out'].map(h => (
+                                        <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.4, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap', bgcolor: '#f8fbfd' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {historyLoading
-                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 10 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
+                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 8 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
                                     : paginatedRows.length === 0
-                                        ? <TableRow><TableCell colSpan={10} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ManageSearchRounded sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records match the selected filters</Typography><Button size="small" onClick={resetFilters} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
+                                        ? <TableRow><TableCell colSpan={8} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ManageSearchRounded sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records match the selected filters</Typography><Button size="small" onClick={resetFilters} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
                                         : paginatedRows.map((row, idx) => (
                                             <Motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.025, duration: 0.25, ease: 'easeOut' }} style={{ display: 'table-row' }}>
-                                                <TableCell sx={{ fontWeight: 800, color: colorPalette.deepNavy, whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.date}</TableCell>
-                                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
-                                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>
-                                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.duration === '—' ? row.duration : `${row.duration}h`}</TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'nowrap' }}><Chip size="small" label={row.status} sx={getStatusChipSx(row.status)} /></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'nowrap' }}><Chip size="small" label={row.timing} sx={{ height: 24, borderRadius: '8px', fontWeight: 800, bgcolor: row.timing === 'Late' ? '#fee2e2' : '#dcfce7', color: row.timing === 'Late' ? '#991b1b' : '#166534' }} /></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'nowrap' }}><Stack direction="row" alignItems="center" spacing={0.5}><LocationOnRounded sx={{ fontSize: 15, color: row.premise === 'Off Premise' ? '#dc2626' : '#0f766e' }} /><Typography variant="body2" color="text.secondary">{row.premise}</Typography></Stack></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 280 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 280 }}>{row.inLocation}</Typography></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 280 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 280 }}>{row.outLocation}</Typography></TableCell>
-                                                <TableCell sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)', whiteSpace: 'normal', maxWidth: 320 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320 }}>{row.whyOut || '—'}</Typography></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, fontWeight: 800, color: colorPalette.deepNavy, whiteSpace: 'nowrap' }}>{row.date}</TableCell>
+                                                <TableCell sx={{ ...G.tableCell, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.clockIn}</TableCell>
+                                                <TableCell sx={{ ...G.tableCell, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.clockOut}</TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'nowrap' }}><Chip size="small" label={row.timing} sx={getTimingChipSx(row.timing)} /></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'nowrap' }}><Chip size="small" icon={<LocationOnRounded sx={{ fontSize: '0.88rem !important' }} />} label={row.premise} sx={getPremiseChipSx(row.premise)} /></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.inLocation}</Typography></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.outLocation}</Typography></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 300 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{row.whyOut || '—'}</Typography></TableCell>
                                             </Motion.tr>
                                         ))}
                             </TableBody>

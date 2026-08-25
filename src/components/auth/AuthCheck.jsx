@@ -48,6 +48,17 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
     const checkAuth = async () => {
       try {
         const res = await api.get("/valid");
+        if (res.data.reason === "maintenance_mode" || res.data.code === "MAINTENANCE_MODE") {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+              "kmfri_maintenance_status",
+              JSON.stringify(res.data.maintenance || {})
+            );
+            window.location.assign("/maintenance");
+          }
+          return false;
+        }
+
         if (!res.data.valid) {
           throw new Error("please login");
         }

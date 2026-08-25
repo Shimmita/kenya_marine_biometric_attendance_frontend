@@ -15,11 +15,11 @@ import {
 import {
     Avatar,
     Box,
+    Button,
     Chip,
     CircularProgress,
     Dialog,
     DialogContent,
-    Divider,
     IconButton,
     InputAdornment,
     Stack,
@@ -27,59 +27,60 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
 /* ─── palette / glass tokens (keep in sync with dashboard) ─────────────── */
 const G = {
     dialog: {
-        background: 'rgba(5,18,40,0.88)',
-        backdropFilter: 'blur(28px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        boxShadow: '0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)',
+        background: '#f8fbff',
+        border: '1px solid rgba(10,61,98,0.12)',
+        boxShadow: '0 28px 70px rgba(10,61,98,0.22)',
     },
     surface: {
-        background: 'rgba(255,255,255,0.055)',
-        border: '1px solid rgba(255,255,255,0.09)',
-        borderRadius: '14px',
+        background: '#fff',
+        border: '1px solid rgba(10,61,98,0.10)',
+        borderRadius: '8px',
+        boxShadow: '0 4px 18px rgba(10,61,98,0.05)',
     },
     inputSx: {
         '& .MuiOutlinedInput-root': {
-            borderRadius: '12px',
-            color: '#fff',
+            borderRadius: '8px',
+            color: '#0f172a',
             fontSize: '0.875rem',
-            background: 'rgba(255,255,255,0.055)',
-            transition: 'box-shadow 0.2s',
-            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
-            '&:hover fieldset': { borderColor: 'rgba(0,220,255,0.30)' },
-            '&.Mui-focused fieldset': { borderColor: 'rgba(0,220,255,0.55)', borderWidth: 1.5 },
-            '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(0,220,255,0.10)' },
+            background: '#fff',
+            transition: 'box-shadow 0.2s, border-color 0.2s',
+            '& fieldset': { borderColor: 'rgba(10,61,98,0.16)' },
+            '&:hover fieldset': { borderColor: 'rgba(10,61,98,0.38)' },
+            '&.Mui-focused fieldset': { borderColor: '#0A3D62', borderWidth: 1.5 },
+            '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(10,61,98,0.08)' },
             '&.Mui-disabled': {
-                background: 'rgba(255,255,255,0.028)',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.06)' },
+                background: 'rgba(10,61,98,0.035)',
+                '& fieldset': { borderColor: 'rgba(10,61,98,0.08)' },
             },
         },
-        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.38)', fontSize: '0.8rem' },
-        '& .MuiInputLabel-root.Mui-focused': { color: 'rgba(0,220,255,0.80)' },
-        '& .MuiInputLabel-root.Mui-disabled': { color: 'rgba(255,255,255,0.22)' },
+        '& .MuiInputLabel-root': { color: 'rgba(15,23,42,0.58)', fontSize: '0.8rem', fontWeight: 700 },
+        '& .MuiInputLabel-root.Mui-focused': { color: '#0A3D62' },
+        '& .MuiInputLabel-root.Mui-disabled': { color: 'rgba(15,23,42,0.40)' },
         '& .MuiInputAdornment-root svg': { fontSize: 17 },
-        '& input.Mui-disabled': { WebkitTextFillColor: 'rgba(255,255,255,0.38)', cursor: 'not-allowed' },
+        '& input.Mui-disabled': { WebkitTextFillColor: 'rgba(15,23,42,0.62)', cursor: 'not-allowed' },
     },
 };
 
 const RANK_COLORS = {
-    admin: { bg: 'rgba(251,191,36,0.14)', color: '#fbbf24', border: 'rgba(251,191,36,0.30)' },
-    hr: { bg: 'rgba(167,139,250,0.14)', color: '#a78bfa', border: 'rgba(167,139,250,0.30)' },
-    supervisor: { bg: 'rgba(34,211,238,0.14)', color: '#22d3ee', border: 'rgba(34,211,238,0.30)' },
-    ceo: { bg: 'rgba(249,115,22,0.14)', color: '#f97316', border: 'rgba(249,115,22,0.30)' },
-    user: { bg: 'rgba(96,165,250,0.12)', color: '#60a5fa', border: 'rgba(96,165,250,0.28)' },
+    admin: { bg: 'rgba(251,191,36,0.18)', color: '#92400e', border: 'rgba(251,191,36,0.38)' },
+    hr: { bg: 'rgba(167,139,250,0.18)', color: '#5b21b6', border: 'rgba(167,139,250,0.38)' },
+    supervisor: { bg: 'rgba(34,211,238,0.18)', color: '#0e7490', border: 'rgba(34,211,238,0.38)' },
+    ceo: { bg: 'rgba(249,115,22,0.18)', color: '#9a3412', border: 'rgba(249,115,22,0.38)' },
+    auditor: { bg: 'rgba(14,165,233,0.16)', color: '#075985', border: 'rgba(14,165,233,0.32)' },
+    superadmin: { bg: 'rgba(10,61,98,0.12)', color: '#0A3D62', border: 'rgba(10,61,98,0.24)' },
+    user: { bg: 'rgba(96,165,250,0.14)', color: '#1d4ed8', border: 'rgba(96,165,250,0.30)' },
 };
 
 const ROLE_COLORS = {
-    employee: { bg: 'rgba(52,211,153,0.12)', color: '#34d399', border: 'rgba(52,211,153,0.28)' },
-    intern: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.28)' },
-    attachee: { bg: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: 'rgba(167,139,250,0.28)' },
+    employee: { bg: 'rgba(52,211,153,0.15)', color: '#047857', border: 'rgba(52,211,153,0.32)' },
+    intern: { bg: 'rgba(251,191,36,0.18)', color: '#92400e', border: 'rgba(251,191,36,0.36)' },
+    attachee: { bg: 'rgba(167,139,250,0.18)', color: '#5b21b6', border: 'rgba(167,139,250,0.36)' },
 };
 
 /* ─── tiny helpers ──────────────────────────────────────────────────────── */
@@ -106,12 +107,12 @@ const LockedField = ({ label, value, icon }) => (
         InputProps={{
             startAdornment: icon ? (
                 <InputAdornment position="start">
-                    <Box sx={{ color: 'rgba(255,255,255,0.22)' }}>{icon}</Box>
+                    <Box sx={{ color: 'rgba(10,61,98,0.52)' }}>{icon}</Box>
                 </InputAdornment>
             ) : undefined,
             endAdornment: (
                 <InputAdornment position="end">
-                    <LockRounded sx={{ fontSize: '14px !important', color: 'rgba(255,255,255,0.18)' }} />
+                    <LockRounded sx={{ fontSize: '14px !important', color: 'rgba(10,61,98,0.34)' }} />
                 </InputAdornment>
             ),
         }}
@@ -121,10 +122,10 @@ const LockedField = ({ label, value, icon }) => (
 /* ─── SectionTitle ──────────────────────────────────────────────────────── */
 const SectionTitle = ({ children }) => (
     <Stack direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.5 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.58rem', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.28)', whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontWeight: 900, fontSize: '0.68rem', letterSpacing: 0.8, textTransform: 'uppercase', color: '#0A3D62', whiteSpace: 'nowrap' }}>
             {children}
         </Typography>
-        <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.07)' }} />
+        <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(10,61,98,0.10)' }} />
     </Stack>
 );
 
@@ -219,29 +220,30 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="sm"
+            maxWidth="md"
             fullWidth
             TransitionProps={{ timeout: 300 }}
             PaperProps={{
-                component: motion.div,
+                component: Motion.div,
                 initial: { opacity: 0, scale: 0.94, y: 20 },
                 animate: { opacity: 1, scale: 1, y: 0 },
                 exit: { opacity: 0, scale: 0.94, y: 20 },
                 transition: { duration: 0.28, ease: [0.34, 1.12, 0.64, 1] },
                 sx: {
                     ...G.dialog,
-                    borderRadius: '24px',
-                    m: { xs: 1.5, sm: 2 },
-                    maxHeight: '92vh',
+                    borderRadius: '8px',
+                    m: { xs: 1, sm: 2 },
+                    width: { xs: 'calc(100% - 16px)', sm: 'min(820px, calc(100% - 32px))' },
+                    maxHeight: { xs: 'calc(100dvh - 16px)', sm: '92vh' },
                     overflowY: 'auto',
-                    '&::-webkit-scrollbar': { width: 3 },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.12)', borderRadius: 4 },
+                    '&::-webkit-scrollbar': { width: 6 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(10,61,98,0.18)', borderRadius: 4 },
                 },
             }}
             BackdropProps={{
                 sx: {
-                    backdropFilter: 'blur(6px)',
-                    bgcolor: 'rgba(3,12,28,0.60)',
+                    backdropFilter: 'blur(3px)',
+                    bgcolor: 'rgba(3,12,28,0.38)',
                 },
             }}
         >
@@ -251,12 +253,9 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                 px: { xs: 2.5, sm: 3.5 },
                 pt: 3,
                 pb: 2.5,
-                background: 'linear-gradient(135deg, rgba(0,110,170,0.18) 0%, rgba(0,60,120,0.10) 100%)',
-                borderBottom: '1px solid rgba(255,255,255,0.07)',
+                background: 'linear-gradient(135deg, #0A3D62 0%, #0f766e 100%)',
+                borderBottom: '1px solid rgba(10,61,98,0.12)',
             }}>
-                {/* decorative orb */}
-                <Box sx={{ position: 'absolute', top: -30, right: -20, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,220,255,0.10) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
                 <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
                     {/* Avatar + identity */}
                     <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'center', sm: 'flex-start' }} spacing={2.2}>
@@ -267,18 +266,19 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                 sx={{
                                     width: { xs: 68, sm: 76 },
                                     height: { xs: 68, sm: 76 },
-                                    background: 'linear-gradient(135deg, rgba(0,220,255,0.30), rgba(0,185,175,0.20))',
-                                    border: '2.5px solid rgba(255,255,255,0.18)',
+                                    background: 'rgba(255,255,255,0.16)',
+                                    border: '2px solid rgba(255,255,255,0.55)',
                                     color: '#fff',
                                     fontWeight: 900,
                                     fontSize: '1.4rem',
-                                    boxShadow: '0 8px 28px rgba(0,0,0,0.40)',
+                                    boxShadow: '0 8px 22px rgba(0,0,0,0.22)',
                                 }}>
                                 {!avatarPreview && initials(user?.name)}
                             </Avatar>
                             {/* Camera overlay */}
                             <Tooltip title="Change photo" placement="bottom">
-                                <Box
+                                <IconButton
+                                    aria-label="Change photo"
                                     onClick={() => fileInputRef.current?.click()}
                                     sx={{
                                         position: 'absolute', inset: 0, borderRadius: '50%',
@@ -290,7 +290,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                         '&:hover .cam-icon': { opacity: 1, transform: 'scale(1)' },
                                     }}>
                                     <CameraAlt className="cam-icon" sx={{ color: '#fff', fontSize: 20, opacity: 0, transform: 'scale(0.85)', transition: 'all 0.2s ease', pointerEvents: 'none' }} />
-                                </Box>
+                                </IconButton>
                             </Tooltip>
 
                             <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarChange} />
@@ -298,7 +298,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                             <Box sx={{
                                 position: 'absolute', bottom: 0, right: 0,
                                 width: 22, height: 22, borderRadius: '50%',
-                                bgcolor: '#0ea5e9', border: '2px solid rgba(5,18,40,0.90)',
+                                bgcolor: '#0ea5e9', border: '2px solid #fff',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 pointerEvents: 'none',
                             }}>
@@ -311,7 +311,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                             <Typography sx={{ fontWeight: 900, fontSize: { xs: '1.1rem', sm: '1.25rem' }, color: '#fff', lineHeight: 1.2, mb: 0.5 }}>
                                 {user?.name || 'Unknown User'}
                             </Typography>
-                            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.42)', mb: 1, fontFamily: 'monospace' }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.78)', mb: 1, overflowWrap: 'anywhere' }}>
                                 {user?.email}
                             </Typography>
                             <Stack direction="row" spacing={0.8} flexWrap="wrap" justifyContent={{ xs: 'center', sm: 'flex-start' }}>
@@ -339,8 +339,8 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                         size="small"
                                         sx={{
                                             height: 20, fontWeight: 700, fontSize: '0.58rem',
-                                            bgcolor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.42)',
-                                            border: '1px solid rgba(255,255,255,0.10)', borderRadius: '7px',
+                                            bgcolor: 'rgba(255,255,255,0.16)', color: '#fff',
+                                            border: '1px solid rgba(255,255,255,0.24)', borderRadius: '7px',
                                             fontFamily: 'monospace',
                                         }}
                                     />
@@ -354,10 +354,10 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                         onClick={onClose}
                         size="small"
                         sx={{
-                            color: 'rgba(255,255,255,0.45)',
-                            bgcolor: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.10)',
-                            borderRadius: '10px',
+                            color: 'rgba(255,255,255,0.78)',
+                            bgcolor: 'rgba(255,255,255,0.12)',
+                            border: '1px solid rgba(255,255,255,0.24)',
+                            borderRadius: '8px',
                             width: 34, height: 34, flexShrink: 0,
                             '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', color: '#fff' },
                             transition: 'all 0.18s ease',
@@ -367,11 +367,11 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                 </Stack>
             </Box>
 
-            <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
-                <Stack spacing={3.5}>
+            <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 }, bgcolor: '#f8fbff' }}>
+                <Stack spacing={2}>
 
                     {/* ── READ-ONLY DETAILS ── */}
-                    <Box>
+                    <Box sx={{ ...G.surface, p: { xs: 1.8, sm: 2.2 } }}>
                         <SectionTitle>Account Details</SectionTitle>
                         <Stack spacing={1.6}>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.6}>
@@ -384,10 +384,8 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                         </Stack>
                     </Box>
 
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-
                     {/* ── WORK INFO ── */}
-                    <Box>
+                    <Box sx={{ ...G.surface, p: { xs: 1.8, sm: 2.2 } }}>
                         <SectionTitle>Work Information</SectionTitle>
                         <Stack spacing={1.6}>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.6}>
@@ -405,10 +403,8 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                         </Stack>
                     </Box>
 
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-
                     {/* ── EDITABLE FIELDS ── */}
-                    <Box>
+                    <Box sx={{ ...G.surface, p: { xs: 1.8, sm: 2.2 } }}>
                         <SectionTitle>Update Your Info</SectionTitle>
                         <Stack spacing={1.6}>
                             {/* Phone */}
@@ -428,7 +424,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <PhoneRounded sx={{ color: errors.phone ? '#f87171' : 'rgba(0,220,255,0.55)' }} />
+                                            <PhoneRounded sx={{ color: errors.phone ? '#dc2626' : 'rgba(10,61,98,0.58)' }} />
                                         </InputAdornment>
                                     ),
                                 }}
@@ -449,17 +445,17 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                     sx={{
                                         ...G.inputSx,
                                         '& .MuiFormHelperText-root': { color: '#f87171', ml: 0.5, fontSize: '0.72rem' },
-                                        '& input::placeholder': { color: 'rgba(255,255,255,0.18)', opacity: 1 },
+                                        '& input::placeholder': { color: 'rgba(15,23,42,0.34)', opacity: 1 },
                                     }}
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <LockRounded sx={{ color: errors.newPassword ? '#f87171' : 'rgba(0,220,255,0.55)' }} />
+                                                <LockRounded sx={{ color: errors.newPassword ? '#dc2626' : 'rgba(10,61,98,0.58)' }} />
                                             </InputAdornment>
                                         ),
                                         endAdornment: (
                                             <InputAdornment position="end">
-                                                <IconButton size="small" onClick={() => setShowPw(p => !p)} sx={{ color: 'rgba(255,255,255,0.30)', p: 0.4 }}>
+                                                <IconButton size="small" onClick={() => setShowPw(p => !p)} sx={{ color: 'rgba(10,61,98,0.54)', p: 0.4 }}>
                                                     {showPw ? <VisibilityOff sx={{ fontSize: 16 }} /> : <Visibility sx={{ fontSize: 16 }} />}
                                                 </IconButton>
                                             </InputAdornment>
@@ -479,17 +475,17 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                     sx={{
                                         ...G.inputSx,
                                         '& .MuiFormHelperText-root': { color: '#f87171', ml: 0.5, fontSize: '0.72rem' },
-                                        '& input::placeholder': { color: 'rgba(255,255,255,0.18)', opacity: 1 },
+                                        '& input::placeholder': { color: 'rgba(15,23,42,0.34)', opacity: 1 },
                                     }}
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <LockRounded sx={{ color: errors.confirmPassword ? '#f87171' : 'rgba(255,255,255,0.22)' }} />
+                                                <LockRounded sx={{ color: errors.confirmPassword ? '#dc2626' : 'rgba(10,61,98,0.42)' }} />
                                             </InputAdornment>
                                         ),
                                         endAdornment: (
                                             <InputAdornment position="end">
-                                                <IconButton size="small" onClick={() => setShowConfirm(p => !p)} sx={{ color: 'rgba(255,255,255,0.30)', p: 0.4 }}>
+                                                <IconButton size="small" onClick={() => setShowConfirm(p => !p)} sx={{ color: 'rgba(10,61,98,0.54)', p: 0.4 }}>
                                                     {showConfirm ? <VisibilityOff sx={{ fontSize: 16 }} /> : <Visibility sx={{ fontSize: 16 }} />}
                                                 </IconButton>
                                             </InputAdornment>
@@ -500,21 +496,22 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
 
                             {/* Avatar upload cue */}
                             {avatarFile && (
-                                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                                <Motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
                                     <Box sx={{
                                         ...G.surface,
                                         px: 2, py: 1.2,
                                         display: 'flex', alignItems: 'center', gap: 1.2,
+                                        bgcolor: 'rgba(14,165,233,0.06)',
                                     }}>
                                         <CameraAlt sx={{ fontSize: 15, color: '#0ea5e9' }} />
-                                        <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)', flex: 1 }}>
+                                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', flex: 1, overflowWrap: 'anywhere' }}>
                                             New photo selected: <span style={{ color: '#60a5fa' }}>{avatarFile.name}</span>
                                         </Typography>
-                                        <IconButton size="small" onClick={() => { setAvatarFile(null); setAvatarPreview(user?.avatar || null); }} sx={{ color: 'rgba(255,255,255,0.30)', p: 0.3 }}>
+                                        <IconButton size="small" onClick={() => { setAvatarFile(null); setAvatarPreview(user?.avatar || null); }} sx={{ color: 'rgba(10,61,98,0.52)', p: 0.3 }}>
                                             <Close sx={{ fontSize: 14 }} />
                                         </IconButton>
                                     </Box>
-                                </motion.div>
+                                </Motion.div>
                             )}
                         </Stack>
                     </Box>
@@ -522,78 +519,77 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                     {/* ── General error ── */}
                     <AnimatePresence>
                         {errors.general && (
-                            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                                <Box sx={{ borderRadius: '12px', px: 2, py: 1.4, bgcolor: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.24)' }}>
-                                    <Typography sx={{ fontSize: '0.78rem', color: '#f87171', fontWeight: 600 }}>{errors.general}</Typography>
+                            <Motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                                <Box sx={{ borderRadius: '8px', px: 2, py: 1.4, bgcolor: '#fef2f2', border: '1px solid rgba(220,38,38,0.20)' }}>
+                                    <Typography sx={{ fontSize: '0.78rem', color: '#991b1b', fontWeight: 700 }}>{errors.general}</Typography>
                                 </Box>
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
 
                     {/* ── Success feedback ── */}
                     <AnimatePresence>
                         {saveSuccess && (
-                            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                                <Box sx={{ borderRadius: '12px', px: 2, py: 1.4, bgcolor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.26)' }}>
-                                    <Typography sx={{ fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>✓ Profile updated successfully!</Typography>
+                            <Motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                                <Box sx={{ borderRadius: '8px', px: 2, py: 1.4, bgcolor: '#ecfdf5', border: '1px solid rgba(16,185,129,0.22)' }}>
+                                    <Typography sx={{ fontSize: '0.78rem', color: '#047857', fontWeight: 800 }}>Profile updated successfully.</Typography>
                                 </Box>
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
 
                     {/* ── Action bar ── */}
-                    <Stack direction="row" spacing={1.2} justifyContent="flex-end" sx={{ pt: 0.5 }}>
-                        <Box
+                    <Stack
+                        direction={{ xs: 'column-reverse', sm: 'row' }}
+                        spacing={1.2}
+                        justifyContent="flex-end"
+                        sx={{
+                            position: { xs: 'sticky', sm: 'static' },
+                            bottom: { xs: -16, sm: 'auto' },
+                            mx: { xs: -2, sm: 0 },
+                            px: { xs: 2, sm: 0 },
+                            pt: 1.4,
+                            pb: { xs: 1.5, sm: 0 },
+                            bgcolor: { xs: '#f8fbff', sm: 'transparent' },
+                            borderTop: { xs: '1px solid rgba(10,61,98,0.08)', sm: 'none' },
+                            zIndex: 2,
+                        }}
+                    >
+                        <Button
+                            variant="outlined"
                             onClick={onClose}
                             sx={{
-                                cursor: 'pointer',
-                                px: 2.4, py: 1,
-                                borderRadius: '12px',
-                                fontWeight: 700, fontSize: '0.82rem',
-                                color: 'rgba(255,255,255,0.55)',
-                                bgcolor: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(255,255,255,0.10)',
-                                userSelect: 'none',
-                                transition: 'all 0.18s ease',
-                                '&:hover': { bgcolor: 'rgba(255,255,255,0.10)', color: '#fff' },
-                                display: 'flex', alignItems: 'center',
+                                width: { xs: '100%', sm: 'auto' },
+                                minWidth: { sm: 112 },
+                                borderRadius: '8px',
+                                textTransform: 'none',
+                                fontWeight: 800,
+                                color: '#0A3D62',
+                                borderColor: 'rgba(10,61,98,0.22)',
+                                bgcolor: '#fff',
                             }}
-                            component={motion.div}
-                            whileTap={{ scale: 0.97 }}
                         >
                             Cancel
-                        </Box>
+                        </Button>
 
-                        <Box
-                            onClick={!saving && hasChanges ? handleSave : undefined}
-                            component={motion.div}
-                            whileTap={!saving && hasChanges ? { scale: 0.97 } : {}}
+                        <Button
+                            variant="contained"
+                            onClick={handleSave}
+                            disabled={saving || !hasChanges}
+                            startIcon={saving ? <CircularProgress size={15} color="inherit" /> : <SaveRounded sx={{ fontSize: 16 }} />}
                             sx={{
-                                cursor: (!saving && hasChanges) ? 'pointer' : 'not-allowed',
-                                px: 2.6, py: 1,
-                                borderRadius: '12px',
-                                fontWeight: 800, fontSize: '0.82rem',
-                                userSelect: 'none',
-                                display: 'flex', alignItems: 'center', gap: 0.8,
-                                transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                                background: (!saving && hasChanges)
-                                    ? 'linear-gradient(135deg, #0ea5e9, #0284c7)'
-                                    : 'rgba(255,255,255,0.07)',
-                                color: (!saving && hasChanges) ? '#fff' : 'rgba(255,255,255,0.25)',
-                                border: (!saving && hasChanges) ? '1px solid rgba(14,165,233,0.40)' : '1px solid rgba(255,255,255,0.08)',
-                                boxShadow: (!saving && hasChanges) ? '0 6px 20px rgba(14,165,233,0.35)' : 'none',
-                                '&:hover': (!saving && hasChanges) ? {
-                                    background: 'linear-gradient(135deg, #38bdf8, #0ea5e9)',
-                                    boxShadow: '0 8px 28px rgba(14,165,233,0.48)',
-                                    transform: 'translateY(-1px)',
-                                } : {},
+                                width: { xs: '100%', sm: 'auto' },
+                                minWidth: { sm: 148 },
+                                borderRadius: '8px',
+                                textTransform: 'none',
+                                fontWeight: 900,
+                                bgcolor: '#0A3D62',
+                                boxShadow: '0 8px 20px rgba(10,61,98,0.24)',
+                                '&:hover': { bgcolor: '#075985', boxShadow: '0 10px 24px rgba(10,61,98,0.30)' },
                             }}
                         >
-                            {saving
-                                ? <><CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.50)' }} /> Saving…</>
-                                : <><SaveRounded sx={{ fontSize: 15 }} /> Save Changes</>
-                            }
-                        </Box>
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </Button>
                     </Stack>
 
                 </Stack>

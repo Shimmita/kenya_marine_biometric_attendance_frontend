@@ -1,5 +1,6 @@
 import {
     AccessTime, BusinessCenter,
+    EventAvailableRounded,
     CheckCircle,
     Fingerprint, History,
     InfoOutlined, LocationOn
@@ -12,16 +13,15 @@ import {
     TableHead, TableRow,
     TextField, Typography, useMediaQuery, useTheme
 } from '@mui/material';
-import { AnimatePresence, motion, useInView } from 'framer-motion';
+import { AnimatePresence, motion as Motion, useInView } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateUserCurrentDeviceRedux } from '../../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
 import { fetchBiometricStatus, registerFingerprint, verifyFingerprint } from '../../service/Biometrics';
-import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
+import { fetchAttendanceStats, fetchClockingHistory, fetchTodayHoliday } from '../../service/ClockingService';
 import { fetchMyDevices } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
-import { revokeClockOutsideStatus } from '../../service/UserManagement';
 import { getUserProfile } from '../../service/UserProfile';
 import coreDataDetails from '../CoreDataDetails';
 import { formatDate, formatTime, getLocalDateInputValue } from '../util/DateTimeFormater';
@@ -83,7 +83,6 @@ const G = {
 };
 
 /* ══ HELPERS ═══════════════════════════════════════════════════════════════ */
-const safe = (v, s = '') => (v != null ? `${v}${s}` : '—');
 const useNotification = () => {
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
     const notify = useCallback((msg, sev = 'success') => setSnack({ open: true, message: msg, severity: sev }), []);
@@ -130,7 +129,7 @@ const playReminderTone = () => {
         oscillator.start();
         oscillator.stop(context.currentTime + 0.18);
         oscillator.onended = () => context.close();
-    } catch (error) {
+    } catch {
         // Audio playback may be blocked in some environments; ignore silently.
     }
 };
@@ -172,7 +171,7 @@ const persistClockingReminder = (message) => {
 
     try {
         reminders = stored ? JSON.parse(stored) : [];
-    } catch (err) {
+    } catch {
         reminders = [];
     }
 
@@ -210,6 +209,20 @@ const shouldShowClockingReminder = (type) => {
     return true;
 };
 
+const getLocalDayBoundary = (value, boundary = 'end') => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    if (boundary === 'start') {
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
+
+    date.setHours(23, 59, 59, 999);
+    return date;
+};
+
 /* ══ AMBIENT ORBS ══════════════════════════════════════════════════════════ */
 const AmbientOrbs = () => (
     <Box
@@ -231,11 +244,11 @@ const Reveal = ({ children, delay = 0, y = 20 }) => {
     const ref = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-40px' });
     return (
-        <motion.div style={{ willChange: 'transform, opacity' }} ref={ref}
+        <Motion.div style={{ willChange: 'transform, opacity' }} ref={ref}
             initial={{ opacity: 0, y }} animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.52, delay, ease: [0.22, 1, 0.36, 1] }}>
             {children}
-        </motion.div>
+        </Motion.div>
     );
 };
 
@@ -271,17 +284,6 @@ const SectionLabel = ({ children, accent, chip }) => (
     </Stack>
 );
 
-/* ══ STATUS CHIP ════════════════════════════════════════════════════════════ */
-const timingCfg = {
-    Early: { bg: '#22c55e18', color: '#16a34a' },
-    Late: { bg: '#f9731618', color: '#ea580c' },
-};
-const statusCfg = {
-    Present: { color: colorPalette.seafoamGreen },
-    Halfday: { color: '#f59e0b' },
-    '': { color: '#94a3b8' },
-};
-
 /* ══ MAIN COMPONENT ════════════════════════════════════════════════════════ */
 const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, setIsWithinGeofence }) => {
     const dispatch = useDispatch();
@@ -289,7 +291,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const { user } = useSelector(s => s.currentUser);
     const { snack, notify, close } = useNotification();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const canUseClocking = user?.isAccountActive === true && user?.isOnLeave !== true;
+    const clockingAccountEligible = user?.isAccountActive === true && user?.isOnLeave !== true;
 
     const [selectedStation, setSelectedStation] = useState(() => {
         if (user?.station) {
@@ -306,12 +308,40 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     const [isToClockOut, setIsToClockOut] = useState(user?.isToClockOut || false);
     const [biometricLoading, setBiometricLoading] = useState(false);
     const [recentAttendance, setRecentAttendance] = useState([]);
-    const [userStats, setUserStats] = useState(null);
-    const [statsLoading, setStatsLoading] = useState(true);
+    const [, setUserStats] = useState(null);
+    const [, setStatsLoading] = useState(true);
     const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState('');
     const [enrolledDevices, setEnrolledDevices] = useState([]);
     const [currentDeviceRegistered, setCurrentDeviceRegistered] = useState(false);
     const [locationStatus, setLocationStatus] = useState('idle');
+    const [holidayStatus, setHolidayStatus] = useState({ loading: true, isHoliday: false, holiday: null, message: '' });
+    const isHolidayToday = Boolean(holidayStatus?.isHoliday);
+    const canUseClocking = clockingAccountEligible && holidayStatus.loading !== true && !isHolidayToday;
+
+    useEffect(() => {
+        let alive = true;
+
+        const loadHolidayStatus = async () => {
+            try {
+                const data = await fetchTodayHoliday();
+                if (!alive) return;
+                setHolidayStatus({
+                    loading: false,
+                    isHoliday: Boolean(data?.isHoliday),
+                    holiday: data?.holiday || null,
+                    message: data?.message || '',
+                });
+            } catch (err) {
+                console.error('Holiday status check failed:', err);
+                if (alive) {
+                    setHolidayStatus({ loading: false, isHoliday: false, holiday: null, message: '' });
+                }
+            }
+        };
+
+        loadHolidayStatus();
+        return () => { alive = false; };
+    }, []);
 
     useEffect(() => {
         if (!user?._id) return undefined;
@@ -383,39 +413,40 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         return () => { alive = false; };
     }, [canUseClocking, dispatch, user?.doneBiometric]);
 
-    // check user update can clock outside
+    // Keep stale persisted permissions aligned with the backend's automatic expiry.
     useEffect(() => {
         const checkAuthorizationValidity = async () => {
             if (!canUseClocking) return;
 
             if (user?.canClockOutside && user?.outsideClockingDetails?.endDate) {
                 const today = new Date();
-                const expiryDate = new Date(user.outsideClockingDetails.endDate);
+                const expiryDate = getLocalDayBoundary(user.outsideClockingDetails.endDate, 'end');
 
-                // If today is past the end date, trigger auto-revoke
-                if (today > expiryDate) {
+                if (expiryDate && today > expiryDate) {
                     try {
-                        // Call the revoke function we created earlier
-                        await revokeClockOutsideStatus(user._id);
                         const updated = await getUserProfile();
                         dispatch(updateUserCurrentUserRedux(updated));
-                        notify("Clock-outside authorization has expired and was reset.", "info");
+                        if (!updated?.canClockOutside) {
+                            notify("Clock-outside authorization has expired. Standard in-premise clocking now applies.", "info");
+                        }
                     } catch (err) {
-                        console.error("Auto-revoke failed:", err);
+                        console.error("Clock-outside expiry refresh failed:", err);
                     }
                 }
             }
         };
         checkAuthorizationValidity();
-    }, [canUseClocking, user, dispatch]);
+    }, [canUseClocking, user, dispatch, notify]);
 
     // 2. Logic to determine if user is allowed to proceed
     const isDateAuthorized = useCallback(() => {
         if (!user?.canClockOutside || !user?.outsideClockingDetails) return false;
 
         const today = new Date();
-        const start = new Date(user.outsideClockingDetails.startDate);
-        const end = new Date(user.outsideClockingDetails.endDate);
+        const start = getLocalDayBoundary(user.outsideClockingDetails.startDate, 'start');
+        const end = getLocalDayBoundary(user.outsideClockingDetails.endDate, 'end');
+
+        if (!start || !end) return false;
 
         // Ensure today is within the allowed window
         return today >= start && today <= end;
@@ -509,7 +540,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
             (error) => reject(error),
             { enableHighAccuracy: true, maximumAge: 60_000, timeout: 12000 }
         );
-    }), [selectedStation.lat, selectedStation.lng, setIsWithinGeofence, setUserLocation]);
+    }), [selectedStation.lat, selectedStation.lng, selectedStation.radiusMeters, setIsWithinGeofence, setUserLocation]);
 
     const requestLocation = useCallback(async () => {
         setLocationStatus('checking');
@@ -538,7 +569,6 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         if (!canUseClocking) return;
         requestLocation();
     }, [canUseClocking, requestLocation, selectedStation.name]);
-    // eslint-disable-line
 
     // 3. Location is mandatory for every clock action. Outside authorization
     // bypasses only the station geofence distance check, not coordinate capture.
@@ -561,6 +591,11 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
 
     const handleRegisterFingerprint = async () => {
+        if (isHolidayToday) {
+            notify(holidayStatus.message || 'Clocking is disabled today because it is a configured holiday.', 'info');
+            return;
+        }
+
         if (!canUseClocking) {
             notify('Clocking services are unavailable for your account status.', 'warning');
             return;
@@ -602,6 +637,11 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
     };
 
     const handleClockInClockOut = async () => {
+        if (isHolidayToday) {
+            notify(holidayStatus.message || 'Clocking is disabled today because it is a configured holiday.', 'info');
+            return;
+        }
+
         if (!canUseClocking) {
             notify('Clocking services are unavailable for your account status.', 'warning');
             return;
@@ -680,8 +720,19 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
         } finally { setBiometricLoading(false); }
     };
 
-    const m = userStats?.monthly;
-    const w = userStats?.weekly;
+    const holidayName = holidayStatus.holiday?.name || 'Configured Holiday';
+    const holidayDate = holidayStatus.holiday?.date
+        ? new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Africa/Nairobi',
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+        }).format(new Date(`${holidayStatus.holiday.date}T00:00:00+03:00`))
+        : '';
+    const holidayMessage = holidayStatus.message ||
+        `Today is ${holidayName}. Clocking services are not available for the holiday.`;
+
     const accountStatus = user?.isAccountActive === false
         ? {
             severity: 'error',
@@ -756,6 +807,70 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                 </Stack>
                             ))}
                         </Stack>
+                    </Box>
+                </Reveal>
+            )}
+
+            {isHolidayToday && (
+                <Reveal>
+                    <Box
+                        sx={{
+                            ...G.tinted(colorPalette.seafoamGreen),
+                            borderRadius: '20px',
+                            p: { xs: 2.25, sm: 3 },
+                            mb: 3,
+                            position: 'relative',
+                            zIndex: 1,
+                        }}
+                    >
+                        <Grid container spacing={2.5} alignItems="center">
+                            <Grid item xs={12} md={8}>
+                                <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                                    <Box
+                                        sx={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: '14px',
+                                            bgcolor: `${colorPalette.seafoamGreen}18`,
+                                            border: `1px solid ${colorPalette.seafoamGreen}2f`,
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <EventAvailableRounded sx={{ color: colorPalette.seafoamGreen }} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="overline" fontWeight={900} color="text.secondary" sx={{ letterSpacing: 1 }}>
+                                            Clocking Paused
+                                        </Typography>
+                                        <Typography variant="h5" fontWeight={950} color={colorPalette.deepNavy} sx={{ lineHeight: 1.15, letterSpacing: 0 }}>
+                                            {holidayName}
+                                        </Typography>
+                                        {holidayDate && (
+                                            <Typography variant="body2" fontWeight={800} color={colorPalette.oceanBlue} sx={{ mt: 0.4 }}>
+                                                {holidayDate}
+                                            </Typography>
+                                        )}
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 760, lineHeight: 1.65 }}>
+                                            {holidayMessage}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Stack spacing={1} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+                                    <Chip
+                                        label="Holiday"
+                                        color="success"
+                                        sx={{ borderRadius: 1.5, fontWeight: 900 }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'right' }, maxWidth: 280 }}>
+                                        You can continue using the rest of the platform according to your role.
+                                    </Typography>
+                                </Stack>
+                            </Grid>
+                        </Grid>
                     </Box>
                 </Reveal>
             )}
@@ -928,7 +1043,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                             <AnimatePresence mode="wait">
                                                 {/* Step 0: verify location */}
                                                 {clockStepIndex === 0 && (
-                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="loc"
+                                                    <Motion.div style={{ willChange: 'transform, opacity' }} key="loc"
                                                         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         transition={{ duration: 0.28 }}>
                                                         <Box sx={{
@@ -974,12 +1089,12 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                                 </Button>
                                                             </Stack>
                                                         </Box>
-                                                    </motion.div>
+                                                    </Motion.div>
                                                 )}
 
                                                 {/* Step 1: register fingerprint — ANIMATED GLOW */}
                                                 {clockStepIndex === 1 && (
-                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="fp"
+                                                    <Motion.div style={{ willChange: 'transform, opacity' }} key="fp"
                                                         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         transition={{ duration: 0.28 }}>
                                                         <Box sx={{
@@ -1063,12 +1178,12 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                                 </Box>
                                                             </Stack>
                                                         </Box>
-                                                    </motion.div>
+                                                    </Motion.div>
                                                 )}
 
                                                 {/* Step 2: clock in/out — ANIMATED GLOW */}
                                                 {clockStepIndex === 2 && (
-                                                    <motion.div style={{ willChange: 'transform, opacity' }} key="clock"
+                                                    <Motion.div style={{ willChange: 'transform, opacity' }} key="clock"
                                                         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         transition={{ duration: 0.28 }}>
 
@@ -1119,7 +1234,7 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                                     : (isClockedIn && isToClockOut ? 'SCAN TO CLOCK OUT' : 'SCAN TO CLOCK IN')}
                                                             </Button>
                                                         </Box>
-                                                    </motion.div>
+                                                    </Motion.div>
                                                 )}
                                             </AnimatePresence>
                                         </Stack>
@@ -1156,13 +1271,13 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                                                         </TableCell>
                                                     </TableRow>
                                                     : recentAttendance.map((row, idx) => (
-                                                        <motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                                                        <Motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                                                             transition={{ delay: idx * 0.04, duration: 0.25 }}
                                                             style={{ display: 'table-row', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>
                                                             <TableCell sx={{ fontWeight: 700, color: colorPalette.deepNavy, fontSize: '0.82rem', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.date}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockIn}</TableCell>
                                                             <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem', borderBottom: '1px solid rgba(10,61,98,0.05)' }}>{row.clockOut}</TableCell>
-                                                        </motion.tr>
+                                                        </Motion.tr>
                                                     ))}
                                             </TableBody>
                                         </Table>

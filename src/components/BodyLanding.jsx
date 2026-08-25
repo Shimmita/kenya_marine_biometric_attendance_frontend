@@ -29,7 +29,7 @@ import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
 import { requestPasswordReset } from '../service/ResetPasswordService';
 import { markSessionStarted } from '../service/SessionTimeout';
-import { getPlatformConfig } from '../service/SuperadminService';
+import { getMaintenanceStatus, getPlatformConfig } from '../service/SuperadminService';
 import ClockingImage from "./../images/clocking_image_1.png";
 import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import { loginStaff, loginUser } from './auth/Login';
@@ -753,6 +753,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
 
 /* ══ LANDING PAGE ═══════════════════════════════════════════════════════════ */
 const EnhancedLandingPage = () => {
+    const navigate = useNavigate();
     const [view, setView] = useState('landing');
     const [helpOpen, setHelpOpen] = useState(false);
     const [guideOpen, setGuideOpen] = useState(false);
@@ -769,7 +770,17 @@ const EnhancedLandingPage = () => {
         let isMounted = true;
         const loadConfig = async () => {
             try {
-                const cfg = await getPlatformConfig();
+                const [maintenance, cfg] = await Promise.all([
+                    getMaintenanceStatus(),
+                    getPlatformConfig(),
+                ]);
+
+                if (maintenance?.active) {
+                    window.sessionStorage.setItem('kmfri_maintenance_status', JSON.stringify(maintenance));
+                    navigate('/maintenance', { replace: true });
+                    return;
+                }
+
                 if (isMounted && cfg) {
                     applyPlatformConfigToCoreData(cfg);
                     applyBrandingToDocument(cfg);
@@ -798,7 +809,7 @@ const EnhancedLandingPage = () => {
             window.removeEventListener('kmfri_platform_config_updated', handleConfigUpdate);
             window.removeEventListener('storage', handleConfigUpdate);
         };
-    }, []);
+    }, [navigate]);
 
     const highContrastOverrides = a11yPrefs.highContrast
         ? {

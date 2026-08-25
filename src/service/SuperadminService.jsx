@@ -23,6 +23,11 @@ export const getPlatformConfig = async () => {
   return res.data;
 };
 
+export const getMaintenanceStatus = async () => {
+  const res = await Api.get("/maintenance/status");
+  return res.data;
+};
+
 export const updatePlatformConfig = async (payload) => {
   const res = await Api.post("/superadmin/config", payload);
   return res.data;
@@ -33,6 +38,30 @@ export const resetPlatformConfig = async (section = "all") => {
     section,
   });
 
+  return res.data;
+};
+
+/* =====================================================
+   HOLIDAYS
+===================================================== */
+
+export const getHolidays = async () => {
+  const res = await Api.get("/holidays");
+  return res.data;
+};
+
+export const addHoliday = async (payload) => {
+  const res = await Api.post("/holidays", payload);
+  return res.data;
+};
+
+export const removeHoliday = async (id) => {
+  const res = await Api.delete(`/holidays/${id}`);
+  return res.data;
+};
+
+export const getTodayHoliday = async () => {
+  const res = await Api.get("/holidays/today");
   return res.data;
 };
 
@@ -139,8 +168,13 @@ export default {
 
   // Config
   getPlatformConfig,
+  getMaintenanceStatus,
   updatePlatformConfig,
   resetPlatformConfig,
+  getHolidays,
+  addHoliday,
+  removeHoliday,
+  getTodayHoliday,
 
   // Departments
   addDepartment,

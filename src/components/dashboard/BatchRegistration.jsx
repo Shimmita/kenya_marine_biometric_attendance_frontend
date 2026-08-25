@@ -98,9 +98,123 @@ const initialSingleUser = {
     department: '',
 };
 
-const BatchRegistration = ({ readOnly = false }) => {
+const batchConfigs = {
+    staff: {
+        title: 'Batch Staff Registration',
+        subtitle: 'Upload your staff table. You can edit information directly in the preview before final submission.',
+        singular: 'Employee',
+        plural: 'Employees',
+        fixedRole: 'employee',
+        idHeader: 'Staff No',
+        idDescription: 'Organization-issued staff number i.e T001',
+        requiredHeaders: ['Staff No', 'Full Name', 'Email', 'Phone', 'Station', 'Department'],
+        guideIntro: 'Each uploaded row will be registered as a staff employee automatically.',
+        guideNote: 'Staff No will be used to log in to the portal. staff uploads are automatically saved as employee accounts. Phone numbers must use international format i.e 2547...',
+    },
+    placement: {
+        title: 'Batch Intern & Attaché Registration',
+        subtitle: 'Choose the placement category, upload the table, then edit the preview before final submission.',
+        singular: 'Registrant',
+        plural: 'Registrants',
+        fixedRole: '',
+        idHeader: 'ID No',
+        idDescription: 'Passport, National ID',
+        requiredHeaders: ['ID No', 'Full Name', 'Email', 'Phone', 'Station', 'Department', 'Start Date', 'End Date'],
+        guideIntro: 'Each uploaded row will be registered using the placement type selected on this page.',
+        guideNote: 'Select Intern or Attaché before uploading, and every row in that upload will inherit that category. Dates must be in YYYY-MM-DD format. Phone numbers must use international format i.e 2547...',
+    },
+};
+
+const placementRoleOptions = [
+    { role: 'intern', title: 'Intern', desc: 'Internship programme for graduates' },
+    { role: 'attachee', title: 'Attaché', desc: 'Industrial attachment for university or college students' },
+];
+
+const sampleRowsByRole = {
+    employee: [
+        {
+            'Staff No': 'T001',
+            'Full Name': 'Amina Otieno',
+            Email: 'amina.otieno@kmfri.go.ke',
+            Phone: '254712345678',
+            Station: 'Mombasa',
+            Department: 'ICT',
+        },
+        {
+            'Staff No': '4002',
+            'Full Name': 'Brian Kariuki',
+            Email: 'brian.kariuki@kmfri.go.ke',
+            Phone: '254723456789',
+            Station: 'Kisumu',
+            Department: 'Human Resource',
+        },
+    ],
+    intern: [
+        {
+            'ID No': '35678124',
+            'Full Name': 'Kevin Mwangi',
+            Email: 'kevin.mwangi@example.com',
+            Phone: '254734567890',
+            Station: 'Mombasa',
+            Department: 'Aquaculture',
+            'Start Date': '2026-09-01',
+            'End Date': '2026-12-31',
+        },
+        {
+            'ID No': '839748',
+            'Full Name': 'Faith Achieng',
+            Email: 'faith.achieng@example.com',
+            Phone: '254745678901',
+            Station: 'Kisumu',
+            Department: 'Freshwater Systems',
+            'Start Date': '2026-10-01',
+            'End Date': '2027-01-31',
+        },
+    ],
+    attachee: [
+        {
+            'ID No': '34294834',
+            'Full Name': 'Grace Wanjiru',
+            Email: 'grace.wanjiru@example.com',
+            Phone: '254756789012',
+            Station: 'Sangoro',
+            Department: 'Marine Research',
+            'Start Date': '2026-09-15',
+            'End Date': '2026-12-15',
+        },
+        {
+            'ID No': '474839484',
+            'Full Name': 'Daniel Ouma',
+            Email: 'daniel.ouma@example.com',
+            Phone: '254767890123',
+            Station: 'Mombasa',
+            Department: 'Engineering',
+            'Start Date': '2026-11-01',
+            'End Date': '2027-02-28',
+        },
+    ],
+};
+
+const formatRoleLabel = (role) => {
+    if (role === 'employee') return 'Employee';
+    if (role === 'intern') return 'Intern';
+    if (role === 'attachee') return 'Attaché';
+    return 'Registrant';
+};
+
+const isValidDateValue = (value = '') => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+
+const BatchRegistration = ({
+    readOnly = false,
+    registrationKind = 'staff',
+    initialMode = null,
+    showModeSelection = true,
+    onBack,
+}) => {
+    const batchConfig = batchConfigs[registrationKind] || batchConfigs.staff;
+    const isPlacementBatch = registrationKind === 'placement';
     // ─── Mode selection ─────────────────────────────────────────────
-    const [mode, setMode] = useState(null); // 'single' | 'batch' | null
+    const [mode, setMode] = useState(initialMode); // 'single' | 'batch' | null
 
     // ─── Batch state (unchanged) ────────────────────────────────────
     const [data, setData] = useState([]);
@@ -111,6 +225,7 @@ const BatchRegistration = ({ readOnly = false }) => {
     const [errorDialogOpen, setErrorDialogOpen] = useState(false);
     const [formatDialogOpen, setFormatDialogOpen] = useState(false);
     const [batchResult, setBatchResult] = useState(null);
+    const [batchErrors, setBatchErrors] = useState([]);
 
     // ─── Single staff state ─────────────────────────────────────────
     const [singleUser, setSingleUser] = useState(initialSingleUser);
@@ -122,6 +237,7 @@ const BatchRegistration = ({ readOnly = false }) => {
     const [configError, setConfigError] = useState('');
     const [departments, setDepartments] = useState(() => uniqueOptions(coreDataDetails.availableDepartments));
     const [stations, setStations] = useState(() => uniqueOptions(coreDataDetails.AvailableStations.map(normalizeStationOption)));
+    const [batchRole, setBatchRole] = useState(batchConfig.fixedRole || '');
 
     useEffect(() => {
         let mounted = true;
@@ -177,15 +293,26 @@ const BatchRegistration = ({ readOnly = false }) => {
         };
     }, []);
 
-    // ─── Batch logic (unchanged) ────────────────────────────────────
-    const headersList = ['Staff No', 'Type', 'Full Name', 'Email', 'Phone', 'Station', 'Department'];
+    // ─── Batch logic ────────────────────────────────────────────────
+    const headersList = batchConfig.requiredHeaders;
+    const activeBatchRole = batchConfig.fixedRole || batchRole;
+    const activeBatchRoleLabel = formatRoleLabel(activeBatchRole);
+    const sampleRows = sampleRowsByRole[activeBatchRole] || sampleRowsByRole.intern;
+    const sampleLabel = activeBatchRole ? activeBatchRoleLabel : 'Intern';
 
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
+        if (isPlacementBatch && !activeBatchRole) {
+            setError('Choose Intern or Attaché before uploading the file.');
+            event.target.value = '';
+            return;
+        }
+
         setError('');
         setSuccess('');
+        setBatchErrors([]);
         setLoading(true);
 
         const fileExtension = file.name.split('.').pop().toLowerCase();
@@ -240,28 +367,32 @@ const BatchRegistration = ({ readOnly = false }) => {
 
     const stats = useMemo(() => {
         if (data.length === 0) return [];
-        const counts = data.reduce((acc, curr) => {
-            const type = curr['Type']?.toLowerCase() || 'unknown';
-            acc[type] = (acc[type] || 0) + 1;
-            return acc;
-        }, {});
-
-        return Object.keys(counts).map((key) => ({
-            name: key.charAt(0).toUpperCase() + key.slice(1),
-            value: counts[key],
-        }));
-    }, [data]);
+        return [{ name: activeBatchRoleLabel, value: data.length }];
+    }, [activeBatchRoleLabel, data.length]);
 
     const invalidRows = useMemo(() => {
         return data.map((row) => ({
+            id: !String(row[batchConfig.idHeader] || '').trim(),
+            name: !String(row['Full Name'] || '').trim(),
             phone: !isValidPhone(row.Phone),
             email: !isValidEmail(row.Email),
+            station: !String(row.Station || '').trim(),
+            department: !String(row.Department || '').trim(),
+            startDate: isPlacementBatch && !isValidDateValue(row['Start Date']),
+            endDate: isPlacementBatch && !isValidDateValue(row['End Date']),
+            dateRange: isPlacementBatch && isValidDateValue(row['Start Date']) && isValidDateValue(row['End Date']) && String(row['Start Date']).trim() > String(row['End Date']).trim(),
         }));
-    }, [data]);
+    }, [batchConfig.idHeader, data, isPlacementBatch]);
 
+    const invalidIdRows = invalidRows.filter((r) => r.id);
+    const invalidNameRows = invalidRows.filter((r) => r.name);
     const invalidPhoneRows = invalidRows.filter((r) => r.phone);
     const invalidEmailRows = invalidRows.filter((r) => r.email);
-    const hasValidationErrors = invalidPhoneRows.length > 0 || invalidEmailRows.length > 0;
+    const invalidStationRows = invalidRows.filter((r) => r.station);
+    const invalidDepartmentRows = invalidRows.filter((r) => r.department);
+    const invalidStartRows = invalidRows.filter((r) => r.startDate);
+    const invalidEndRows = invalidRows.filter((r) => r.endDate || r.dateRange);
+    const hasValidationErrors = invalidRows.some((row) => Object.values(row).some(Boolean));
 
     const processData = (rawData) => {
         const cleanRows = rawData.filter((row) => row.length > 0 && row.some((cell) => cell !== undefined && cell !== null && cell.toString().trim() !== ''));
@@ -286,21 +417,10 @@ const BatchRegistration = ({ readOnly = false }) => {
             return obj;
         });
 
-        const allowedTypes = ['staff', 'employee'];
-        const invalidTypeRow = processedData.find((row) => {
-            const typeValue = row['Type']?.toString().trim().toLowerCase();
-            return typeValue && !allowedTypes.includes(typeValue);
-        });
-
-        if (invalidTypeRow) {
-            setError('Invalid Type value found. Only staff or employee values are allowed.');
-            setLoading(false);
-            return;
-        }
-
         setData(processedData);
         setError('');
         setSuccess('');
+        setBatchErrors([]);
         setLoading(false);
     };
 
@@ -321,27 +441,41 @@ const BatchRegistration = ({ readOnly = false }) => {
         setLoading(true);
         setError('');
         setSuccess('');
+        setBatchErrors([]);
+
+        if (isPlacementBatch && !activeBatchRole) {
+            setLoading(false);
+            setError('Choose Intern or Attaché before registering the uploaded records.');
+            return;
+        }
 
         try {
             const mappedData = data.map((row) => ({
-                employeeId: row['Staff No'],
-                role: 'employee',
+                employeeId: row[batchConfig.idHeader],
+                role: activeBatchRole,
                 name: row['Full Name'],
                 email: row['Email'],
                 phone: row['Phone'],
                 station: row['Station'],
                 department: row['Department'],
+                ...(isPlacementBatch
+                    ? {
+                        startDate: row['Start Date'],
+                        endDate: row['End Date'],
+                    }
+                    : {}),
             }));
 
             const result = await registerBatchUsers(mappedData);
             const count = result?.count || mappedData.length;
-            const message = result?.message || `Successfully registered ${count} ${count === 1 ? 'Employee' : 'Employees'}!`;
+            const message = result?.message || `Successfully registered ${count} ${count === 1 ? batchConfig.singular : batchConfig.plural}!`;
             setSuccess(message);
             setBatchResult(result);
             setDialogOpen(true);
             setData([]);
         } catch (err) {
-            const message = typeof err === 'string' ? err : err?.message || 'Failed to register Employees.';
+            const message = typeof err === 'string' ? err : err?.message || `Failed to register ${batchConfig.plural}.`;
+            setBatchErrors(Array.isArray(err?.errors) ? err.errors : []);
             setError(message);
             setErrorDialogOpen(true);
         } finally {
@@ -550,7 +684,7 @@ const BatchRegistration = ({ readOnly = false }) => {
 
     // ─── Main render ─────────────────────────────────────────────────
     // Show selection modal if mode not chosen
-    if (mode === null) {
+    if (mode === null && showModeSelection) {
         return (
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ p: { xs: 1, md: 2 }, maxWidth: 1000, mx: 'auto' }}>
@@ -620,7 +754,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 Batch Registration
                             </Typography>
                             <Typography variant="body2" color="textSecondary" align="center">
-                                Upload an Excel file containing records of employees.
+                                Upload an Excel or CSV file containing employee records.
                             </Typography>
                             <Box display="flex" justifyContent="center" mt={2}>
 
@@ -639,23 +773,163 @@ const BatchRegistration = ({ readOnly = false }) => {
         return renderSingleForm();
     }
 
-    // ─── Batch registration (original component) ────────────────────
+    const handleBackFromBatch = () => {
+        setData([]);
+        setError('');
+        setSuccess('');
+        setBatchResult(null);
+        setBatchErrors([]);
+        if (onBack) {
+            onBack();
+            return;
+        }
+        setMode(null);
+    };
+
+    const getBatchCellError = (row, field) => {
+        if (field === batchConfig.idHeader && !String(row[field] || '').trim()) return `${batchConfig.idHeader} is required`;
+        if (field === 'Full Name' && !String(row[field] || '').trim()) return 'Full name is required';
+        if (field === 'Phone' && !isValidPhone(row.Phone)) return 'Begin with 254 e.g. 254712345678';
+        if (field === 'Email' && !isValidEmail(row.Email)) return 'Invalid email format';
+        if (field === 'Station' && !String(row[field] || '').trim()) return 'Station is required';
+        if (field === 'Department' && !String(row[field] || '').trim()) return 'Department is required';
+        if (field === 'Start Date' && isPlacementBatch && !isValidDateValue(row[field])) return 'Use YYYY-MM-DD';
+        if (field === 'End Date' && isPlacementBatch) {
+            if (!isValidDateValue(row[field])) return 'Use YYYY-MM-DD';
+            if (isValidDateValue(row['Start Date']) && String(row['Start Date']).trim() > String(row[field]).trim()) {
+                return 'End date cannot be before start date';
+            }
+        }
+        return '';
+    };
+
+    const uploadGuideRows = [
+        { col: batchConfig.idHeader, desc: batchConfig.idDescription },
+        { col: 'Full Name', desc: `${activeBatchRoleLabel} official full name` },
+        { col: 'Email', desc: 'Valid email address' },
+        { col: 'Phone', desc: 'Phone number in international format i.e 2547...' },
+        { col: 'Station', desc: 'Main clocking station assignment' },
+        { col: 'Department', desc: 'Assigned department' },
+        ...(isPlacementBatch
+            ? [
+                { col: 'Start Date', desc: 'Placement start date in YYYY-MM-DD format' },
+                { col: 'End Date', desc: 'Placement end date in YYYY-MM-DD format' },
+            ]
+            : []),
+    ];
+
+    const renderSampleTable = ({ compact = false } = {}) => (
+        <Box sx={{ mt: compact ? 2 : 3, mb: compact ? 0 : 3 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={0.8} sx={{ mb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy}>
+                    Sample {sampleLabel} Rows
+                </Typography>
+                {isPlacementBatch && !activeBatchRole && (
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        Intern example shown until a placement type is selected
+                    </Typography>
+                )}
+            </Stack>
+            <TableContainer
+                component={Paper}
+                variant="outlined"
+                sx={{
+                    boxShadow: 'none',
+                    borderRadius: 2,
+                    overflowX: 'auto',
+                    bgcolor: '#fff',
+                    borderColor: 'rgba(10,61,98,0.12)',
+                }}
+            >
+                <Table size="small" sx={{ minWidth: isPlacementBatch ? 940 : 700 }}>
+                    <TableHead>
+                        <TableRow>
+                            {headersList.map((header) => (
+                                <TableCell key={header} sx={{ bgcolor: 'rgba(10,61,98,0.06)', fontWeight: 900, color: colorPalette.deepNavy, whiteSpace: 'nowrap' }}>
+                                    {header}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {sampleRows.slice(0, compact ? 1 : sampleRows.length).map((row, index) => (
+                            <TableRow key={`${sampleLabel}-${index}`}>
+                                {headersList.map((header) => (
+                                    <TableCell key={header} sx={{ color: '#334155', whiteSpace: 'nowrap', fontSize: compact ? '0.78rem' : '0.84rem' }}>
+                                        {row[header]}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Box>
+    );
+
+    // ─── Batch registration ─────────────────────────────────────────
     return (
         <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: '1200px', margin: 'auto' }}>
             <Paper elevation={0} sx={surfaceSx}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
                     <Box>
                         <Typography variant="h5" fontWeight={800} color={colorPalette.deepNavy} gutterBottom>
-                            Batch User Registration
+                            {batchConfig.title}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Upload your table for batch user registration. You can edit information directly in the table before final submission.
+                            {batchConfig.subtitle}
                         </Typography>
                     </Box>
-                    <Button variant="outlined" onClick={() => setMode(null)} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, borderRadius: 2, textTransform: 'none', fontWeight: 800 }}>
+                    <Button variant="outlined" onClick={handleBackFromBatch} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, borderRadius: 2, textTransform: 'none', fontWeight: 800 }}>
                         Back
                     </Button>
                 </Stack>
+
+                {isPlacementBatch && (
+                    <Box sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)' }}>
+                        <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy} sx={{ mb: 1.5 }}>
+                            Batch placement type
+                        </Typography>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                            {placementRoleOptions.map((option) => {
+                                const selected = activeBatchRole === option.role;
+                                return (
+                                    <Button
+                                        key={option.role}
+                                        variant={selected ? 'contained' : 'outlined'}
+                                        onClick={() => {
+                                            setBatchRole(option.role);
+                                            setData([]);
+                                            setError('');
+                                            setSuccess('');
+                                        }}
+                                        sx={{
+                                            justifyContent: 'flex-start',
+                                            borderRadius: 2,
+                                            py: 1.3,
+                                            px: 2,
+                                            textTransform: 'none',
+                                            fontWeight: 800,
+                                            flex: 1,
+                                            bgcolor: selected ? colorPalette.deepNavy : '#fff',
+                                            color: selected ? '#fff' : colorPalette.deepNavy,
+                                            '&:hover': {
+                                                bgcolor: selected ? colorPalette.deepNavy : 'rgba(10,61,98,0.04)',
+                                            },
+                                        }}
+                                    >
+                                        <Stack alignItems="flex-start" spacing={0.2}>
+                                            <Typography fontWeight={900}>{option.title}</Typography>
+                                            <Typography variant="caption" sx={{ color: selected ? 'rgba(255,255,255,0.76)' : 'text.secondary', textAlign: 'left' }}>
+                                                {option.desc}
+                                            </Typography>
+                                        </Stack>
+                                    </Button>
+                                );
+                            })}
+                        </Stack>
+                    </Box>
+                )}
 
                 <Box sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.20)' }}>
                     <Grid container spacing={2} alignItems="center">
@@ -664,10 +938,10 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 Required upload format
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1, lineHeight: 1.7 }}>
-                                Your Table must include these header columns in the first row:
+                                {batchConfig.guideIntro} Your table must include these header columns in the first row:
                             </Typography>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
-                                {['Staff No', 'Type', 'Full Name', 'Email', 'Phone', 'Station', 'Department'].map((col) => (
+                                {headersList.map((col) => (
                                     <Box
                                         key={col}
                                         sx={{ px: 1.5, py: 0.6, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.06)', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
@@ -677,7 +951,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 ))}
                             </Stack>
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                For batch registration, only employee or staff accounts are accepted. <strong>Staff No</strong> will be the one used to log in to the portal. In the <strong>Type</strong> column enter only <em>staff</em> or <em>employee</em>. The <strong>No.</strong> column will be automatically generated to count the number of employees, Therefore, do not include it in your table. <strong>Phone </strong>number must be in international format i.e 2547...
+                                {batchConfig.guideNote}
                             </Typography>
                         </Grid>
                         <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
@@ -686,7 +960,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 <Button
                                     variant="outlined"
                                     component="span"
-                                    disabled={loading}
+                                    disabled={loading || (isPlacementBatch && !activeBatchRole)}
                                     startIcon={loading ? <CircularProgress size={15} color="inherit" /> : <CloudUpload />}
                                     sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                                 >
@@ -698,6 +972,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                             </Button>
                         </Grid>
                     </Grid>
+                    {renderSampleTable({ compact: true })}
                 </Box>
 
                 {data.length > 0 && (
@@ -753,7 +1028,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                 {/* Dialogs for batch (unchanged) */}
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
                     <DialogTitle sx={{ bgcolor: '#eef6ff', color: '#0f172a', fontWeight: 800, px: 4, py: 3 }}>
-                        Staff Registration Complete
+                        {activeBatchRoleLabel} Registration Complete
                     </DialogTitle>
                     <DialogContent dividers sx={{ p: 4, bgcolor: '#f8fbff' }}>
                         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
@@ -803,8 +1078,14 @@ const BatchRegistration = ({ readOnly = false }) => {
                         </Typography>
                         {hasValidationErrors && (
                             <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+                                {invalidIdRows.length > 0 && `${invalidIdRows.length} missing ${batchConfig.idHeader} value(s). `}
+                                {invalidNameRows.length > 0 && `${invalidNameRows.length} missing name(s). `}
                                 {invalidPhoneRows.length > 0 && `${invalidPhoneRows.length} invalid phone number(s). `}
                                 {invalidEmailRows.length > 0 && `${invalidEmailRows.length} invalid email address(es). `}
+                                {invalidStationRows.length > 0 && `${invalidStationRows.length} missing station value(s). `}
+                                {invalidDepartmentRows.length > 0 && `${invalidDepartmentRows.length} missing department value(s). `}
+                                {invalidStartRows.length > 0 && `${invalidStartRows.length} invalid start date(s). `}
+                                {invalidEndRows.length > 0 && `${invalidEndRows.length} invalid end date(s). `}
                                 Correct all highlighted fields before registration.
                             </Alert>
                         )}
@@ -820,15 +1101,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {[
-                                        { col: 'Staff No', desc: 'Organization-issued staff number i.e T001' },
-                                        { col: 'Type', desc: 'Staff / Employee only' },
-                                        { col: 'Full Name', desc: 'Employee or Staff Full Name' },
-                                        { col: 'Email', desc: 'Valid email address' },
-                                        { col: 'Phone', desc: 'Phone number in international format i.e 2547...' },
-                                        { col: 'Station', desc: 'Work station assignment' },
-                                        { col: 'Department', desc: 'Assigned department' },
-                                    ].map((row) => (
+                                    {uploadGuideRows.map((row) => (
                                         <TableRow key={row.col}>
                                             <TableCell sx={{ fontWeight: 700 }}>{row.col}</TableCell>
                                             <TableCell>{row.desc}</TableCell>
@@ -837,8 +1110,10 @@ const BatchRegistration = ({ readOnly = false }) => {
                                 </TableBody>
                             </Table>
                         </TableContainer>
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                        {renderSampleTable()}
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, lineHeight: 1.7 }}>
                             The file header must exactly include these columns in the first row. Any missing required column will prevent upload. Make sure the file is formatted as a valid Excel or CSV file before choosing it.
+                            {isPlacementBatch ? ' Select Intern or Attaché on the batch page before uploading so every row is registered with the correct placement type.' : ''}
                         </Typography>
                     </DialogContent>
                     <DialogActions sx={{ px: 4, py: 3, bgcolor: '#eff6ff' }}>
@@ -856,6 +1131,15 @@ const BatchRegistration = ({ readOnly = false }) => {
                         <Typography variant="body1" color="#991b1b" sx={{ mb: 2 }}>
                             {error || 'An unexpected error occurred while registering users.'}
                         </Typography>
+                        {batchErrors.length > 0 && (
+                            <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 2, p: 1.5, borderRadius: 2, bgcolor: '#fff', border: '1px solid rgba(153,27,27,0.12)' }}>
+                                {batchErrors.map((item, index) => (
+                                    <Typography key={`${item}-${index}`} variant="body2" sx={{ color: '#7f1d1d', mb: 0.7, fontWeight: 600 }}>
+                                        {item}
+                                    </Typography>
+                                ))}
+                            </Box>
+                        )}
                         <Typography variant="body2" color="text.secondary">
                             Please fix the issue and try again. If the problem persists, contact your administrator.
                         </Typography>
@@ -881,7 +1165,9 @@ const BatchRegistration = ({ readOnly = false }) => {
                                         border: '1px solid rgba(245,158,11,0.25)',
                                     }}
                                 >
-                                    {invalidPhoneRows.length} record {invalidPhoneRows.length > 1 ? 's' : ''} contain invalid phone numbers. All phone numbers must begin with <strong> 254 </strong> before registration can continue.
+                                    Correct the highlighted fields before registration can continue.
+                                    {invalidPhoneRows.length > 0 && <> All phone numbers must begin with <strong>254</strong>.</>}
+                                    {isPlacementBatch && invalidEndRows.length > 0 && <> Placement end dates must be valid and not earlier than start dates.</>}
                                 </Alert>
                             )}
                             <TableContainer
@@ -914,33 +1200,24 @@ const BatchRegistration = ({ readOnly = false }) => {
                                             <TableRow key={index} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                                 <TableCell sx={{ minWidth: 60, fontWeight: 700 }}>{index + 1}</TableCell>
                                                 {headersList.map((field) => {
-                                                    const invalidPhone = field === 'Phone' && !isValidPhone(row.Phone);
-                                                    const invalidEmail = field === 'Email' && !isValidEmail(row.Email);
-                                                    const hasError = invalidPhone || invalidEmail;
+                                                    const errorMessage = getBatchCellError(row, field);
+                                                    const hasError = !!errorMessage;
                                                     return (
                                                         <TableCell
                                                             key={field}
                                                             sx={{
                                                                 minWidth: 150,
-                                                                bgcolor: invalidPhone ? 'rgba(245,158,11,0.08)' : 'transparent',
+                                                                bgcolor: hasError ? 'rgba(245,158,11,0.08)' : 'transparent',
                                                                 transition: '0.2s',
                                                             }}
                                                         >
                                                             <Box>
-                                                                {invalidPhone && (
+                                                                {hasError && (
                                                                     <Typography
                                                                         variant="caption"
                                                                         sx={{ display: 'block', color: '#b45309', fontSize: '0.65rem', fontWeight: 700, mb: 0.4 }}
                                                                     >
-                                                                        Begin with 254 e.g. 254712345678
-                                                                    </Typography>
-                                                                )}
-                                                                {invalidEmail && (
-                                                                    <Typography
-                                                                        variant="caption"
-                                                                        sx={{ display: 'block', color: '#b45309', fontSize: '0.65rem', fontWeight: 700, mb: 0.4 }}
-                                                                    >
-                                                                        Invalid email format
+                                                                        {errorMessage}
                                                                     </Typography>
                                                                 )}
                                                                 <TextField
@@ -949,6 +1226,7 @@ const BatchRegistration = ({ readOnly = false }) => {
                                                                     onChange={(e) => handleCellEdit(index, field, e.target.value)}
                                                                     error={hasError}
                                                                     fullWidth
+                                                                    type={['Start Date', 'End Date'].includes(field) ? 'date' : 'text'}
                                                                     InputProps={{
                                                                         disableUnderline: true,
                                                                         sx: {
@@ -978,10 +1256,10 @@ const BatchRegistration = ({ readOnly = false }) => {
                                     startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PeopleRounded />}
                                     onClick={handleBatchUpload}
                                     disabled={loading || readOnly || hasValidationErrors}
-                                    sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 600, boxShadow: 3 }}
-                                >
-                                    {loading ? 'Processing...' : `Register ${data.length} Employees`}
-                                </Button>
+	                                    sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 600, boxShadow: 3 }}
+	                                >
+	                                    {loading ? 'Processing...' : `Register ${data.length} ${data.length === 1 ? batchConfig.singular : batchConfig.plural}`}
+	                                </Button>
                             </Box>
                         </Box>
                     </Fade>

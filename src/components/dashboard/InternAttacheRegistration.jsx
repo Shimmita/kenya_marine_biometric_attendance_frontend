@@ -2,6 +2,7 @@ import {
     ArrowBack,
     ArrowForward,
     CheckCircle,
+    CloudUpload,
     PersonAdd,
 } from '@mui/icons-material';
 import {
@@ -14,9 +15,8 @@ import {
     Stack,
     Typography,
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import React, { useCallback, useMemo, useState } from 'react';
-import api from '../../service/Api';
 import coreDataDetails from '../CoreDataDetails';
 import { getLocalDateInputValue } from '../util/DateTimeFormater';
 import {
@@ -27,6 +27,7 @@ import {
     WorkDetailsStep,
 } from "../util/RegistrationUtils";
 import { registerUser } from '../auth/Register';
+import BatchRegistration from './BatchRegistration';
 
 const { colorPalette } = coreDataDetails;
 
@@ -83,7 +84,7 @@ const StepProgress = React.memo(({ current, total, steps }) => (
                     const active = i === current;
                     return (
                         <Stack key={step.id} alignItems="center" spacing={0.8} sx={{ flex: 1 }}>
-                            <motion.div
+                            <Motion.div
                                 animate={{ scale: active ? 1.15 : 1 }}
                                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
                                 <Box sx={{
@@ -108,7 +109,7 @@ const StepProgress = React.memo(({ current, total, steps }) => (
                                           </Typography>
                                     }
                                 </Box>
-                            </motion.div>
+                            </Motion.div>
                             <Typography variant="caption" fontWeight={active ? 800 : 600} sx={{
                                 fontSize: '0.60rem',
                                 color: active ? colorPalette.oceanBlue : done ? colorPalette.deepNavy : 'text.disabled',
@@ -171,6 +172,7 @@ const DefaultPasswordNotice = () => (
 
 /* ══ MAIN COMPONENT ═════════════════════════════════════════════════════════ */
 const InternAttacheRegistration = ({ readOnly = false }) => {
+    const [mode,       setMode]       = useState(null);
     const [step,       setStep]       = useState(0);
     const [direction,  setDirection]  = useState(1);
     const [processing, setProcessing] = useState(false);
@@ -330,11 +332,115 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
             default:
                 return null;
         }
-    }, [step, formData, errors, handle]);
+    }, [step, formData, errors, handle, isEmployee]);
 
     /* ── Render ─────────────────────────────────────────────────────────── */
+    if (mode === null) {
+        return (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ p: { xs: 1, md: 2 }, maxWidth: 1000, mx: 'auto' }}>
+                <Motion.div
+                    style={{ willChange: 'transform, opacity', flex: 1 }}
+                    initial={{ opacity: 0, x: 32, scale: 0.96 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 24, scale: 0.97 }}
+                    transition={{ duration: 1, ease: [0.4, 0, 0.2, 1] }}
+                >
+                    <Card
+                        variant="outlined"
+                        sx={{
+                            p: 3,
+                            height: '100%',
+                            cursor: 'pointer',
+                            borderRadius: 3,
+                            border: `1px solid ${colorPalette.oceanBlue}24`,
+                            bgcolor: 'rgba(255,255,255,0.82)',
+                            boxShadow: '0 18px 44px rgba(10,61,98,0.08)',
+                            transition: '0.2s',
+                            '&:hover': { borderColor: colorPalette.oceanBlue, bgcolor: 'rgba(255,255,255,0.94)' },
+                        }}
+                        onClick={() => setMode('single')}
+                    >
+                        <Stack alignItems="center" spacing={1}>
+                            <PersonAdd sx={{ fontSize: 48, color: colorPalette.oceanBlue }} />
+                            <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>
+                                Single Registration
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" align="center">
+                                Register one intern or attaché using the existing guided form.
+                            </Typography>
+                            <Box display="flex" justifyContent="center" mt={2}>
+                                <Button endIcon={<ArrowForward />} disableElevation sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 800, color: colorPalette.oceanBlue }}>
+                                    Continue
+                                </Button>
+                            </Box>
+                        </Stack>
+                    </Card>
+                </Motion.div>
+
+                <Motion.div
+                    style={{ willChange: 'transform, opacity', flex: 1 }}
+                    initial={{ opacity: 0, x: 32, scale: 0.96 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 24, scale: 0.97 }}
+                    transition={{ duration: 1, ease: [0.4, 0, 0.2, 1] }}
+                >
+                    <Card
+                        variant="outlined"
+                        sx={{
+                            p: 3,
+                            height: '100%',
+                            cursor: 'pointer',
+                            borderRadius: 3,
+                            border: `1px solid ${colorPalette.seafoamGreen}44`,
+                            bgcolor: 'rgba(255,255,255,0.82)',
+                            boxShadow: '0 18px 44px rgba(10,61,98,0.08)',
+                            transition: '0.2s',
+                            '&:hover': { borderColor: colorPalette.seafoamGreen, bgcolor: 'rgba(255,255,255,0.94)' },
+                        }}
+                        onClick={() => setMode('batch')}
+                    >
+                        <Stack alignItems="center" spacing={1}>
+                            <CloudUpload sx={{ fontSize: 48, color: colorPalette.seafoamGreen }} />
+                            <Typography variant="h6" fontWeight={800} color={colorPalette.deepNavy}>
+                                Batch Registration
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" align="center">
+                                Upload an editable Excel or CSV file for multiple interns or attachés.
+                            </Typography>
+                            <Box display="flex" justifyContent="center" mt={2}>
+                                <Button endIcon={<ArrowForward />} disableElevation sx={{ borderRadius: 2, px: 4, textTransform: 'none', fontWeight: 800, color: colorPalette.seafoamGreen }}>
+                                    Continue
+                                </Button>
+                            </Box>
+                        </Stack>
+                    </Card>
+                </Motion.div>
+            </Stack>
+        );
+    }
+
+    if (mode === 'batch') {
+        return (
+            <BatchRegistration
+                readOnly={readOnly}
+                registrationKind="placement"
+                initialMode="batch"
+                showModeSelection={false}
+                onBack={() => setMode(null)}
+            />
+        );
+    }
+
     return (
         <Box>
+            <Button
+                variant="outlined"
+                onClick={() => setMode(null)}
+                startIcon={<ArrowBack sx={{ fontSize: '1rem !important' }} />}
+                sx={{ mb: 2, borderRadius: '14px', textTransform: 'none', fontWeight: 800 }}
+            >
+                Back
+            </Button>
             {/* ── Two-column layout on wide screens ── */}
             <Box sx={{
                 display: 'grid',
@@ -382,7 +488,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
                         {/* Animated step */}
                         <Box sx={{ minHeight: 280, overflow: 'hidden', position: 'relative' }}>
                             <AnimatePresence mode="wait" custom={direction}>
-                                <motion.div
+                                <Motion.div
                                     key={step}
                                     custom={direction}
                                     variants={slideVariants}
@@ -392,7 +498,7 @@ const InternAttacheRegistration = ({ readOnly = false }) => {
                                     transition={{ duration: 0.30, ease: [0.4, 0, 0.2, 1] }}
                                 >
                                     {renderStep}
-                                </motion.div>
+                                </Motion.div>
                             </AnimatePresence>
                         </Box>
 

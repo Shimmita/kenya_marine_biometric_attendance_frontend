@@ -14,7 +14,7 @@ import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import FingerprintRoundedIcon from "@mui/icons-material/FingerprintRounded";
 import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
-import PersonAddRoundedIcon from "@mui/icons-material/PersonAddRounded";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 
 const cardStyle = {
@@ -40,6 +40,19 @@ const StatusChip = ({ value, trueLabel = "Enabled", falseLabel = "Disabled" }) =
         label={value ? trueLabel : falseLabel}
     />
 );
+
+const formatConfigDateTime = (value) => {
+    if (!value) return "Not set";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not set";
+
+    return date.toLocaleString("en-KE", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
 
 const ConfigurationCard = ({ configuration }) => {
 
@@ -212,7 +225,7 @@ const ConfigurationCard = ({ configuration }) => {
 
                 </Box>
 
-                {/* Self Registration */}
+                {/* Maintenance Window */}
 
                 <Box sx={rowStyle}>
 
@@ -222,21 +235,23 @@ const ConfigurationCard = ({ configuration }) => {
                         alignItems="center"
                     >
 
-                        <PersonAddRoundedIcon
+                        <EventAvailableRoundedIcon
                             color="primary"
                             fontSize="small"
                         />
 
                         <Typography>
 
-                            Self Registration
+                            Auto Restore
 
                         </Typography>
 
                     </Stack>
 
-                    <StatusChip
-                        value={configuration.selfRegistration}
+                    <Chip
+                        size="small"
+                        variant="outlined"
+                        label={formatConfigDateTime(configuration.maintenanceEndAt)}
                     />
 
                 </Box>

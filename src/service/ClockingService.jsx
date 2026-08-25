@@ -60,6 +60,15 @@ export const fetchAttendanceStats = async () => {
   }
 };
 
+export const fetchTodayHoliday = async () => {
+  try {
+    const res = await api.get("/holidays/today");
+    return res.data;
+  } catch (err) {
+    throw err.response?.data?.message || "Failed to fetch holiday status";
+  }
+};
+
 //for overall org
 export const fetchOverallOrgStats = async (params = {}) => {
   try {
@@ -80,7 +89,7 @@ export const fetchOverallOrgStats = async (params = {}) => {
 };
 
 // fetch dept stats
-export const fetchDepartmentStats = async (department) => {
+export const fetchDepartmentStats = async () => {
   try {
     const res = await api.get(`/supervisor/department/stats`);
     return res.data;

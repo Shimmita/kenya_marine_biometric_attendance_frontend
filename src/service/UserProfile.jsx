@@ -54,3 +54,17 @@ export const updateUserProfile = async ({ phone, newPassword, avatarFile }) => {
         throw err.response?.data?.message || "Profile update failed";
     }
 };
+
+export const completeRequiredPasswordReset = async ({ newPassword, confirmPassword }) => {
+    try {
+        const res = await api.put("/user/password/required-reset", {
+            newPassword,
+            confirmPassword,
+        });
+
+        return res.data.user;
+    } catch (err) {
+        console.log(err);
+        throw err.response?.data?.message || "Password update failed";
+    }
+};

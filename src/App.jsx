@@ -6,6 +6,7 @@ import api from "./service/Api";
 const HomeLanding = lazy(() => import("./components/BodyLanding"));
 const DashboardHome = lazy(() => import("./components/Dashboard"));
 const AuthCheck = lazy(() => import("./components/auth/AuthCheck"));
+const MaintenanceModePage = lazy(() => import("./components/MaintenanceModePage"));
 const ResetPasswordPage = lazy(() => import("./components/ResetPasswordPage"));
 const VerifyDocument = lazy(() => import("./components/VerifyDocument"));
 
@@ -87,6 +88,10 @@ function App() {
             <Route
               path="/reset-password"
               element={<ResetPasswordPage />}
+            />
+            <Route
+              path="/maintenance"
+              element={<MaintenanceModePage />}
             />
           </Routes>
         </Suspense>
