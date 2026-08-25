@@ -23,9 +23,9 @@ import {
     useMediaQuery,
     useTheme
 } from "@mui/material";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
 import {
     deleteUser,
@@ -83,15 +83,6 @@ export const C = {
 /* ─────────────────────────────────────────────
    SHARED STYLE HELPERS
 ───────────────────────────────────────────── */
-const glassCard = (elevated = false) => ({
-    background: C.glassBg,
-    borderRadius: "16px",
-    willChange: 'transform',
-    boxShadow: elevated
-        ? "0 12px 36px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.1)"
-        : "0 6px 22px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.07)",
-});
-
 const selectSx = {
     color: C.ink,
     willChange: 'transform',
@@ -133,6 +124,13 @@ const RANK_ACCENT = {
 
 const { availableDepartments, AvailableStations, ROLE_OPTIONS, RANK_OPTIONS } = coreDataDetails;
 
+const normalizeStationName = (value = "") =>
+    String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\bcenter\b/g, "centre");
+
 
 
 
@@ -144,24 +142,15 @@ export const FilterBar = ({
     departmentFilter, setDepartmentFilter,
     stationFilter, setStationFilter,
     totalCount, filteredCount,
+    isStationScopedHr = false,
+    currentStation = "",
 }) => {
-    const hasFilters = searchTerm || rankFilter || roleFilter || statusFilter || departmentFilter || stationFilter;
-
     const fieldLabelSx = {
         mb: 0.7,
         fontSize: 11,
         fontWeight: 900,
         color: C.muted,
         letterSpacing: 0,
-    };
-
-    const clearFilters = () => {
-        setSearchTerm("");
-        setRankFilter("");
-        setRoleFilter("");
-        setStatusFilter("");
-        setDepartmentFilter("");
-        setStationFilter("");
     };
 
     return (
@@ -181,7 +170,9 @@ export const FilterBar = ({
                     gridTemplateColumns: {
                         xs: "1fr",
                         sm: "repeat(2, minmax(190px, 1fr))",
-                        lg: "minmax(280px, 1.65fr) repeat(5, minmax(128px, 0.75fr)) minmax(132px, 0.62fr)",
+                        lg: isStationScopedHr
+                            ? "minmax(280px, 1.65fr) repeat(4, minmax(128px, 0.75fr)) minmax(170px, 0.78fr)"
+                            : "minmax(280px, 1.65fr) repeat(5, minmax(128px, 0.75fr)) minmax(132px, 0.62fr)",
                     },
                     gap: 1,
                     alignItems: "end",
@@ -272,15 +263,37 @@ export const FilterBar = ({
                 </Box>
 
                 <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={fieldLabelSx}>Station</Typography>
-                    <FormControl fullWidth size="small">
-                        <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="">All</MenuItem>
-                            {AvailableStations.map((station) => (
-                                <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    <Typography sx={fieldLabelSx}>{isStationScopedHr ? "Station Scope" : "Station"}</Typography>
+                    {isStationScopedHr ? (
+                        <Box
+                            sx={{
+                                minHeight: 42,
+                                display: "flex",
+                                alignItems: "center",
+                                px: 1.4,
+                                borderRadius: "8px",
+                                bgcolor: "rgba(17,103,232,0.06)",
+                                border: `1px solid rgba(17,103,232,0.18)`,
+                                color: C.ink,
+                                fontSize: "0.82rem",
+                                fontWeight: 900,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            {currentStation || "Assigned station"}
+                        </Box>
+                    ) : (
+                        <FormControl fullWidth size="small">
+                            <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value="">All</MenuItem>
+                                {AvailableStations.map((station) => (
+                                    <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
                 </Box>
             </Box>
 
@@ -450,6 +463,10 @@ export const UserManagementShell = ({ children }) => (
 const UserManagementContent = ({ readOnly = false }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+    const currentUser = useSelector((state) => state.currentUser.user);
+    const currentUserRank = String(currentUser?.rank || "").toLowerCase();
+    const isStationScopedHr =
+        currentUserRank === "hr" && normalizeStationName(currentUser?.station) !== "mombasa centre";
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -811,7 +828,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                 <UserManagementHeader onAction={clearAllFilters} />
                 <UserSummaryCards users={users} />
                 {/* Filter Bar */}
-                <motion.div style={{ willChange: 'transform, opacity' }}
+                <Motion.div style={{ willChange: 'transform, opacity' }}
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.28 }}>
                     <FilterBar
@@ -824,18 +841,20 @@ const UserManagementContent = ({ readOnly = false }) => {
                         totalCount={users.length}
                         filteredCount={filteredUsers.length}
                         isMobile={isMobile}
+                        isStationScopedHr={isStationScopedHr}
+                        currentStation={currentUser?.station || ""}
                     />
-                </motion.div>
+                </Motion.div>
 
                 {/* Empty state */}
                 {filteredUsers.length === 0 && (
-                    <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <Motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                         <Box sx={{ p: 5, textAlign: "center", borderRadius: "8px", bgcolor: "#FFFFFF", border: `1px solid ${C.line}`, boxShadow: C.cardShadow }}>
                             <Typography sx={{ color: C.muted, fontWeight: 800, fontSize: "0.9rem" }}>
                                 No users match your current filters
                             </Typography>
                         </Box>
-                    </motion.div>
+                    </Motion.div>
                 )}
 
 

@@ -33,13 +33,13 @@ const { colorPalette } = coreDataDetails;
 const G = {
     card: {
         background: '#fff',
-        border: '1px solid rgba(10,61,98,0.09)',
-        boxShadow: '0 8px 24px rgba(10,61,98,0.07)',
+        border: '1px solid rgba(148,163,184,0.18)',
+        boxShadow: '0 14px 34px rgba(15,23,42,0.06)',
     },
     subtleCard: {
-        background: 'rgba(255,255,255,0.88)',
-        border: '1px solid rgba(10,61,98,0.08)',
-        boxShadow: '0 4px 18px rgba(10,61,98,0.05)',
+        background: '#fff',
+        border: '1px solid rgba(148,163,184,0.18)',
+        boxShadow: '0 10px 24px rgba(15,23,42,0.05)',
     },
     input: {
         '& .MuiOutlinedInput-root': {
@@ -167,7 +167,7 @@ const ChartSection = ({ history }) => {
             <Grid container spacing={2.5}>
 
                 {/* ── Bar: Daily Hours (last 14 days) ── */}
-                <Grid item xs={12} lg={8}>
+                <Grid item xs={12} xl={6}>
                     <Reveal delay={0.07}>
                         <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
                             <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1} mb={0.5}>
@@ -211,7 +211,7 @@ const ChartSection = ({ history }) => {
                 </Grid>
 
                 {/* ── Stacked Area: Punctuality trend ── */}
-                <Grid item xs={12} md={7}>
+                <Grid item xs={12} md={6} xl={3}>
                     <Reveal delay={0.12}>
                         <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
                             <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
@@ -245,7 +245,7 @@ const ChartSection = ({ history }) => {
                 </Grid>
 
                 {/* ── Bar: Monthly total hours ── */}
-                <Grid item xs={12} md={5}>
+                <Grid item xs={12} md={6} xl={3}>
                     <Reveal delay={0.17}>
                         <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 }, height: '100%' }}>
                             <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
@@ -290,6 +290,7 @@ const MetricTile = ({ icon, label, value, detail, accent = colorPalette.oceanBlu
         ...G.card,
         p: { xs: 1.8, md: 2 },
         height: "100%",
+        minHeight: 118,
         borderRadius: "8px",
         borderColor: "rgba(10,61,98,0.10)",
         boxShadow: "0 4px 18px rgba(10,61,98,0.06)",
@@ -365,15 +366,15 @@ const getPremiseChipSx = (premise) => ({
 });
 
 const RecordMobileCard = ({ row }) => (
-    <Box sx={{ ...G.subtleCard, borderRadius: '8px', p: 1.6 }}>
-        <Stack spacing={1.3}>
+    <Box sx={{ ...G.subtleCard, borderRadius: '8px', p: 1.7 }}>
+        <Stack spacing={1.5}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                 <Box>
                     <Typography variant="subtitle2" fontWeight={900} color={colorPalette.deepNavy}>
                         {row.date}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {row.clockIn} to {row.clockOut}
+                    <Typography variant="caption" color="text.secondary" fontWeight={750}>
+                        Personal attendance record
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={0.6} flexWrap="wrap" justifyContent="flex-end">
@@ -381,6 +382,28 @@ const RecordMobileCard = ({ row }) => (
                     <Chip size="small" icon={<LocationOnRounded sx={{ fontSize: '0.88rem !important' }} />} label={row.premise} sx={getPremiseChipSx(row.premise)} />
                 </Stack>
             </Stack>
+
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 1,
+                }}
+            >
+                {[
+                    ['Clock In', row.clockIn],
+                    ['Clock Out', row.clockOut],
+                ].map(([label, value]) => (
+                    <Box key={label} sx={{ p: 1.2, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.04)', border: '1px solid rgba(10,61,98,0.06)' }}>
+                        <Typography variant="caption" fontWeight={900} color="text.disabled" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0 }}>
+                            {label}
+                        </Typography>
+                        <Typography variant="body2" fontWeight={900} color={colorPalette.deepNavy} sx={{ mt: 0.25, fontVariantNumeric: 'tabular-nums' }}>
+                            {value}
+                        </Typography>
+                    </Box>
+                ))}
+            </Box>
 
             <Grid container spacing={1.2}>
                 {[
@@ -902,13 +925,32 @@ export default function AttendanceHistoryContent() {
     };
 
     return (
-        <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', position: 'relative' }}>
+        <Box
+            sx={{
+                width: '100%',
+                maxWidth: 1600,
+                mx: 'auto',
+                px: { xs: 1, sm: 2, lg: 3 },
+                py: { xs: 1, sm: 2 },
+                position: 'relative',
+            }}
+        >
             <Snackbar open={snack.open} autoHideDuration={5000} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert severity={snack.severity} variant="filled" elevation={6} onClose={() => setSnack(s => ({ ...s, open: false }))} sx={{ borderRadius: '14px', fontWeight: 700, backdropFilter: 'blur(16px)' }}>{snack.message}</Alert>
             </Snackbar>
 
             <Reveal>
-                <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.6 }, mb: 2.5, position: 'relative', zIndex: 1 }}>
+                <Box
+                    sx={{
+                        ...G.card,
+                        borderRadius: '8px',
+                        p: { xs: 2, md: 2.6 },
+                        mb: 2.5,
+                        position: 'relative',
+                        zIndex: 1,
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f4fbff 54%, #f7fbf8 100%)',
+                    }}
+                >
                     <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" spacing={2}>
                         <Stack direction="row" spacing={1.4} alignItems="flex-start" sx={{ minWidth: 0 }}>
                             <Box sx={{ width: 42, height: 42, borderRadius: "8px", bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -927,12 +969,12 @@ export default function AttendanceHistoryContent() {
                             </Box>
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
-                            <Button variant="outlined" startIcon={<Refresh sx={{ fontSize: '1rem' }} />} onClick={loadData} disabled={loading} fullWidth
-                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: '#fff', borderColor: 'rgba(10,61,98,0.18)', color: colorPalette.deepNavy, whiteSpace: 'nowrap', '&:hover': { borderColor: colorPalette.oceanBlue } }}>
+                            <Button variant="outlined" startIcon={<Refresh sx={{ fontSize: '1rem' }} />} onClick={loadData} disabled={loading}
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: '#fff', borderColor: 'rgba(10,61,98,0.18)', color: colorPalette.deepNavy, whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' }, minHeight: 42, '&:hover': { borderColor: colorPalette.oceanBlue } }}>
                                 Refresh
                             </Button>
-                            <Button variant="contained" startIcon={exporting ? <CircularProgress size={14} sx={{ color: 'white' }} /> : <Download />} onClick={handleExportPDF} disabled={exporting || historyLoading} fullWidth
-                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: colorPalette.oceanGradient, boxShadow: `0 6px 18px ${colorPalette.oceanBlue}30`, whiteSpace: 'nowrap', '&:hover': { boxShadow: `0 8px 24px ${colorPalette.oceanBlue}40` }, transition: 'all 0.22s' }}>
+                            <Button variant="contained" startIcon={exporting ? <CircularProgress size={14} sx={{ color: 'white' }} /> : <Download />} onClick={handleExportPDF} disabled={exporting || historyLoading}
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', background: colorPalette.oceanGradient, boxShadow: `0 6px 18px ${colorPalette.oceanBlue}30`, whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' }, minHeight: 42, '&:hover': { boxShadow: `0 8px 24px ${colorPalette.oceanBlue}40` }, transition: 'all 0.22s' }}>
                                 {exporting ? 'Generating...' : 'Export Records PDF'}
                             </Button>
                         </Stack>
@@ -957,29 +999,31 @@ export default function AttendanceHistoryContent() {
                             Reset Filters
                         </Button>
                     </Stack>
-                    <Grid container spacing={1.5}>
-                        <Grid item xs={12} md={6} lg={3.6}>
-                            <TextField fullWidth size="small" label="Search records" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(0); }} sx={G.input}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment> }} />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3} lg={1.8}>
-                            <TextField fullWidth size="small" type="date" label="From" value={filterStartDate} onChange={e => { setFilterStartDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3} lg={1.8}>
-                            <TextField fullWidth size="small" type="date" label="To" value={filterEndDate} onChange={e => { setFilterEndDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
-                        </Grid>
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: 'repeat(2, minmax(0, 1fr))',
+                                lg: 'minmax(260px, 1.4fr) repeat(5, minmax(150px, 1fr))',
+                            },
+                            gap: 1.5,
+                        }}
+                    >
+                        <TextField fullWidth size="small" label="Search records" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(0); }} sx={G.input}
+                            InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment> }} />
+                        <TextField fullWidth size="small" type="date" label="From" value={filterStartDate} onChange={e => { setFilterStartDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
+                        <TextField fullWidth size="small" type="date" label="To" value={filterEndDate} onChange={e => { setFilterEndDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
                         {[
                             { label: 'Timing', val: filterTiming, set: setFilterTiming, items: ['All', 'Early', 'Late'] },
                             { label: 'Premise', val: filterPremise, set: setFilterPremise, items: ['All', 'In Premise', 'Off Premise'] },
-                            { label: 'Clock-out', val: filterClockOut, set: setFilterClockOut, items: ['All', 'Completed', 'System Closed', 'Open'] },
+                            // { label: 'Clock-out', val: filterClockOut, set: setFilterClockOut, items: ['All', 'Completed', 'System Closed', 'Open'] },
                         ].map(({ label, val, set, items }) => (
-                            <Grid item xs={12} sm={6} md={4} lg={1.6} key={label}>
-                                <TextField select fullWidth size="small" label={label} value={val} onChange={e => { set(e.target.value); setPage(0); }} sx={G.input}>
-                                    {items.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-                                </TextField>
-                            </Grid>
+                            <TextField key={label} select fullWidth size="small" label={label} value={val} onChange={e => { set(e.target.value); setPage(0); }} sx={G.input}>
+                                {items.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                            </TextField>
                         ))}
-                    </Grid>
+                    </Box>
                     {activeFilterChips.length > 0 && (
                         <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
                             {activeFilterChips.map((item) => (
@@ -996,20 +1040,25 @@ export default function AttendanceHistoryContent() {
             </Reveal>
 
             <Reveal delay={0.04}>
-                <Grid container spacing={2} sx={{ mb: 3, position: "relative", zIndex: 1 }}>
-                    <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<WorkHistoryRounded />} label="Monthly Attendance" value={loading ? "..." : safe(stats?.monthly?.attendanceRate, "%")} detail={`${stats?.monthly?.presentDays ?? "—"} present days this month`} accent={colorPalette.oceanBlue} />
-                    </Grid>
-                    <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<AccessTimeRounded />} label="Hours Logged" value={`${personalMetrics.totalHours}h`} detail={`${personalMetrics.averageHours}h average per record`} accent="#0f766e" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<TaskAltRounded />} label="Clock-Out Completion" value={`${personalMetrics.completionRate}%`} detail={`${personalMetrics.completedRows} closed records`} accent="#2563eb" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} lg={3}>
-                        <MetricTile icon={<WarningAmberRounded />} label="Needs Review" value={personalMetrics.attentionRows} detail={`${personalMetrics.offPremiseRows} off-premise records`} accent="#dc2626" />
-                    </Grid>
-                </Grid>
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'repeat(2, minmax(0, 1fr))',
+                            xl: 'repeat(4, minmax(0, 1fr))',
+                        },
+                        gap: 2,
+                        mb: 3,
+                        position: 'relative',
+                        zIndex: 1,
+                    }}
+                >
+                    <MetricTile icon={<WorkHistoryRounded />} label="Monthly Attendance" value={loading ? "..." : safe(stats?.monthly?.attendanceRate, "%")} detail={`${stats?.monthly?.presentDays ?? "—"} present days this month`} accent={colorPalette.oceanBlue} />
+                    <MetricTile icon={<AccessTimeRounded />} label="Hours Logged" value={`${personalMetrics.totalHours}h`} detail={`${personalMetrics.averageHours}h average per record`} accent="#0f766e" />
+                    <MetricTile icon={<TaskAltRounded />} label="Clock-Out Completion" value={`${personalMetrics.completionRate}%`} detail={`${personalMetrics.completedRows} closed records`} accent="#2563eb" />
+                    <MetricTile icon={<WarningAmberRounded />} label="Needs Review" value={personalMetrics.attentionRows} detail={`${personalMetrics.offPremiseRows} off-premise records`} accent="#dc2626" />
+                </Box>
             </Reveal>
 
             <Reveal delay={0.06}>
@@ -1044,7 +1093,7 @@ export default function AttendanceHistoryContent() {
                     </Box>
 
                     <TableContainer sx={{ display: { xs: 'none', md: 'block' }, maxHeight: 620, overflowX: 'auto' }}>
-                        <Table stickyHeader size="small" sx={{ minWidth: 1040 }}>
+                        <Table stickyHeader size="small" sx={{ minWidth: 960 }}>
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
                                     {['Date', 'Clock In', 'Clock Out', 'Timing', 'Premise', 'In Location', 'Out Location', 'Why Out'].map(h => (

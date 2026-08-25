@@ -21,7 +21,7 @@ import {
     Tooltip,
     Typography
 } from "@mui/material";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
@@ -284,7 +284,8 @@ const UserCard = ({
     const [error, setError] = useState("");
     const dispatch = useDispatch();
     const { user: currentUser } = useSelector(s => s.currentUser);
-    const isCurrentUser = currentUser?._id === user._id;
+    const currentUserRank = String(currentUser?.rank || "").toLowerCase();
+    const canManageRank = currentUserRank === "superadmin";
 
     const [clockOutside, setClockOutside] = useState(user.canClockOutside ? "yes" : "no");
     const [openModal, setOpenModal] = useState(false);
@@ -368,7 +369,7 @@ const UserCard = ({
     };
 
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
@@ -498,9 +499,9 @@ const UserCard = ({
 
                     {/* ── Controls grid ── */}
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-end">
-                        {currentUser?.rank === 'admin' && <ControlField label="Rank" minWidth={128}>
+                        {canManageRank && <ControlField label="Rank" minWidth={128}>
                             <FormControl size="small" fullWidth>
-                                <Select disabled={currentUser?.rank !== 'admin' || readOnly} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                <Select disabled={!canManageRank || readOnly} value={user.rank} onChange={(e) => onRankChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
                                     {RANK_OPTIONS.map((r) => (
                                         <MenuItem key={r} value={r}>
                                             <Stack direction="row" alignItems="center" spacing={1}>
@@ -754,7 +755,7 @@ const UserCard = ({
             {/* Delete Confirmation Dialog */}
             <Dialog
                 open={deleteConfirmOpen}
-                onClose={(event, reason) => {
+                onClose={() => {
                     if (isDeleting) return;
                     setDeleteConfirmOpen(false);
                 }}
@@ -882,7 +883,7 @@ const UserCard = ({
                 setFormData={setFormData}
                 onSubmit={handleSubmit}
             />
-        </motion.div>
+        </Motion.div>
     );
 };
 

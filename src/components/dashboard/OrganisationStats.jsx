@@ -1337,6 +1337,72 @@ const OrganisationStats = ({ user, readOnly = false }) => {
         [biometricAnalytics, complianceAnalytics, earlyDepartureCount, kpis, lateToday, outsideClockingCount, referenceMetrics.openSessions, theme]
     );
 
+    const attendanceDistributionRows = useMemo(
+        () => [
+            { name: "Present", value: Number(kpis?.presentToday || 0), color: theme.success },
+            { name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
+            { name: "On Leave", value: Number(kpis?.onLeaveToday || 0), color: theme.warning },
+            { name: "Outside Duty", value: outsideClockingCount, color: theme.purple },
+        ].filter((item) => item.value > 0),
+        [kpis, outsideClockingCount, theme]
+    );
+
+    const attendanceQualityRows = useMemo(
+        () => [
+            { label: "Late Arrivals", value: lateToday, tone: theme.purple },
+            { label: "Early Departures", value: earlyDepartureCount, tone: theme.warning },
+            { label: "Missing Clock-ins", value: Number(complianceAnalytics?.totalMissingClockIns || 0), tone: theme.secondary },
+            { label: "Missing Clock-outs", value: Number(complianceAnalytics?.totalMissingClockOuts || 0), tone: theme.danger },
+        ],
+        [complianceAnalytics, earlyDepartureCount, lateToday, theme]
+    );
+
+    const attentionReviewRows = useMemo(
+        () => processedSummaryRows
+            .map((row) => ({
+                ...row,
+                score: Number(row.daysAbsent || 0) + (Number(row.attendanceRate || 0) < 80 ? 2 : 0),
+            }))
+            .filter((row) => row.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5),
+        [processedSummaryRows]
+    );
+
+    const compactInsightCards = useMemo(
+        () => [
+            {
+                label: isSupervisorScope ? "Department Rate" : "Best Station",
+                title: isSupervisorScope ? formatPercent(kpis?.attendanceRate) : (topStation?.station || "N/A"),
+                value: isSupervisorScope ? supervisorDepartment || "Assigned department" : formatPercent(topStation?.attendanceRate),
+                tone: theme.success,
+                positive: true,
+            },
+            {
+                label: "Needs Attention",
+                title: isSupervisorScope ? "Absence Review" : (lowestStation?.station || "N/A"),
+                value: isSupervisorScope ? `${formatNumber(attentionCount)} staff` : formatPercent(lowestStation?.attendanceRate),
+                tone: theme.danger,
+                positive: false,
+            },
+            {
+                label: isSupervisorScope ? "Team Punctuality" : "Top Department",
+                title: isSupervisorScope ? formatPercent(kpis?.punctualityRate) : (topDepartment?.department || "N/A"),
+                value: isSupervisorScope ? `${formatDelta(punctualityDelta || 0, "pp")} vs prev` : formatPercent(topDepartment?.attendanceRate),
+                tone: theme.secondary,
+                positive: true,
+            },
+            {
+                label: userRank === "ceo" ? "Attendance vs Target" : "Biometric Coverage",
+                title: userRank === "ceo" ? `${formatPercent(kpis?.attendanceRate)} / 90%` : formatPercent(biometricAnalytics?.enrollmentRate),
+                value: userRank === "ceo" ? `${formatDelta(Number(kpis?.attendanceRate || 0) - 90, "pp")} target gap` : `${formatNumber(biometricAnalytics?.usersWithBiometric || 0)} enrolled`,
+                tone: theme.purple,
+                positive: Number(kpis?.attendanceRate || 0) >= 90,
+            },
+        ],
+        [attentionCount, biometricAnalytics, isSupervisorScope, kpis, lowestStation, punctualityDelta, supervisorDepartment, theme, topDepartment, topStation, userRank]
+    );
+
     const handleFilterChange = (field) => (event) => {
         if ((isSupervisorScope || isStationScopedHr) && field === "station") return;
         if (isSupervisorScope && field === "department") return;
@@ -1856,12 +1922,20 @@ const OrganisationStats = ({ user, readOnly = false }) => {
         }
     };
 
-    const pageHeading = isSupervisorScope ? "Department Attendance Analytics" : "Organisation HR Attendance Analytics";
+    const pageHeading = userRank === "ceo"
+        ? "KMFRI Executive Attendance Overview"
+        : isSupervisorScope
+            ? `${supervisorDepartment || "Department"} Attendance`
+            : isStationScopedHr
+                ? `${supervisorStation || "Station"} HR Analytics`
+                : "Organisation HR Attendance Analytics";
     const pageSubtitle = isSupervisorScope
-        ? `Attendance performance for ${scopeLabel}.`
+        ? "Department attendance supervision and exception review."
         : isStationScopedHr
-            ? `Attendance performance for ${supervisorStation || "your assigned station"}.`
-            : "Attendance performance across stations and departments.";
+            ? "Station-level attendance overview and departmental performance."
+            : userRank === "ceo"
+                ? "Strategic attendance performance across the organisation."
+                : "Organisation-wide attendance, punctuality, absenteeism and compliance across KMFRI stations and departments.";
     const scopeChipLabel = readOnly
         ? "Read Only"
         : isSupervisorScope
@@ -1871,6 +1945,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 : isFullHr
                     ? "Super HR Scope"
                     : "Privileged Analytics";
+    const showLegacyAnalytics = Boolean(globalThis?.__KMFRI_SHOW_LEGACY_ANALYTICS__);
 
     if (loading && !kpis) {
         return (
@@ -2190,6 +2265,274 @@ const OrganisationStats = ({ user, readOnly = false }) => {
 
             {activeReportTab === "analytics" && (
                 <>
+                    <Box sx={{ display: "grid", gap: 1.5 }}>
+                        <Grid container spacing={1.5}>
+                            <Grid item xs={12} lg={8}>
+                                <SectionCard title="Today's Workforce" subtitle="Live workforce status for the selected scope" theme={theme}>
+                                    <Grid container spacing={1.1}>
+                                        {[
+                                            { title: "Total Staff", value: formatNumber(kpis?.totalEmployees), subtitle: "All employees", icon: <GroupsRounded />, tone: theme.secondary },
+                                            { title: "Present Today", value: formatNumber(kpis?.presentToday), subtitle: `${formatPercent((Number(kpis?.presentToday || 0) / Math.max(Number(kpis?.totalEmployees || 0), 1)) * 100)} of staff`, icon: <CheckCircleRounded />, tone: theme.success },
+                                            { title: "Absent Today", value: formatNumber(kpis?.absentToday), subtitle: `${formatPercent((Number(kpis?.absentToday || 0) / Math.max(Number(kpis?.totalEmployees || 0), 1)) * 100)} of staff`, icon: <WarningAmberRounded />, tone: theme.danger },
+                                            { title: "On Leave Today", value: formatNumber(kpis?.onLeaveToday), subtitle: `${formatPercent((Number(kpis?.onLeaveToday || 0) / Math.max(Number(kpis?.totalEmployees || 0), 1)) * 100)} of staff`, icon: <EventAvailableRounded />, tone: theme.warning },
+                                        ].map((metric) => (
+                                            <Grid item xs={6} md={3} key={metric.title}>
+                                                <OverviewMetricCard {...metric} theme={theme} />
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                </SectionCard>
+                            </Grid>
+
+                            <Grid item xs={12} lg={4}>
+                                <SectionCard title="Period Performance" subtitle={`${formatDateLabel(effectiveFilters.startDate)} - ${formatDateLabel(effectiveFilters.endDate)}`} theme={theme}>
+                                    <Grid container spacing={1.1}>
+                                        {[
+                                            { title: "Attendance Rate", value: formatPercent(kpis?.attendanceRate), subtitle: `${formatDelta(attendanceDelta || 0, "pp")} vs previous`, icon: <PieChartRounded />, tone: theme.secondary, delta: attendanceDelta },
+                                            { title: "Punctuality Rate", value: formatPercent(kpis?.punctualityRate), subtitle: `${formatDelta(punctualityDelta || 0, "pp")} vs previous`, icon: <CheckCircleRounded />, tone: theme.success, delta: punctualityDelta },
+                                            { title: "Absenteeism Rate", value: formatPercent(kpis?.absenteeismRate), subtitle: `${formatDelta(absenteeismDelta || 0, "pp")} improvement`, icon: <TrendingDownRounded />, tone: theme.purple, delta: absenteeismDelta },
+                                        ].map((metric) => (
+                                            <Grid item xs={12} sm={4} lg={12} key={metric.title}>
+                                                <OverviewMetricCard {...metric} theme={theme} />
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                </SectionCard>
+                            </Grid>
+                        </Grid>
+
+                        <Grid container spacing={1.5}>
+                            <Grid item xs={12} lg={6}>
+                                <SectionCard
+                                    title="Attendance Trend"
+                                    subtitle="Attendance rate across working days in the selected period"
+                                    theme={theme}
+                                    action={
+                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                            {["Daily", "Weekly", "Monthly", "Yearly"].map((label, index) => (
+                                                <Chip
+                                                    key={label}
+                                                    size="small"
+                                                    label={label}
+                                                    sx={{
+                                                        height: 24,
+                                                        borderRadius: "6px",
+                                                        fontSize: 10,
+                                                        fontWeight: 900,
+                                                        bgcolor: index === 0 ? `${theme.secondary}14` : "transparent",
+                                                        color: index === 0 ? theme.secondary : theme.muted,
+                                                        border: `1px solid ${index === 0 ? `${theme.secondary}33` : theme.border}`,
+                                                    }}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    }
+                                >
+                                    <Box sx={{ height: { xs: 240, md: 285 } }}>
+                                        {chartData.length ? (
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={chartData} margin={{ top: 8, right: 10, left: -22, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
+                                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
+                                                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
+                                                    <RechartsTooltip formatter={(value, name) => [name === "Attendance Rate" ? formatPercent(value) : formatNumber(value), name]} />
+                                                    <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                                                    <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={theme.secondary} strokeWidth={2.6} dot={{ r: 2.5 }} activeDot={{ r: 5 }} />
+                                                    <Line type="monotone" dataKey="present" name="Present" stroke={theme.success} strokeDasharray="4 4" strokeWidth={1.8} dot={false} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        ) : (
+                                            <EmptyState label="No attendance trend data available." theme={theme} />
+                                        )}
+                                    </Box>
+                                </SectionCard>
+                            </Grid>
+
+                            <Grid item xs={12} md={6} lg={3}>
+                                <SectionCard title="Attendance Distribution" subtitle="Today by attendance state" theme={theme}>
+                                    <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(kpis?.totalEmployees)} centerLabel="Total Staff" height={225} />
+                                    <Stack spacing={0.8} sx={{ mt: 0.5 }}>
+                                        {attendanceDistributionRows.map((item) => (
+                                            <Stack key={item.name} direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                                                <Stack direction="row" spacing={0.8} alignItems="center" sx={{ minWidth: 0 }}>
+                                                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color, flexShrink: 0 }} />
+                                                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: theme.text }} noWrap>{item.name}</Typography>
+                                                </Stack>
+                                                <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }}>{formatNumber(item.value)}</Typography>
+                                            </Stack>
+                                        ))}
+                                    </Stack>
+                                </SectionCard>
+                            </Grid>
+
+                            <Grid item xs={12} md={6} lg={3}>
+                                <SectionCard title={isSupervisorScope ? "Team Insights" : "Attendance Quality"} subtitle="Exceptions requiring review" theme={theme}>
+                                    <Stack spacing={1}>
+                                        {attendanceQualityRows.map((row) => (
+                                            <Box key={row.label} sx={{ p: 1.15, borderRadius: "8px", border: `1px solid ${theme.border}`, bgcolor: `${row.tone}08` }}>
+                                                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                                                    <Typography sx={{ fontSize: 11, fontWeight: 900, color: row.tone }}>{row.label}</Typography>
+                                                    <Typography sx={{ fontSize: 18, fontWeight: 950, color: theme.text }}>{formatNumber(row.value)}</Typography>
+                                                </Stack>
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </SectionCard>
+                            </Grid>
+                        </Grid>
+
+                        <Grid container spacing={1.5}>
+                            <Grid item xs={12} lg={isSupervisorScope ? 7 : 6}>
+                                <SectionCard title={isSupervisorScope ? "Staff Attendance" : "Attendance by Station"} subtitle={isSupervisorScope ? "Working-day attendance by team member" : "Station attendance, punctuality, and absence profile"} theme={theme}>
+                                    <TableContainer sx={{ overflowX: "auto" }}>
+                                        <Table size="small" stickyHeader sx={{ minWidth: isSupervisorScope ? 680 : 620 }}>
+                                            <TableHead>
+                                                <TableRow>
+                                                    {(isSupervisorScope
+                                                        ? ["Employee", "Present Days", "Absent Days", "Attendance", "Status"]
+                                                        : ["Station", "Staff", "Attendance", "Punctuality", "Absenteeism", "Trend"]
+                                                    ).map((heading) => (
+                                                        <TableCell key={heading} align={["Staff", "Attendance", "Punctuality", "Absenteeism", "Trend", "Present Days", "Absent Days", "Status"].includes(heading) ? "right" : "left"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>
+                                                            {heading}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {(isSupervisorScope ? processedSummaryRows.slice(0, 6) : sortedStations.slice(0, 6)).map((row) => {
+                                                    const rate = Number(row.attendanceRate || 0);
+                                                    return (
+                                                        <TableRow key={row.id || row.station || row.name}>
+                                                            <TableCell sx={{ minWidth: 160 }}>
+                                                                <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }} noWrap>{isSupervisorScope ? row.name : row.station}</Typography>
+                                                            </TableCell>
+                                                            {isSupervisorScope ? (
+                                                                <>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.daysPresent)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.daysAbsent)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
+                                                                    <TableCell align="right">
+                                                                        <Chip size="small" label={rate >= 90 ? "Good" : rate >= 80 ? "Monitor" : "Needs Attention"} sx={{ height: 22, borderRadius: "6px", fontSize: 10, fontWeight: 900, color: getAttendanceColor(rate, theme), bgcolor: `${getAttendanceColor(rate, theme)}12` }} />
+                                                                    </TableCell>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.staffCount)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatPercent(row.punctualityRate)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatPercent(row.absenteeismRate)}</TableCell>
+                                                                    <TableCell align="right">{rate >= 90 ? "up" : rate >= 80 ? "flat" : "down"}</TableCell>
+                                                                </>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </SectionCard>
+                            </Grid>
+
+                            <Grid item xs={12} lg={isSupervisorScope ? 5 : 6}>
+                                <SectionCard title={isSupervisorScope ? "Exceptions Requiring Review" : "Department Performance"} subtitle={isSupervisorScope ? "Team members needing attendance follow-up" : "Department attendance and punctuality profile"} theme={theme}>
+                                    <TableContainer sx={{ overflowX: "auto" }}>
+                                        <Table size="small" stickyHeader sx={{ minWidth: 620 }}>
+                                            <TableHead>
+                                                <TableRow>
+                                                    {(isSupervisorScope
+                                                        ? ["Employee", "Absent", "Attendance", "Status"]
+                                                        : ["Department", "Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early"]
+                                                    ).map((heading) => (
+                                                        <TableCell key={heading} align={["Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early", "Absent", "Status"].includes(heading) ? "right" : "left"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>
+                                                            {heading}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {(isSupervisorScope ? attentionReviewRows : sortedDepartments.slice(0, 6)).map((row) => {
+                                                    const rate = Number(row.attendanceRate || 0);
+                                                    return (
+                                                        <TableRow key={row.id || row.department || row.name}>
+                                                            <TableCell sx={{ minWidth: 160 }}>
+                                                                <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }} noWrap>{isSupervisorScope ? row.name : row.department}</Typography>
+                                                            </TableCell>
+                                                            {isSupervisorScope ? (
+                                                                <>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.daysAbsent)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
+                                                                    <TableCell align="right"><Chip size="small" label="Pending" sx={{ height: 22, borderRadius: "6px", fontSize: 10, fontWeight: 900, color: "#B45309", bgcolor: "rgba(245,158,11,0.12)" }} /></TableCell>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.staffCount)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatPercent(row.punctualityRate)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatPercent(row.absenteeismRate)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.totalLateCount)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 11 }}>{formatNumber(row.earlyDepartures || 0)}</TableCell>
+                                                                </>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </SectionCard>
+                            </Grid>
+                        </Grid>
+
+                        <Grid container spacing={1.5}>
+                            {(userRank === "ceo" ? sortedStations : sortedDepartments).length > 0 && (
+                                <Grid item xs={12} lg={7}>
+                                    <SectionCard title={userRank === "ceo" ? "Station Performance" : "Station Insights"} subtitle={userRank === "ceo" ? "Executive comparison across KMFRI stations" : "Best, lowest, and most improved operational signals"} theme={theme}>
+                                        <Stack spacing={1.1}>
+                                            {(userRank === "ceo" ? sortedStations : sortedDepartments).slice(0, 5).map((row) => {
+                                                const label = userRank === "ceo" ? row.station : row.department;
+                                                const rate = Number(row.attendanceRate || 0);
+                                                return (
+                                                    <Box key={label} sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "160px 1fr 64px" }, gap: 1, alignItems: "center" }}>
+                                                        <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }} noWrap>{label || "Unassigned"}</Typography>
+                                                        <LinearProgress variant="determinate" value={safePercent(rate)} sx={{ height: 8, borderRadius: 999, bgcolor: `${theme.muted}22`, "& .MuiLinearProgress-bar": { borderRadius: 999, bgcolor: getAttendanceColor(rate, theme) } }} />
+                                                        <Typography sx={{ fontSize: 11, fontWeight: 950, color: getAttendanceColor(rate, theme), textAlign: { xs: "left", sm: "right" } }}>{formatPercent(rate)}</Typography>
+                                                    </Box>
+                                                );
+                                            })}
+                                        </Stack>
+                                    </SectionCard>
+                                </Grid>
+                            )}
+
+                            <Grid item xs={12} lg={userRank === "ceo" ? 5 : 12}>
+                                <SectionCard title={userRank === "ceo" ? "Executive Summary" : "Management Insights"} subtitle="High-signal cards for management action" theme={theme}>
+                                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 1 }}>
+                                        {compactInsightCards.map((card) => (
+                                            <InsightTile
+                                                key={card.label}
+                                                label={card.label}
+                                                value={card.title}
+                                                subtitle={card.value}
+                                                tone={card.tone}
+                                                positive={card.positive}
+                                                theme={theme}
+                                            />
+                                        ))}
+                                    </Box>
+                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.4, color: theme.muted }}>
+                                        <HelpOutlineRounded sx={{ fontSize: 16 }} />
+                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>
+                                            Data is based on biometric records. Last updated{" "}
+                                            {new Date().toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short", timeZone: EAT_TIMEZONE })} EAT.
+                                        </Typography>
+                                    </Stack>
+                                </SectionCard>
+                            </Grid>
+                        </Grid>
+                    </Box>
+
+                    {showLegacyAnalytics && (
+                        <>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12}>
                     <SectionCard title="Today's Workforce" subtitle="Current daily attendance position" theme={theme}>
@@ -2699,6 +3042,8 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 </Grid>
             </Grid>
 
+                        </>
+                    )}
                 </>
             )}
 

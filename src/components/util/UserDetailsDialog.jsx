@@ -407,7 +407,8 @@ export default function UserDetailsDialog({
     const canManageAssignments = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageClockOutside = ["admin", "hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageRole = ["admin", "hr", "ceo", "superadmin"].includes(currentUserRank);
-    const canManageRank = ["admin", "hr", "superadmin"].includes(currentUserRank) && String(currentUser?.role || "").toLowerCase() === "employee";
+    const canManageRank = currentUserRank === "superadmin";
+    const showRankManagement = currentUserRank === "superadmin";
     const canAssignSupervisor = ["admin", "hr", "ceo", "superadmin"].includes(currentUserRank);
     const canManageLifecycle = ["hr", "superadmin", "admin"].includes(currentUserRank);
     const canResetBiometrics = ["admin", "hr", "superadmin"].includes(currentUserRank);
@@ -726,10 +727,10 @@ export default function UserDetailsDialog({
                         {!hideRoleRankManagement && (
                             <Section
                                 icon={<SecurityRounded fontSize="small" />}
-                                title="Role And Rank"
-                                description="Controls the user's access level and staff category."
+                                title={showRankManagement ? "Role And Rank" : "Role"}
+                                description={showRankManagement ? "Controls the user's access level and staff category." : "Controls the user's staff category."}
                             >
-                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: showRankManagement ? "1fr 1fr" : "minmax(0, 1fr)" }, gap: 2 }}>
                                     <FieldBlock
                                         label="Role"
                                         helper={!canManageRole ? "Only authorised HR, admin, CEO, or superadmin ranks can change roles." : "Choose the user's employment category."}
@@ -752,27 +753,29 @@ export default function UserDetailsDialog({
                                         </FormControl>
                                     </FieldBlock>
 
-                                    <FieldBlock
-                                        label="Rank"
-                                        helper={!canManageRank ? "Rank changes are limited to authorised employee administrators." : "Rank determines dashboard permissions."}
-                                        disabled={disabledBase || !canManageRank || !onRankChange}
-                                    >
-                                        <FormControl fullWidth size="small">
-                                            <Select
-                                                value={user.rank || ""}
-                                                onChange={(event) => onRankChange?.(user._id, event.target.value)}
-                                                disabled={disabledBase || !canManageRank || !onRankChange}
-                                                sx={selectSx}
-                                                MenuProps={menuProps}
-                                                displayEmpty
-                                            >
-                                                <MenuItem value="" disabled>Select rank</MenuItem>
-                                                {RANK_OPTIONS.map((rank) => (
-                                                    <MenuItem key={rank} value={rank}>{rank}</MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                    </FieldBlock>
+                                    {showRankManagement && (
+                                        <FieldBlock
+                                            label="Rank"
+                                            helper={!canManageRank ? "Rank changes are limited to superadmin employee accounts." : "Rank determines dashboard permissions."}
+                                            disabled={disabledBase || !canManageRank || !onRankChange}
+                                        >
+                                            <FormControl fullWidth size="small">
+                                                <Select
+                                                    value={user.rank || ""}
+                                                    onChange={(event) => onRankChange?.(user._id, event.target.value)}
+                                                    disabled={disabledBase || !canManageRank || !onRankChange}
+                                                    sx={selectSx}
+                                                    MenuProps={menuProps}
+                                                    displayEmpty
+                                                >
+                                                    <MenuItem value="" disabled>Select rank</MenuItem>
+                                                    {RANK_OPTIONS.map((rank) => (
+                                                        <MenuItem key={rank} value={rank}>{rank}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                        </FieldBlock>
+                                    )}
 
                                 </Box>
                             </Section>
