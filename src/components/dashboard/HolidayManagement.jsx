@@ -59,6 +59,19 @@ const todayKey = () => new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 }).format(new Date());
 
+const getDateKeyDaysFromNow = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+};
+
+const tomorrowKey = () => getDateKeyDaysFromNow(1);
+
 const formatDateKey = (value) => {
   if (!value) return '';
   const date = new Date(value);
@@ -103,7 +116,7 @@ const fieldSx = {
 const emptyDraft = {
   name: "New Year's Day",
   customName: '',
-  date: todayKey(),
+  date: tomorrowKey(),
   recurring: true,
   description: '',
 };
@@ -247,6 +260,11 @@ const HolidayManagement = ({ readOnly = false }) => {
   }, [load]);
 
   const updateDraft = (field, value) => {
+    if (field === 'date' && value && value < tomorrowKey()) {
+      setError('Holiday date must be after today.');
+      value = tomorrowKey();
+    }
+
     setDraft((prev) => ({
       ...prev,
       [field]: value,
@@ -270,6 +288,12 @@ const HolidayManagement = ({ readOnly = false }) => {
     try {
       setError('');
       setStatus('');
+
+      if (!draft.date || draft.date < tomorrowKey()) {
+        setError('Holiday date must be after today.');
+        return;
+      }
+
       setSaving(true);
       const payload = {
         ...draft,
@@ -277,7 +301,7 @@ const HolidayManagement = ({ readOnly = false }) => {
       };
       const data = await SuperadminAPI.addHoliday(payload);
       setHolidays(Array.isArray(data) ? data : []);
-      setDraft({ ...emptyDraft, date: todayKey() });
+      setDraft({ ...emptyDraft, date: tomorrowKey() });
       setStatus('Holiday added successfully.');
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to add holiday.');
@@ -466,6 +490,7 @@ const HolidayManagement = ({ readOnly = false }) => {
                   onChange={(event) => updateDraft('date', event.target.value)}
                   disabled={readOnly || saving}
                   InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: tomorrowKey() }}
                   sx={fieldSx}
                   fullWidth
                 />

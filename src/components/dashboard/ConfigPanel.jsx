@@ -261,6 +261,12 @@ const masterToggleFields = [
 
 const templateParameterGroups = [
   {
+    title: 'Platform Access',
+    params: [
+      ['{siteLink}', 'Clickable KMFRI Attendance site link: https://clocking.kmfri.go.ke/'],
+    ],
+  },
+  {
     title: 'User Profile',
     params: [
       ['{firstName}', 'First word from the user name.'],
@@ -1695,7 +1701,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                       minRows={3}
                       value={config.notificationReminders?.[key] || ''}
                       onChange={(e) => updateSectionField('notificationReminders', key, e.target.value)}
-                      helperText={helper}
+                      helperText={`${helper} {siteLink}`}
                       fullWidth
                     />
                   </Grid>
@@ -2011,7 +2017,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
           <DialogContent dividers>
             <Stack spacing={2.5}>
               <Alert severity="info">
-                Use these parameters inside message templates. The system replaces them automatically when sending clocking, leave, account, device, and registration messages.
+                Use these parameters inside message templates. The system replaces them automatically when sending clocking, leave, account, device, and registration messages. Add {'{siteLink}'} when you want the deployed site URL to appear as a clickable SMS link.
               </Alert>
 
               <Grid container spacing={2}>
