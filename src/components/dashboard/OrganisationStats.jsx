@@ -302,8 +302,8 @@ const getPreviousPeriodFilters = (filters) => {
     };
 };
 
-const humanizeFilterValue = (value) => {
-    if (!value) return "All";
+const humanizeStaffAttribute = (value) => {
+    if (!value) return "N/A";
     return titleCase(value);
 };
 
@@ -1276,6 +1276,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
             station: record.station || "Unassigned",
             department: record.department || "Unassigned",
             role: record.role || "",
+            rank: record.rank || "",
             timing: record.isLate ? "Late" : "On Time",
             status: record.clock_out ? "Completed" : "Open",
         })),
@@ -1294,6 +1295,8 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 employeeId: row.employeeId || "N/A",
                 name: compactTitleCase(row.name),
                 role: row.role || "",
+                rank: row.rank || "",
+                station: row.station || "Unassigned",
                 department: row.department || "Unassigned",
                 totalDays: totalDaysInReferenceRange,
                 workingDays: workingDaysInReferenceRange,
@@ -1317,6 +1320,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 row.station,
                 row.department,
                 row.role,
+                row.rank,
                 row.timing,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
@@ -1332,6 +1336,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 row.station,
                 row.department,
                 row.role,
+                row.rank,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
         [processedSummaryRows, referenceSearchText]
@@ -2208,7 +2213,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Timing", "Status", "In Location", "Out Location",  "Department"]],
+                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Timing", "In Location", "Out Location", "Department"]],
                 body: filteredRecords.map((row, index) => [
                     index + 1,
                     row.employeeId,
@@ -2255,7 +2260,8 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                     index + 1,
                     row.employeeId,
                     row.name,
-                    humanizeFilterValue(row.role),
+                    humanizeStaffAttribute(row.role),
+                    humanizeStaffAttribute(row.rank),
                     row.department,
                     row.totalDays,
                     row.workingDays,
@@ -2266,6 +2272,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
                 styles: { fontSize: 7.2, cellPadding: 1.7, halign: "center" },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
+                columnStyles: { 2: { cellWidth: 44 }, 4: { cellWidth: 24 }, 5: { cellWidth: 50 } },
             });
 
             await finalizeVerifiedPdf({
@@ -2798,7 +2805,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                                         ? ["Employee", "Absent", "Attendance", "Status"]
                                                         : ["Department", "Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early"]
                                                     ).map((heading) => (
-                                                        <TableCell key={heading} align={["Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early", "Absent", "Status"].includes(heading) ? "right" : "left"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>
+                                                        <TableCell key={heading} align={["Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early", "Absent"].includes(heading) ? "right" : "left"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>
                                                             {heading}
                                                         </TableCell>
                                                     ))}
@@ -3534,7 +3541,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                             ))}
                                             {!paginatedRecords.length && (
                                                 <TableRow>
-                                                    <TableCell colSpan={11}>
+                                                    <TableCell colSpan={8}>
                                                         <EmptyState label={referenceLoading ? "Loading attendance records..." : "No attendance records match the selected scope."} theme={theme} />
                                                     </TableCell>
                                                 </TableRow>
@@ -3586,7 +3593,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                                         <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
                                                         <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
                                                     </TableCell>
-                                                    <TableCell>{humanizeFilterValue(row.role)}</TableCell>
+                                                    <TableCell>{humanizeStaffAttribute(row.role)}</TableCell>
                                                     <TableCell sx={{ minWidth: 180 }}>{row.department}</TableCell>
                                                     <TableCell align="right">{formatNumber(row.totalDays)}</TableCell>
                                                     <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
@@ -3617,7 +3624,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                                             ))}
                                             {!paginatedSummaryRows.length && (
                                                 <TableRow>
-                                                    <TableCell colSpan={10}>
+                                                    <TableCell colSpan={9}>
                                                         <EmptyState label={referenceLoading ? "Loading attendance summary..." : "No summary rows match the selected scope."} theme={theme} />
                                                     </TableCell>
                                                 </TableRow>

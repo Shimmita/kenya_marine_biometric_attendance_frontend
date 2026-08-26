@@ -2312,6 +2312,18 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
                 !row.employeeId.toLowerCase().includes(s)
 
+                &&
+
+                !String(row.role || '').toLowerCase().includes(s)
+
+                &&
+
+                !String(row.rank || '').toLowerCase().includes(s)
+
+                &&
+
+                !String(row.department || '').toLowerCase().includes(s)
+
             )
 
                 return false;
@@ -2374,13 +2386,13 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
                 'User ID',
                 'Name',
                 'Role',
+                'Rank',
+                'Department',
                 'Total Days',
                 'Working Days',
                 'Present',
                 'Absent',
                 "Attendance"
-                /*  'Station',
-                 'Department', */
             ]],
             body: filteredSummary.map((r, index) => [
 
@@ -2388,21 +2400,20 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
                 r.employeeId,
                 r.name,
                 r.role,
+                toTitleCase(r.rank),
+                r.department,
                 r.totalDays,
                 r.workingDays,
                 r.daysPresent,
                 r.daysAbsent,
                 r.attendance
 
-                /*  r.station,
-     
-                 r.department, */
-
             ]),
             startY: 40,
-            styles: { fontSize: 9, cellPadding: 2.2, halign: 'center' },
+            styles: { fontSize: 7.8, cellPadding: 1.9, halign: 'center' },
             headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: 'bold', halign: 'center' },
             alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: { 2: { cellWidth: 42 }, 4: { cellWidth: 24 }, 5: { cellWidth: 48 } },
         });
         const tp = doc.internal.getNumberOfPages();
         for (let i = 1; i <= tp; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(160, 174, 192); doc.text(`Page ${i} of ${tp}  |  KMFRI Attendance System  |  Confidential`, pw / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' }); }
@@ -2533,14 +2544,14 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
                                         "User ID",
                                         "Name",
                                         "Role",
+                                        "Rank",
+                                        "Department",
                                         "Total Days",
                                         "Working Days",
                                         "Days Present",
                                         "Days Absent",
                                         "Attendance",
-                                        /* "Station",
-                                        "Department", */
-                                    ].map((h, index) => (
+                                    ].map((h) => (
                                         <TableCell
                                             key={h}
                                             sx={{
@@ -2565,7 +2576,7 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
                                     Array.from({ length: 8 }).map((_, i) => (
                                         <TableRow key={i}>
-                                            {Array.from({ length: 8 }).map((__, j) => (
+                                            {Array.from({ length: 11 }).map((__, j) => (
                                                 <TableCell
                                                     key={j}
                                                     sx={{
@@ -2582,7 +2593,7 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
 
                                     <TableRow>
                                         <TableCell
-                                            colSpan={8}
+                                            colSpan={11}
                                             align="center"
                                             sx={{
                                                 py: 8,
@@ -2628,6 +2639,7 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
                                                         setFilterStation("");
                                                         setFilterDept("");
                                                         setFilterRole("");
+                                                        setFilterRank("");
                                                         setSearch("");
                                                         setPage(0);
                                                     }}
@@ -2711,6 +2723,30 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
                                                         textTransform: "capitalize",
                                                     }}
                                                 />
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                {toTitleCase(row.rank)}
+                                            </TableCell>
+
+                                            <TableCell
+                                                sx={{
+                                                    borderBottom: "1px solid rgba(10,61,98,0.05)",
+                                                    py: 1.4,
+                                                }}
+                                            >
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{ minWidth: 160 }}
+                                                >
+                                                    {row.department}
+                                                </Typography>
                                             </TableCell>
 
                                             <TableCell
