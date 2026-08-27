@@ -7,6 +7,9 @@ import {
     CardContent,
     Chip,
     CircularProgress,
+    Dialog,
+    DialogContent,
+    DialogTitle,
     FormControl,
     Grid,
     InputLabel,
@@ -87,6 +90,7 @@ import coreDataDetails, {
 } from "../CoreDataDetails";
 
 const EAT_TIMEZONE = "Africa/Nairobi";
+const HEATMAP_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 const datePartsFormatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: EAT_TIMEZONE,
@@ -163,10 +167,6 @@ const staffFilters = [
     { value: "role:employee", label: "Employee" },
     { value: "role:intern", label: "Intern" },
     { value: "role:attachee", label: "Attachee" },
-    { value: "rank:hr", label: "HR" },
-    { value: "rank:supervisor", label: "HOD / Head of Department" },
-    { value: "rank:admin", label: "Admin" },
-    { value: "rank:ceo", label: "CEO" },
 ];
 
 const clockingTypeOptions = [
@@ -245,6 +245,43 @@ const formatTime = (value) => {
     });
 };
 
+const getRecordDateKey = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return getDateInputValue(date);
+};
+
+const getRecordHours = (record) => {
+    if (!record?.rawClockIn || !record?.rawClockOut) return 0;
+    const start = new Date(record.rawClockIn);
+    const end = new Date(record.rawClockOut);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+    return Math.max((end - start) / 3600000, 0);
+};
+
+const getNairobiHourDecimal = (value) => {
+    if (!value) return 0;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 0;
+    const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-GB", {
+            timeZone: EAT_TIMEZONE,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        }).formatToParts(date).map((part) => [part.type, part.value])
+    );
+    return Number(parts.hour || 0) + Number(parts.minute || 0) / 60;
+};
+
+const formatDuration = (hours) => {
+    const safeHours = Math.max(Number(hours || 0), 0);
+    const wholeHours = Math.floor(safeHours);
+    const minutes = Math.round((safeHours - wholeHours) * 60);
+    return `${wholeHours}h ${String(minutes).padStart(2, "0")}m`;
+};
+
 const formatLocationLabel = (record, isEntry) => {
     const locationName = isEntry ? record.clockInLocationName : record.clockOutLocationName;
     const withinPremise = isEntry ? record.clockInWithinPremise : record.clockOutWithinPremise;
@@ -288,6 +325,21 @@ const getWorkingDays = (startDate, endDate) => {
     return count;
 };
 
+const getWeekdayCounts = (startDate, endDate) => {
+    const counts = HEATMAP_WEEKDAYS.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
+    const totalDays = getTotalDays(startDate, endDate);
+    if (!totalDays) return counts;
+
+    const cursor = new Date(`${startDate}T00:00:00+03:00`);
+    for (let index = 0; index < totalDays; index += 1) {
+        const day = cursor.toLocaleDateString("en-US", { weekday: "short", timeZone: EAT_TIMEZONE });
+        if (Object.prototype.hasOwnProperty.call(counts, day)) counts[day] += 1;
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return counts;
+};
+
 const shiftDateInput = (value, days) => {
     if (!value) return "";
     const date = new Date(`${value}T00:00:00+03:00`);
@@ -324,12 +376,10 @@ const buildParams = (filters) => {
         department: filters.department || "",
         clockingType: filters.clockingType || "",
         role: "",
-        rank: "",
     };
 
     const [kind, value] = String(filters.staffFilter || "").split(":");
     if (kind === "role") params.role = value;
-    if (kind === "rank") params.rank = value;
 
     return params;
 };
@@ -807,6 +857,930 @@ const EmployeeRankList = ({ rows, theme, emptyLabel }) => (
     </Stack>
 );
 
+const DrilldownMetricCard = ({ title, value, subtitle, icon, tone, theme, onClick }) => {
+    return (
+        <Card
+            elevation={0}
+            onClick={onClick}
+            sx={{
+                height: "100%",
+                border: `1px solid ${theme.border}`,
+                borderRadius: "8px",
+                bgcolor: "#fff",
+                cursor: onClick ? "pointer" : "default",
+                transition: "transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease",
+                "&:hover": onClick ? {
+                    transform: "translateY(-1px)",
+                    borderColor: `${tone}55`,
+                    boxShadow: `0 10px 24px ${tone}18`,
+                } : undefined,
+            }}
+        >
+            <CardContent sx={{ p: 1, "&:last-child": { pb: 1 } }}>
+                <Stack direction="row" spacing={0.85} alignItems="center" sx={{ minHeight: 40 }}>
+                    <Box
+                        sx={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: "8px",
+                            bgcolor: `${tone}16`,
+                            color: tone,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                        }}
+                    >
+                        {icon}
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontSize: 9.2, fontWeight: 950, color: theme.primary, letterSpacing: 0, textTransform: "uppercase", lineHeight: 1.1 }}>
+                            {title}
+                        </Typography>
+                        <Stack direction="row" spacing={0.7} alignItems="baseline" sx={{ mt: 0.25, minWidth: 0, flexWrap: "nowrap" }}>
+                            <Typography noWrap sx={{ fontSize: { xs: 16, md: 18 }, fontWeight: 950, color: theme.text, lineHeight: 1 }}>
+                                {value}
+                            </Typography>
+                            {subtitle && (
+                                <Typography noWrap sx={{ fontSize: 9.5, fontWeight: 900, color: tone, minWidth: 0, flexShrink: 1 }}>
+                                    {subtitle}
+                                </Typography>
+                            )}
+                        </Stack>
+                    </Box>
+                </Stack>
+            </CardContent>
+        </Card>
+    );
+};
+
+const MetricDetailDialog = ({ open, metric, theme, onClose }) => {
+    const rows = metric?.rows || [];
+    const columns = metric?.columns || [];
+    const [dialogFilters, setDialogFilters] = useState({
+        search: "",
+        station: "",
+        department: "",
+        status: "",
+        issue: "",
+        date: "",
+    });
+
+    useEffect(() => {
+        if (open) {
+            setDialogFilters({ search: "", station: "", department: "", status: "", issue: "", date: "" });
+        }
+    }, [metric?.title, open]);
+
+    const filterOptions = useMemo(() => {
+        const collect = (key) => uniqueValues(rows.map((row) => row[key]));
+        return {
+            stations: collect("station"),
+            departments: collect("department"),
+            statuses: uniqueValues(rows.map((row) => row.status || row.timing)),
+            issues: collect("issue"),
+            dates: uniqueValues(rows.map((row) => getRecordDateKey(row.rawDate))).sort(),
+        };
+    }, [rows]);
+
+    const filteredRows = useMemo(() => {
+        const searchText = dialogFilters.search.trim().toLowerCase();
+        return rows.filter((row) => {
+            const rowStatus = row.status || row.timing || "";
+            const rowDate = getRecordDateKey(row.rawDate);
+            if (dialogFilters.station && row.station !== dialogFilters.station) return false;
+            if (dialogFilters.department && row.department !== dialogFilters.department) return false;
+            if (dialogFilters.status && rowStatus !== dialogFilters.status) return false;
+            if (dialogFilters.issue && row.issue !== dialogFilters.issue) return false;
+            if (dialogFilters.date && rowDate !== dialogFilters.date) return false;
+            if (!searchText) return true;
+            return [
+                row.employeeId,
+                row.name,
+                row.email,
+                row.station,
+                row.department,
+                row.role,
+                row.status,
+                row.timing,
+                row.issue,
+                row.reason,
+                row.date,
+            ].some((value) => String(value || "").toLowerCase().includes(searchText));
+        });
+    }, [dialogFilters, rows]);
+
+    const setDialogFilter = (key) => (event) => {
+        setDialogFilters((current) => ({ ...current, [key]: event.target.value }));
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
+            <DialogTitle sx={{ pb: 1 }}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 17, fontWeight: 950, color: theme.text }}>
+                            {metric?.title || "Attendance Details"}
+                        </Typography>
+                        {metric?.subtitle && (
+                            <Typography sx={{ mt: 0.3, fontSize: 12, color: theme.muted }}>
+                                {metric.subtitle}
+                            </Typography>
+                        )}
+                    </Box>
+                    <Chip
+                        label={`${formatNumber(filteredRows.length)} of ${formatNumber(rows.length)} rows`}
+                        sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
+                    />
+                </Stack>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 1 }}>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1.2 }}>
+                    <TextField
+                        size="small"
+                        label="Search"
+                        value={dialogFilters.search}
+                        onChange={setDialogFilter("search")}
+                        sx={{ minWidth: { xs: "100%", md: 220 } }}
+                    />
+                    {filterOptions.stations.length > 1 && (
+                        <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 170 } }}>
+                            <InputLabel>Station</InputLabel>
+                            <Select value={dialogFilters.station} label="Station" onChange={setDialogFilter("station")}>
+                                <MenuItem value="">All Stations</MenuItem>
+                                {filterOptions.stations.map((station) => (
+                                    <MenuItem key={station} value={station}>{station}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+                    {filterOptions.departments.length > 1 && (
+                        <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 180 } }}>
+                            <InputLabel>Department</InputLabel>
+                            <Select value={dialogFilters.department} label="Department" onChange={setDialogFilter("department")}>
+                                <MenuItem value="">All Departments</MenuItem>
+                                {filterOptions.departments.map((department) => (
+                                    <MenuItem key={department} value={department}>{department}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+                    {filterOptions.statuses.length > 1 && (
+                        <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 145 } }}>
+                            <InputLabel>Status</InputLabel>
+                            <Select value={dialogFilters.status} label="Status" onChange={setDialogFilter("status")}>
+                                <MenuItem value="">All Statuses</MenuItem>
+                                {filterOptions.statuses.map((status) => (
+                                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+                    {filterOptions.issues.length > 1 && (
+                        <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 165 } }}>
+                            <InputLabel>Issue</InputLabel>
+                            <Select value={dialogFilters.issue} label="Issue" onChange={setDialogFilter("issue")}>
+                                <MenuItem value="">All Issues</MenuItem>
+                                {filterOptions.issues.map((issue) => (
+                                    <MenuItem key={issue} value={issue}>{issue}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+                    {filterOptions.dates.length > 1 && (
+                        <TextField
+                            size="small"
+                            type="date"
+                            label="Date"
+                            value={dialogFilters.date}
+                            onChange={setDialogFilter("date")}
+                            InputLabelProps={{ shrink: true }}
+                            sx={{ minWidth: { xs: "100%", md: 150 } }}
+                        />
+                    )}
+                    {(dialogFilters.search || dialogFilters.station || dialogFilters.department || dialogFilters.status || dialogFilters.issue || dialogFilters.date) && (
+                        <Button
+                            onClick={() => setDialogFilters({ search: "", station: "", department: "", status: "", issue: "", date: "" })}
+                            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.primary }}
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </Stack>
+                {metric?.variant === "heatmap" ? (
+                    <Box sx={{ maxHeight: 560, overflowY: "auto", border: `1px solid ${theme.border}`, borderRadius: "8px", p: 1 }}>
+                        <HrAttendanceHeatmap rows={filteredRows} theme={theme} rowLabel={metric.rowLabel || "Area"} rowKey={metric.rowKey || "name"} />
+                    </Box>
+                ) : (
+                    <TableContainer sx={{ maxHeight: 520, border: `1px solid ${theme.border}`, borderRadius: "8px" }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    {columns.map((column) => (
+                                        <TableCell key={column.key} sx={{ fontWeight: 950, bgcolor: "#fff", whiteSpace: "nowrap" }}>
+                                            {column.label}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {filteredRows.map((row, index) => (
+                                    <TableRow key={row.id || `${metric?.title || "metric"}-${index}`}>
+                                        {columns.map((column) => (
+                                            <TableCell key={column.key} sx={{ minWidth: column.minWidth || 110 }}>
+                                                {column.render ? column.render(row, index) : row[column.key]}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))}
+                                {!filteredRows.length && (
+                                    <TableRow>
+                                        <TableCell colSpan={Math.max(columns.length, 1)}>
+                                            <EmptyState label="No matching rows for this metric in the selected scope." theme={theme} />
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
+                <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
+                    <Button onClick={onClose} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.primary }}>
+                        Close
+                    </Button>
+                </Stack>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const HrCompactTable = ({ columns, rows, emptyLabel, theme }) => (
+    <TableContainer sx={{ overflowX: "auto" }}>
+        <Table size="small" stickyHeader sx={{ minWidth: columns.length * 96 }}>
+            <TableHead>
+                <TableRow>
+                    {columns.map((column) => (
+                        <TableCell
+                            key={column.key}
+                            align={column.align || "left"}
+                            sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border, whiteSpace: "nowrap" }}
+                        >
+                            {column.label}
+                        </TableCell>
+                    ))}
+                </TableRow>
+            </TableHead>
+            <TableBody>
+                {rows.map((row, index) => (
+                    <TableRow key={row.id || row.name || row.station || row.department || index}>
+                        {columns.map((column) => (
+                            <TableCell key={column.key} align={column.align || "left"} sx={{ fontSize: 11.5, minWidth: column.minWidth || 80 }}>
+                                {column.render ? column.render(row, index) : row[column.key]}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))}
+                {!rows.length && (
+                    <TableRow>
+                        <TableCell colSpan={columns.length}>
+                            <EmptyState label={emptyLabel} theme={theme} />
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+        </Table>
+    </TableContainer>
+);
+
+const HrHorizontalBars = ({ rows, theme, valueKey = "value", labelKey = "label", max = 100, tone = theme.secondary }) => (
+    <Stack spacing={1}>
+        {rows.length ? rows.map((row, index) => {
+            const value = Number(row[valueKey] || 0);
+            return (
+                <Box key={row[labelKey] || index}>
+                    <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 0.4 }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }} noWrap>
+                            {row[labelKey]}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11, fontWeight: 950, color: tone }}>
+                            {row.displayValue || formatPercent(value)}
+                        </Typography>
+                    </Stack>
+                    <LinearProgress
+                        variant="determinate"
+                        value={safePercent((value / Math.max(max, 1)) * 100)}
+                        sx={{
+                            height: 8,
+                            borderRadius: 999,
+                            bgcolor: `${theme.muted}18`,
+                            "& .MuiLinearProgress-bar": { borderRadius: 999, bgcolor: row.tone || tone },
+                        }}
+                    />
+                </Box>
+            );
+        }) : (
+            <EmptyState label="No distribution data available." theme={theme} />
+        )}
+    </Stack>
+);
+
+const HrAttendanceHeatmap = ({ rows, theme, rowLabel = "Department", rowKey = "department", preview = false }) => {
+    return (
+        <Box sx={{ overflowX: "auto" }}>
+            <Box sx={{ minWidth: 460 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "128px repeat(5, 1fr)", gap: 0.6, mb: 0.6 }}>
+                    <Typography sx={{ fontSize: 10, fontWeight: 950, color: theme.primary }}>{rowLabel}</Typography>
+                    {HEATMAP_WEEKDAYS.map((day) => (
+                        <Typography key={day} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, textAlign: "center" }}>
+                            {day}
+                        </Typography>
+                    ))}
+                </Box>
+                <Stack spacing={0.6}>
+                    {rows.length ? rows.slice(0, preview ? 5 : rows.length).map((row) => (
+                        <Box key={row.id || row[rowKey] || row.name} sx={{ display: "grid", gridTemplateColumns: "128px repeat(5, 1fr)", gap: 0.6, alignItems: "center" }}>
+                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: theme.text }} noWrap>
+                                {row[rowKey] || row.name || "Unassigned"}
+                            </Typography>
+                            {HEATMAP_WEEKDAYS.map((day) => {
+                                const rate = Number(row[day] || 0);
+                                const tone = getAttendanceColor(rate, theme);
+                                return (
+                                    <Box
+                                        key={day}
+                                        sx={{
+                                            minHeight: 26,
+                                            borderRadius: "6px",
+                                            bgcolor: `${tone}${rate >= 85 ? "26" : "1C"}`,
+                                            color: rate >= 70 ? theme.text : theme.danger,
+                                            border: `1px solid ${tone}30`,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            fontSize: 10,
+                                            fontWeight: 950,
+                                        }}
+                                    >
+                                        {formatPercent(rate)}
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    )) : (
+                        <EmptyState label="No heatmap data available." theme={theme} />
+                    )}
+                </Stack>
+            </Box>
+        </Box>
+    );
+};
+
+const HodAttendanceAnalytics = ({
+    theme,
+    kpis,
+    previousKpis,
+    periodRangeLabel,
+    supervisorDepartment,
+    supervisorStation,
+    primaryMetricCards,
+    todayStatusRows,
+    chartData,
+    attendanceDelta,
+    punctualityDelta,
+    hodTeamRows,
+    attentionRows,
+    departmentHeatmapRows,
+    attendanceDistributionRows,
+    spotlightCards,
+    onMetricClick,
+}) => {
+    const teamColumns = [
+        { key: "name", label: "Employee", minWidth: 145, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+        { key: "todayStatus", label: "Today", minWidth: 84 },
+        { key: "attendanceRate", label: "Attendance Rate", align: "right", minWidth: 105, render: (row) => formatPercent(row.attendanceRate) },
+        { key: "lateCount", label: "Late", align: "right", minWidth: 72, render: (row) => formatNumber(row.lateCount) },
+        { key: "daysAbsent", label: "Absent", align: "right", minWidth: 78, render: (row) => formatNumber(row.daysAbsent) },
+        { key: "averageHours", label: "Avg Hours", align: "right", minWidth: 84, render: (row) => formatDuration(row.averageHours) },
+        {
+            key: "status",
+            label: "Status",
+            align: "right",
+            minWidth: 105,
+            render: (row) => (
+                <Chip
+                    size="small"
+                    label={row.status}
+                    sx={{
+                        height: 22,
+                        borderRadius: "6px",
+                        fontSize: 10,
+                        fontWeight: 900,
+                        color: row.statusTone,
+                        bgcolor: `${row.statusTone}14`,
+                    }}
+                />
+            ),
+        },
+    ];
+
+    const monthRows = [
+        {
+            label: "Attendance Rate",
+            current: formatPercent(kpis?.attendanceRate),
+            previous: formatPercent(previousKpis?.attendanceRate),
+            change: formatDelta(attendanceDelta || 0, "pp"),
+            tone: Number(attendanceDelta || 0) >= 0 ? theme.success : theme.danger,
+        },
+        {
+            label: "Punctuality Rate",
+            current: formatPercent(kpis?.punctualityRate),
+            previous: formatPercent(previousKpis?.punctualityRate),
+            change: formatDelta(punctualityDelta || 0, "pp"),
+            tone: Number(punctualityDelta || 0) >= 0 ? theme.success : theme.warning,
+        },
+        {
+            label: "Average Hours",
+            current: formatDuration(kpis?.averageWorkingHours || 0),
+            previous: formatDuration(previousKpis?.averageWorkingHours || 0),
+            change: "",
+            tone: theme.secondary,
+        },
+    ];
+
+    return (
+        <>
+            <SectionCard
+                title={`${supervisorDepartment || "Department"} Department`}
+                subtitle={supervisorStation || "Assigned station"}
+                theme={theme}
+                action={<Chip size="small" label={periodRangeLabel} sx={{ borderRadius: "8px", bgcolor: `${theme.success}12`, color: theme.success, fontWeight: 900 }} />}
+            >
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(5, minmax(0, 1fr))" }, gap: 1 }}>
+                    {primaryMetricCards.map((card) => (
+                        <DrilldownMetricCard key={card.key} {...card} theme={theme} onClick={() => onMetricClick(card.key)} />
+                    ))}
+                </Box>
+            </SectionCard>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} md={3} lg={2}>
+                    <SectionCard title="Today's Status" theme={theme}>
+                        <Stack spacing={1}>
+                            {todayStatusRows.map((row) => (
+                                <Button
+                                    key={row.key}
+                                    onClick={() => onMetricClick(row.key)}
+                                    sx={{ px: 0.8, py: 0.4, minHeight: 28, justifyContent: "space-between", borderRadius: "8px", textTransform: "none", color: theme.text }}
+                                >
+                                    <Stack direction="row" spacing={0.8} alignItems="center">
+                                        <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: row.tone }} />
+                                        <Typography sx={{ fontSize: 11.5, fontWeight: 900 }}>{formatNumber(row.value)}</Typography>
+                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>{row.label}</Typography>
+                                    </Stack>
+                                </Button>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} md={6} lg={7}>
+                    <SectionCard title="Department Attendance Trend" theme={theme}>
+                        <Box sx={{ height: 225 }}>
+                            {chartData.length ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 8, right: 14, left: -18, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
+                                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
+                                        <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
+                                        <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance Rate"]} />
+                                        <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={theme.success} strokeWidth={2.8} dot={{ r: 2.8 }} activeDot={{ r: 5 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <EmptyState label="No department attendance trend available." theme={theme} />
+                            )}
+                        </Box>
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} md={3} lg={3}>
+                    <SectionCard title="This Month vs Last Month" theme={theme}>
+                        <Stack spacing={1}>
+                            {monthRows.map((row) => (
+                                <Box key={row.label} sx={{ pb: 0.8, borderBottom: `1px solid ${theme.border}` }}>
+                                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                        <Typography sx={{ fontSize: 11, color: theme.muted, fontWeight: 800 }}>{row.label}</Typography>
+                                        <Typography sx={{ fontSize: 12, color: theme.text, fontWeight: 950 }}>{row.current}</Typography>
+                                    </Stack>
+                                    <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mt: 0.35 }}>
+                                        <Typography sx={{ fontSize: 10.5, color: theme.muted }}>Last</Typography>
+                                        <Typography sx={{ fontSize: 10.5, color: row.tone, fontWeight: 900 }}>{row.change || row.previous}</Typography>
+                                    </Stack>
+                                </Box>
+                            ))}
+                        </Stack>
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={7}>
+                    <SectionCard
+                        title="Department Heatmap"
+                        subtitle="Attendance by weekday"
+                        theme={theme}
+                        action={
+                            <Button size="small" onClick={() => onMetricClick("hodDepartmentHeatmap")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
+                                View All
+                            </Button>
+                        }
+                    >
+                        <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" />
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={5}>
+                    <SectionCard
+                        title="Attendance Distribution"
+                        subtitle="Today"
+                        theme={theme}
+                        action={
+                            <Button size="small" onClick={() => onMetricClick("hodAttendanceDistribution")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
+                                View Details
+                            </Button>
+                        }
+                    >
+                        <Grid container spacing={1} alignItems="center">
+                            <Grid item xs={12} sm={6}>
+                                <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(kpis?.totalEmployees)} centerLabel="Total" height={210} />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Stack spacing={0.75}>
+                                    {attendanceDistributionRows.map((row) => (
+                                        <Button
+                                            key={row.name}
+                                            onClick={() => onMetricClick(row.key)}
+                                            sx={{ px: 0.8, py: 0.45, justifyContent: "space-between", borderRadius: "8px", textTransform: "none", color: theme.text, bgcolor: `${row.color}0F` }}
+                                        >
+                                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                                                <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: row.color, flexShrink: 0 }} />
+                                                <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 900 }}>{row.name}</Typography>
+                                            </Stack>
+                                            <Typography sx={{ fontSize: 11.5, fontWeight: 950, color: row.color }}>{formatNumber(row.value)}</Typography>
+                                        </Button>
+                                    ))}
+                                </Stack>
+                            </Grid>
+                        </Grid>
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={8}>
+                    <SectionCard
+                        title="Team Attendance Overview"
+                        theme={theme}
+                        action={
+                            <Button size="small" onClick={() => onMetricClick("hodTeamMembers")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
+                                View All Team Members
+                            </Button>
+                        }
+                    >
+                        <HrCompactTable columns={teamColumns} rows={hodTeamRows.slice(0, 6)} emptyLabel="No team attendance data in this department scope." theme={theme} />
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={4}>
+                    <SectionCard title="Attention Required" theme={theme}>
+                        <Stack spacing={1}>
+                            {attentionRows.length ? attentionRows.map((row) => (
+                                <Button
+                                    key={row.key}
+                                    onClick={() => onMetricClick(row.key)}
+                                    sx={{ justifyContent: "flex-start", textTransform: "none", borderRadius: "8px", color: theme.text, px: 1, py: 0.8, bgcolor: `${row.tone}0D` }}
+                                >
+                                    <WarningAmberRounded sx={{ fontSize: 16, color: row.tone, mr: 1 }} />
+                                    <Typography sx={{ fontSize: 11.5, fontWeight: 850, textAlign: "left" }}>{row.label}</Typography>
+                                </Button>
+                            )) : (
+                                <EmptyState label="No attendance exceptions requiring HOD attention." theme={theme} />
+                            )}
+                        </Stack>
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }, gap: 1, mt: 0 }}>
+                {spotlightCards.map((card) => (
+                    <DrilldownMetricCard key={card.key} {...card} theme={theme} onClick={() => onMetricClick(card.key)} />
+                ))}
+            </Box>
+        </>
+    );
+};
+
+const HrAttendanceAnalytics = ({
+    isStationScopedHr,
+    theme,
+    kpis,
+    previousPeriodLabel,
+    periodRangeLabel,
+    supervisorStation,
+    scopeLabel,
+    primaryMetricCards,
+    secondaryMetricCards,
+    chartData,
+    attendanceDistributionRows,
+    configuredStationPerformanceRows,
+    configuredDepartmentPerformanceRows,
+    todayStatusRows,
+    arrivalBucketRows,
+    workingHourRows,
+    leaveDutyRows,
+    topExceptionRows,
+    departmentHeatmapRows,
+    stationHeatmapRows,
+    keyInsights,
+    onMetricClick,
+}) => {
+    const totalStaff = Number(kpis?.totalEmployees || 0);
+    const trendStroke = isStationScopedHr ? theme.secondary : theme.purple;
+    const listedPerformanceRows = isStationScopedHr ? configuredDepartmentPerformanceRows : configuredStationPerformanceRows;
+    const statusColumns = [
+        { key: "name", label: "Employee", minWidth: 145, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+        { key: "department", label: "Department", minWidth: 120 },
+        { key: "clockIn", label: "Check In", minWidth: 75 },
+        { key: "clockOut", label: "Check Out", minWidth: 75 },
+        { key: "hours", label: "Hours", minWidth: 70 },
+        {
+            key: "status",
+            label: "Status",
+            minWidth: 86,
+            render: (row) => (
+                <Chip
+                    size="small"
+                    label={row.status}
+                    sx={{
+                        height: 22,
+                        borderRadius: "6px",
+                        fontSize: 10,
+                        fontWeight: 900,
+                        color: row.status === "Present" ? theme.success : row.status === "Late" ? "#B45309" : theme.danger,
+                        bgcolor: row.status === "Present" ? `${theme.success}14` : row.status === "Late" ? `${theme.warning}18` : `${theme.danger}12`,
+                    }}
+                />
+            ),
+        },
+    ];
+    const stationColumns = [
+        { key: "name", label: "Station / Centre", minWidth: 125, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+        { key: "staff", label: "Staff", align: "right" },
+        { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
+        { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
+        { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
+        { key: "lateCount", label: "Late", align: "right", render: (row) => formatNumber(row.lateCount) },
+        { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
+        { key: "trend", label: "Trend", align: "right", render: (row) => <Typography sx={{ color: Number(row.attendanceRate || 0) >= 85 ? theme.success : theme.danger, fontWeight: 950 }}>{Number(row.attendanceRate || 0) >= 85 ? "↑" : "↓"}</Typography> },
+    ];
+    const departmentColumns = [
+        { key: "name", label: "Department", minWidth: 135, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+        { key: "staff", label: "Staff", align: "right" },
+        { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
+        { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
+        { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
+        { key: "lateCount", label: "Late", align: "right", render: (row) => formatNumber(row.lateCount) },
+        { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
+    ];
+    const exceptionColumns = [
+        { key: "name", label: "Employee", minWidth: 145, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+        { key: "station", label: "Station", minWidth: 120 },
+        { key: "department", label: "Department", minWidth: 120 },
+        { key: "issue", label: "Issue", minWidth: 120 },
+        { key: "occurrences", label: "Occurrences", align: "right", render: (row) => formatNumber(row.occurrences) },
+    ];
+
+    return (
+        <>
+            <SectionCard
+                title={isStationScopedHr ? supervisorStation || scopeLabel : "Overall Attendance Overview"}
+                subtitle={isStationScopedHr ? "Station / centre HR dashboard" : "All-stations HR dashboard"}
+                theme={theme}
+                action={<Chip size="small" label={periodRangeLabel} sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }} />}
+            >
+                <Box
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(6, minmax(0, 1fr))" },
+                        gap: 1,
+                    }}
+                >
+                    {primaryMetricCards.map((card) => (
+                        <DrilldownMetricCard key={card.key} {...card} theme={theme} onClick={() => onMetricClick(card.key)} />
+                    ))}
+                </Box>
+                <Box
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))", xl: isStationScopedHr ? "repeat(5, minmax(0, 1fr))" : "repeat(8, minmax(0, 1fr))" },
+                        gap: 1,
+                        mt: 1,
+                    }}
+                >
+                    {secondaryMetricCards.map((card) => (
+                        <DrilldownMetricCard key={card.key} {...card} theme={theme} onClick={() => onMetricClick(card.key)} />
+                    ))}
+                </Box>
+            </SectionCard>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={isStationScopedHr ? 4 : 6}>
+                    <SectionCard title="Attendance Rate Over Time" theme={theme}>
+                        <Box sx={{ height: isStationScopedHr ? 220 : 250 }}>
+                            {chartData.length ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
+                                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
+                                        <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
+                                        <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance Rate"]} />
+                                        <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={trendStroke} strokeWidth={2.6} dot={{ r: 2.8 }} activeDot={{ r: 5 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <EmptyState label="No attendance trend data available." theme={theme} />
+                            )}
+                        </Box>
+                    </SectionCard>
+                </Grid>
+
+                {!isStationScopedHr && (
+                    <Grid item xs={12} lg={3}>
+                        <SectionCard title="Workforce Status Today" theme={theme}>
+                            <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(totalStaff)} centerLabel="Total" height={250} />
+                        </SectionCard>
+                    </Grid>
+                )}
+
+                <Grid item xs={12} lg={isStationScopedHr ? 8 : 3}>
+                    <SectionCard title={isStationScopedHr ? "Today's Staff Status" : "Key Insights"} theme={theme}>
+                        {isStationScopedHr ? (
+                            <HrCompactTable columns={statusColumns} rows={todayStatusRows.slice(0, 6)} emptyLabel="No staff status rows for today." theme={theme} />
+                        ) : (
+                            <Stack spacing={1}>
+                                {keyInsights.map((item) => (
+                                    <Stack key={item.label} direction="row" spacing={0.8} alignItems="flex-start">
+                                        <CheckCircleRounded sx={{ color: item.tone, fontSize: 16, mt: 0.1 }} />
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 950, color: theme.text }}>{item.label}</Typography>
+                                            <Typography sx={{ fontSize: 10.5, color: theme.muted, lineHeight: 1.35 }}>{item.text}</Typography>
+                                        </Box>
+                                    </Stack>
+                                ))}
+                            </Stack>
+                        )}
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={isStationScopedHr ? 6 : 5}>
+                    <SectionCard
+                        title={isStationScopedHr ? "Department Performance" : "Station / Centre Performance"}
+                        theme={theme}
+                        action={
+                            <Button
+                                size="small"
+                                onClick={() => onMetricClick(isStationScopedHr ? "departmentPerformance" : "stationPerformance")}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                            >
+                                View All
+                            </Button>
+                        }
+                    >
+                        <HrCompactTable
+                            columns={isStationScopedHr ? departmentColumns : stationColumns}
+                            rows={listedPerformanceRows.slice(0, isStationScopedHr ? 6 : 8)}
+                            emptyLabel={isStationScopedHr ? "No department performance data available." : "No station performance data available."}
+                            theme={theme}
+                        />
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={isStationScopedHr ? 3 : 4}>
+                    <SectionCard
+                        title={isStationScopedHr ? "Time of Arrival Today" : "Department Performance"}
+                        subtitle={isStationScopedHr ? undefined : "Top departments"}
+                        theme={theme}
+                        action={!isStationScopedHr ? (
+                            <Button
+                                size="small"
+                                onClick={() => onMetricClick("departmentPerformance")}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                            >
+                                View All
+                            </Button>
+                        ) : undefined}
+                    >
+                        {isStationScopedHr ? (
+                            <HrHorizontalBars rows={arrivalBucketRows} theme={theme} valueKey="value" labelKey="label" max={Math.max(...arrivalBucketRows.map((row) => row.value), 1)} tone={theme.secondary} />
+                        ) : (
+                            <HrHorizontalBars
+                                rows={configuredDepartmentPerformanceRows.slice(0, 6).map((department) => ({
+                                    label: department.name || "Unassigned",
+                                    value: Number(department.attendanceRate || 0),
+                                    displayValue: formatPercent(department.attendanceRate),
+                                    tone: getAttendanceColor(department.attendanceRate, theme),
+                                }))}
+                                theme={theme}
+                                tone={theme.purple}
+                            />
+                        )}
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={isStationScopedHr ? 3 : 3}>
+                    <SectionCard
+                        title={isStationScopedHr ? "Leave & Duty Overview" : "Department Heatmap"}
+                        subtitle={isStationScopedHr ? undefined : "Attendance by weekday"}
+                        theme={theme}
+                        action={!isStationScopedHr ? (
+                            <Button
+                                size="small"
+                                onClick={() => onMetricClick("departmentHeatmap")}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                            >
+                                View All
+                            </Button>
+                        ) : undefined}
+                    >
+                        {isStationScopedHr ? (
+                            <Stack spacing={1}>
+                                {leaveDutyRows.map((row) => (
+                                    <Stack key={row.label} direction="row" justifyContent="space-between" spacing={1}>
+                                        <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: theme.text }}>{row.label}</Typography>
+                                        <Typography sx={{ fontSize: 11.5, fontWeight: 950, color: row.tone }}>{formatNumber(row.value)}</Typography>
+                                    </Stack>
+                                ))}
+                            </Stack>
+                        ) : (
+                            <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" preview />
+                        )}
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                <Grid item xs={12} lg={isStationScopedHr ? 4 : 4}>
+                    <SectionCard title={isStationScopedHr ? "Working Hours Summary" : "Time of Arrival Distribution"} theme={theme}>
+                        <HrHorizontalBars
+                            rows={isStationScopedHr ? workingHourRows : arrivalBucketRows}
+                            theme={theme}
+                            valueKey="value"
+                            labelKey="label"
+                            max={Math.max(...(isStationScopedHr ? workingHourRows : arrivalBucketRows).map((row) => row.value), 1)}
+                            tone={isStationScopedHr ? theme.accent : theme.purple}
+                        />
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={isStationScopedHr ? 4 : 5}>
+                    <SectionCard title="Top Exceptions This Month" theme={theme}>
+                        <HrCompactTable columns={exceptionColumns} rows={topExceptionRows.slice(0, 7)} emptyLabel="No exception records in the selected scope." theme={theme} />
+                    </SectionCard>
+                </Grid>
+                <Grid item xs={12} lg={isStationScopedHr ? 4 : 3}>
+                    <SectionCard
+                        title={isStationScopedHr ? "Attendance Composition" : "Station Heatmap"}
+                        subtitle={isStationScopedHr ? undefined : "Centre attendance by weekday"}
+                        theme={theme}
+                        action={!isStationScopedHr ? (
+                            <Button
+                                size="small"
+                                onClick={() => onMetricClick("stationHeatmap")}
+                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                            >
+                                View All
+                            </Button>
+                        ) : undefined}
+                    >
+                        {isStationScopedHr ? (
+                            <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(totalStaff)} centerLabel="Total" height={230} />
+                        ) : (
+                            <HrAttendanceHeatmap rows={stationHeatmapRows} theme={theme} rowLabel="Station" rowKey="station" preview />
+                        )}
+                        <InsightNote theme={theme} tone={theme.secondary}>
+                            Click any KPI card to inspect the people, departments, stations, and records behind the number.
+                        </InsightNote>
+                    </SectionCard>
+                </Grid>
+            </Grid>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ mt: 1, px: 0.5 }}>
+                <Typography sx={{ fontSize: 11, color: theme.muted, fontWeight: 700 }}>
+                    Data source: attendance records, user scope, leave status, outside-duty authorisations, and device enrolment readiness.
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: theme.muted, fontWeight: 700 }}>
+                    Previous comparison: {previousPeriodLabel}
+                </Typography>
+            </Stack>
+        </>
+    );
+};
+
 const ReferenceStatsGrid = ({ theme, referenceMetrics }) => (
     <Box
         sx={{
@@ -1175,6 +2149,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
     const [summaryRowsPerPage, setSummaryRowsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [metricDialog, setMetricDialog] = useState(null);
 
     useEffect(() => {
         setActiveReportTab(normalizeReportTab(initialTab));
@@ -1458,9 +2433,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                 name: station.station || "Unassigned",
                 staff: Number(station.staffCount || 0),
                 attendanceRate: Number(station.attendanceRate || 0),
+                punctualityRate: Number(station.punctualityRate ?? (100 - Number(station.latenessRate || 0))),
                 absenteeismRate: Number(station.absenteeismRate || 0),
                 lateCount: Number(station.totalLateCount || 0),
                 onLeaveDays: Number(station.onLeaveDays || 0),
+                averageWorkingHours: Number(station.averageWorkingHours || 0),
+                totalOvertime: Number(station.totalOvertime || 0),
             })),
         [sortedStations]
     );
@@ -1470,12 +2448,51 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                 name: department.department || "Unassigned",
                 staff: Number(department.staffCount || 0),
                 attendanceRate: Number(department.attendanceRate || 0),
+                punctualityRate: Number(department.punctualityRate ?? (100 - Number(department.latenessRate || 0))),
                 absenteeismRate: Number(department.absenteeismRate || 0),
                 lateCount: Number(department.totalLateCount || 0),
                 onLeaveDays: Number(department.onLeaveDays || 0),
+                averageWorkingHours: Number(department.averageWorkingHours || 0),
             })),
         [sortedDepartments]
     );
+    const configuredStationPerformanceRows = useMemo(() => {
+        const rowByStation = new Map(stationPerformanceRows.map((row) => [normalizeStationAccessName(row.name), row]));
+        return uniqueValues([...filterOptions.stations, ...stationPerformanceRows.map((row) => row.name)]).map((station) => {
+            const existing = rowByStation.get(normalizeStationAccessName(station));
+            return existing || {
+                id: `station-${station}`,
+                name: station,
+                station,
+                staff: 0,
+                attendanceRate: 0,
+                punctualityRate: 0,
+                absenteeismRate: 0,
+                lateCount: 0,
+                onLeaveDays: 0,
+                averageWorkingHours: 0,
+                totalOvertime: 0,
+            };
+        });
+    }, [filterOptions.stations, stationPerformanceRows]);
+    const configuredDepartmentPerformanceRows = useMemo(() => {
+        const rowByDepartment = new Map(departmentPerformanceRows.map((row) => [String(row.name || "").trim().toLowerCase(), row]));
+        return uniqueValues([...filterOptions.departments, ...departmentPerformanceRows.map((row) => row.name)]).map((department) => {
+            const existing = rowByDepartment.get(String(department || "").trim().toLowerCase());
+            return existing || {
+                id: `department-${department}`,
+                name: department,
+                department,
+                staff: 0,
+                attendanceRate: 0,
+                punctualityRate: 0,
+                absenteeismRate: 0,
+                lateCount: 0,
+                onLeaveDays: 0,
+                averageWorkingHours: 0,
+            };
+        });
+    }, [departmentPerformanceRows, filterOptions.departments]);
     const qualitySignalRows = useMemo(
         () => [
             { name: "Attendance", value: safePercent(kpis?.attendanceRate), fill: theme.secondary },
@@ -1602,9 +2619,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             station: record.station || "Unassigned",
             department: record.department || "Unassigned",
             role: record.role || "",
-            rank: record.rank || "",
             timing: record.isLate ? "Late" : "On Time",
             status: record.clock_out ? "Completed" : "Open",
+            rawClockIn: record.clock_in,
+            rawClockOut: record.clock_out,
         })),
         [records]
     );
@@ -1619,9 +2637,9 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             return {
                 id: row.employeeId || row.email || `${row.name || "summary"}-${index}`,
                 employeeId: row.employeeId || "N/A",
+                email: String(row.email || ""),
                 name: compactTitleCase(row.name),
                 role: row.role || "",
-                rank: row.rank || "",
                 station: row.station || "Unassigned",
                 department: row.department || "Unassigned",
                 totalDays: totalDaysInReferenceRange,
@@ -1646,7 +2664,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                 row.station,
                 row.department,
                 row.role,
-                row.rank,
                 row.timing,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
@@ -1662,7 +2679,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                 row.station,
                 row.department,
                 row.role,
-                row.rank,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
         }),
         [processedSummaryRows, referenceSearchText]
@@ -1693,6 +2709,579 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             averageAttendance,
         };
     }, [processedRecords, processedSummaryRows]);
+
+    const scopedTodayRows = useMemo(() => {
+        const normalizePerson = (entry = {}) => ({
+            id: entry.email || entry.employeeId || entry.name,
+            employeeId: entry.employeeId || "N/A",
+            name: compactTitleCase(entry.name || entry.email || "Unknown"),
+            email: entry.email || "",
+            station: entry.station || "Unassigned",
+            department: entry.department || "Unassigned",
+            role: entry.role || "",
+            clockIn: entry.clockIn ? formatTime(entry.clockIn) : "N/A",
+            clockOut: entry.clockOut ? formatTime(entry.clockOut) : "N/A",
+            hours: entry.clockIn && entry.clockOut
+                ? formatDuration((new Date(entry.clockOut) - new Date(entry.clockIn)) / 3600000)
+                : "N/A",
+            status: entry.isLate ? "Late" : "Present",
+            leaveType: entry.leaveType || "",
+            leaveStart: entry.leaveStart ? formatDateTime(entry.leaveStart, { hour: undefined, minute: undefined }) : "",
+            leaveEnd: entry.leaveEnd ? formatDateTime(entry.leaveEnd, { hour: undefined, minute: undefined }) : "",
+        });
+
+        const todayKey = getDateInputValue();
+        const fallbackPresent = processedRecords
+            .filter((record) => getRecordDateKey(record.rawDate) === todayKey)
+            .map((record) => ({
+                ...record,
+                hours: formatDuration(getRecordHours(record)),
+                status: record.timing === "Late" ? "Late" : "Present",
+            }));
+
+        const present = Array.isArray(kpis?.todayDetails?.present) && kpis.todayDetails.present.length
+            ? kpis.todayDetails.present.map(normalizePerson)
+            : fallbackPresent;
+        const absent = Array.isArray(kpis?.todayDetails?.absent)
+            ? kpis.todayDetails.absent.map((entry) => ({ ...normalizePerson(entry), status: "Absent" }))
+            : [];
+        const onLeave = Array.isArray(kpis?.todayDetails?.onLeave)
+            ? kpis.todayDetails.onLeave.map((entry) => ({ ...normalizePerson(entry), status: "On Leave" }))
+            : [];
+
+        return { present, absent, onLeave };
+    }, [kpis, processedRecords]);
+
+    const hrRecordGroups = useMemo(() => {
+        const outsideRecords = processedRecords.filter((record) => {
+            const location = `${record.inLocation || ""} ${record.outLocation || ""}`.toLowerCase();
+            return record.reason || location.includes("off premise") || record.inLocation !== "In Premise" || record.outLocation !== "In Premise";
+        });
+        const officialDutyRecords = outsideRecords.filter((record) => /official|duty|training|meeting|conference|assignment/i.test(record.reason || ""));
+        const fieldWorkRecords = outsideRecords.filter((record) => /field|research|sampling|survey|site|project|remote/i.test(record.reason || ""))
+            .concat(officialDutyRecords.length ? [] : outsideRecords);
+        const lateRecords = processedRecords.filter((record) => record.timing === "Late");
+        const missingCheckoutRecords = processedRecords.filter((record) => record.status === "Open" || record.clockOut === "System");
+        const overtimeRecords = processedRecords
+            .map((record) => ({ ...record, workedHours: getRecordHours(record) }))
+            .filter((record) => record.workedHours > 8);
+        const shortHourRecords = processedRecords
+            .map((record) => ({ ...record, workedHours: getRecordHours(record) }))
+            .filter((record) => record.rawClockOut && record.workedHours > 0 && record.workedHours < 8);
+        const completedRecords = processedRecords.filter((record) => record.rawClockOut);
+
+        return {
+            outsideRecords,
+            officialDutyRecords,
+            fieldWorkRecords,
+            lateRecords,
+            missingCheckoutRecords,
+            overtimeRecords,
+            shortHourRecords,
+            completedRecords,
+        };
+    }, [processedRecords]);
+
+    const hrWorkloadMetrics = useMemo(() => {
+        const overtimeHours = hrRecordGroups.overtimeRecords.reduce((sum, record) => sum + Math.max(Number(record.workedHours || 0) - 8, 0), 0);
+        const lostWorkingHours = hrRecordGroups.shortHourRecords.reduce((sum, record) => sum + Math.max(8 - Number(record.workedHours || 0), 0), 0)
+            + processedSummaryRows.reduce((sum, row) => sum + Number(row.daysAbsent || 0) * 8, 0);
+
+        return {
+            overtimeHours,
+            lostWorkingHours,
+            averageWorkingHours: hrRecordGroups.completedRecords.length
+                ? hrRecordGroups.completedRecords.reduce((sum, record) => sum + getRecordHours(record), 0) / hrRecordGroups.completedRecords.length
+                : Number(kpis?.averageWorkingHours || 0),
+        };
+    }, [hrRecordGroups, kpis, processedSummaryRows]);
+
+    const arrivalBucketRows = useMemo(() => {
+        const buckets = [
+            { label: "Before 7:30", min: 0, max: 7.5, value: 0, tone: theme.secondary },
+            { label: "7:30 - 8:00", min: 7.5, max: 8, value: 0, tone: theme.success },
+            { label: "8:00 - 8:30", min: 8, max: 8.5, value: 0, tone: theme.warning },
+            { label: "8:30 - 9:00", min: 8.5, max: 9, value: 0, tone: theme.purple },
+            { label: "After 9:00", min: 9, max: 24, value: 0, tone: theme.danger },
+        ];
+
+        processedRecords.forEach((record) => {
+            const hour = getNairobiHourDecimal(record.rawClockIn);
+            const bucket = buckets.find((item) => hour >= item.min && hour < item.max);
+            if (bucket) bucket.value += 1;
+        });
+
+        return buckets.map((bucket) => ({
+            ...bucket,
+            displayValue: `${formatNumber(bucket.value)} (${formatPercent((bucket.value / Math.max(processedRecords.length, 1)) * 100)})`,
+        }));
+    }, [processedRecords, theme]);
+
+    const workingHourRows = useMemo(() => {
+        const buckets = [
+            { label: "< 6 hours", min: 0, max: 6, value: 0, tone: theme.danger },
+            { label: "6 - 7 hours", min: 6, max: 7, value: 0, tone: theme.warning },
+            { label: "7 - 8 hours", min: 7, max: 8, value: 0, tone: theme.secondary },
+            { label: "8+ hours", min: 8, max: 100, value: 0, tone: theme.success },
+        ];
+
+        hrRecordGroups.completedRecords.forEach((record) => {
+            const hours = getRecordHours(record);
+            const bucket = buckets.find((item) => hours >= item.min && hours < item.max);
+            if (bucket) bucket.value += 1;
+        });
+
+        return buckets.map((bucket) => ({
+            ...bucket,
+            displayValue: `${formatNumber(bucket.value)} (${formatPercent((bucket.value / Math.max(hrRecordGroups.completedRecords.length, 1)) * 100)})`,
+        }));
+    }, [hrRecordGroups.completedRecords, theme]);
+
+    const buildHeatmapRows = useCallback((groupKey, configuredGroups = []) => {
+        const weekdayCounts = getWeekdayCounts(effectiveFilters.startDate, effectiveFilters.endDate);
+        const staffByGroup = processedSummaryRows.reduce((acc, row) => {
+            const key = row[groupKey] || "Unassigned";
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+        const counts = {};
+
+        processedRecords.forEach((record) => {
+            const date = new Date(record.rawDate);
+            if (Number.isNaN(date.getTime())) return;
+            const day = date.toLocaleDateString("en-US", { weekday: "short", timeZone: EAT_TIMEZONE });
+            if (!HEATMAP_WEEKDAYS.includes(day)) return;
+            const group = record[groupKey] || "Unassigned";
+            if (!counts[group]) counts[group] = {};
+            counts[group][day] = (counts[group][day] || 0) + 1;
+        });
+
+        return uniqueValues([...configuredGroups, ...Object.keys(staffByGroup), ...Object.keys(counts)])
+            .map((group) => {
+                const staff = Math.max(staffByGroup[group] || 0, 0);
+                return HEATMAP_WEEKDAYS.reduce(
+                    (row, day) => ({
+                        ...row,
+                        [day]: staff && weekdayCounts[day]
+                            ? Math.min(((counts[group]?.[day] || 0) / (staff * weekdayCounts[day])) * 100, 100)
+                            : 0,
+                    }),
+                    {
+                        id: `${groupKey}-heatmap-${group}`,
+                        name: group,
+                        [groupKey]: group,
+                        staff,
+                    }
+                );
+            });
+    }, [effectiveFilters.endDate, effectiveFilters.startDate, processedRecords, processedSummaryRows]);
+
+    const departmentHeatmapRows = useMemo(
+        () => buildHeatmapRows("department", filterOptions.departments),
+        [buildHeatmapRows, filterOptions.departments]
+    );
+
+    const stationHeatmapRows = useMemo(
+        () => buildHeatmapRows("station", filterOptions.stations),
+        [buildHeatmapRows, filterOptions.stations]
+    );
+
+    const hodDepartmentHeatmapRows = useMemo(
+        () => buildHeatmapRows("department", [supervisorDepartment].filter(Boolean)),
+        [buildHeatmapRows, supervisorDepartment]
+    );
+
+    const todayStatusRows = useMemo(
+        () => [
+            ...scopedTodayRows.present,
+            ...scopedTodayRows.onLeave.map((row) => ({ ...row, clockIn: "-", clockOut: "-", hours: "-", status: "On Leave" })),
+            ...scopedTodayRows.absent.map((row) => ({ ...row, clockIn: "-", clockOut: "-", hours: "-", status: "Absent" })),
+        ],
+        [scopedTodayRows]
+    );
+
+    const topExceptionRows = useMemo(() => {
+        const grouped = new Map();
+        const addIssue = (record, issue) => {
+            const key = `${record.email || record.name}-${issue}`;
+            const existing = grouped.get(key) || {
+                id: key,
+                name: record.name || record.email || "Unknown",
+                email: record.email || "",
+                station: record.station || "Unassigned",
+                department: record.department || "Unassigned",
+                issue,
+                occurrences: 0,
+            };
+            existing.occurrences += 1;
+            grouped.set(key, existing);
+        };
+
+        hrRecordGroups.lateRecords.forEach((record) => addIssue(record, "Repeated Late"));
+        hrRecordGroups.missingCheckoutRecords.forEach((record) => addIssue(record, "Missing Checkout"));
+        hrRecordGroups.outsideRecords.forEach((record) => addIssue(record, "Outside Clocking"));
+        processedSummaryRows.filter((row) => Number(row.daysAbsent || 0) > 0).forEach((row) => addIssue({
+            ...row,
+            email: row.id,
+        }, "Absence"));
+
+        return [...grouped.values()].sort((a, b) => b.occurrences - a.occurrences).slice(0, 10);
+    }, [hrRecordGroups, processedSummaryRows]);
+
+    const leaveDutyRows = useMemo(
+        () => [
+            { key: "onLeaveToday", label: "On Leave Today", value: Number(kpis?.onLeaveToday || 0), tone: theme.warning },
+            { key: "officialDuty", label: "Official Duty", value: hrRecordGroups.officialDutyRecords.length, tone: theme.secondary },
+            { key: "fieldWork", label: "Field Work", value: hrRecordGroups.fieldWorkRecords.length, tone: theme.accent },
+            { key: "outsideClocking", label: "Outside Clocking", value: hrRecordGroups.outsideRecords.length, tone: theme.purple },
+            { key: "missingCheckout", label: "Missing Checkout", value: hrRecordGroups.missingCheckoutRecords.length, tone: theme.danger },
+            { key: "openSessions", label: "Open Sessions", value: referenceMetrics.openSessions, tone: theme.warning },
+        ],
+        [hrRecordGroups, kpis, referenceMetrics.openSessions, theme]
+    );
+
+    const hrKeyInsights = useMemo(
+        () => [
+            {
+                label: "Attendance movement",
+                text: `${formatDelta(attendanceDelta || 0, "pp")} compared to ${previousPeriodLabel}.`,
+                tone: Number(attendanceDelta || 0) >= 0 ? theme.success : theme.danger,
+            },
+            {
+                label: "Punctuality movement",
+                text: `${formatDelta(punctualityDelta || 0, "pp")} compared to the previous period.`,
+                tone: Number(punctualityDelta || 0) >= 0 ? theme.success : theme.warning,
+            },
+            {
+                label: "Records needing cleanup",
+                text: `${formatNumber(hrRecordGroups.missingCheckoutRecords.length)} missing checkout rows and ${formatNumber(hrRecordGroups.lateRecords.length)} late records are visible in this scope.`,
+                tone: hrRecordGroups.missingCheckoutRecords.length ? theme.warning : theme.secondary,
+            },
+            {
+                label: "Lowest attendance area",
+                text: `${lowestStation?.station || topDepartment?.department || "No area"} has the lowest visible attendance signal.`,
+                tone: theme.danger,
+            },
+        ],
+        [attendanceDelta, hrRecordGroups, lowestStation, previousPeriodLabel, punctualityDelta, theme, topDepartment]
+    );
+
+    const detailColumns = useMemo(() => ({
+        people: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "station", label: "Station", minWidth: 140 },
+            { key: "department", label: "Department", minWidth: 150 },
+            { key: "role", label: "Role", minWidth: 90, render: (row) => humanizeStaffAttribute(row.role) },
+        ],
+        records: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 160, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "station", label: "Station", minWidth: 130 },
+            { key: "department", label: "Department", minWidth: 140 },
+            { key: "date", label: "Date", minWidth: 115 },
+            { key: "clockIn", label: "Clock In", minWidth: 90 },
+            { key: "clockOut", label: "Clock Out", minWidth: 90 },
+            { key: "timing", label: "Timing", minWidth: 95 },
+            { key: "inLocation", label: "In Location", minWidth: 190 },
+            { key: "outLocation", label: "Out Location", minWidth: 190 },
+        ],
+        summary: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "station", label: "Station", minWidth: 140 },
+            { key: "department", label: "Department", minWidth: 150 },
+            { key: "daysPresent", label: "Present", minWidth: 90 },
+            { key: "daysAbsent", label: "Absent", minWidth: 90 },
+            { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
+        ],
+        hodTeam: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "todayStatus", label: "Today", minWidth: 105 },
+            { key: "station", label: "Station", minWidth: 130 },
+            { key: "department", label: "Department", minWidth: 140 },
+            { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
+            { key: "lateCount", label: "Late", minWidth: 75 },
+            { key: "daysAbsent", label: "Absent", minWidth: 80 },
+            { key: "averageHours", label: "Avg Hours", minWidth: 95, render: (row) => formatDuration(row.averageHours) },
+            { key: "status", label: "Status", minWidth: 120 },
+        ],
+        hodDuty: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "status", label: "Status", minWidth: 120 },
+            { key: "station", label: "Station", minWidth: 130 },
+            { key: "department", label: "Department", minWidth: 140 },
+            { key: "date", label: "Date", minWidth: 115 },
+            { key: "reason", label: "Reason", minWidth: 180 },
+        ],
+        distribution: [
+            { key: "name", label: "Status", minWidth: 150, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: row.color || theme.text }} noWrap>{row.name}</Typography> },
+            { key: "value", label: "Count", minWidth: 90, render: (row) => formatNumber(row.value) },
+            { key: "percent", label: "Share", minWidth: 90, render: (row) => formatPercent(row.percent) },
+        ],
+        performance: [
+            { key: "name", label: "Name", minWidth: 160, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "staff", label: "Staff", minWidth: 80 },
+            { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
+            { key: "punctualityRate", label: "Punctuality", minWidth: 110, render: (row) => formatPercent(row.punctualityRate) },
+            { key: "absenteeismRate", label: "Absenteeism", minWidth: 110, render: (row) => formatPercent(row.absenteeismRate) },
+            { key: "lateCount", label: "Late", minWidth: 80 },
+            { key: "onLeaveDays", label: "Leave Days", minWidth: 105 },
+            { key: "averageWorkingHours", label: "Avg Hours", minWidth: 105, render: (row) => formatDuration(row.averageWorkingHours) },
+        ],
+    }), [theme]);
+
+    const hrPrimaryMetricCards = useMemo(() => {
+        const total = Number(kpis?.totalEmployees || 0);
+        const percentage = (value) => total ? formatPercent((Number(value || 0) / total) * 100) : "0.0%";
+
+        return [
+            { key: "totalStaff", title: "Total Staff", value: formatNumber(total), subtitle: "", icon: <GroupsRounded />, tone: theme.purple },
+            { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
+            { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
+            { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
+            { key: "officialDuty", title: "Duty", value: formatNumber(hrRecordGroups.officialDutyRecords.length), subtitle: percentage(hrRecordGroups.officialDutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
+            { key: "fieldWork", title: "Field", value: formatNumber(hrRecordGroups.fieldWorkRecords.length), subtitle: percentage(hrRecordGroups.fieldWorkRecords.length), icon: <GroupsRounded />, tone: theme.accent },
+        ];
+    }, [hrRecordGroups, kpis, theme]);
+
+    const hrSecondaryMetricCards = useMemo(() => [
+        { key: "attendanceRate", title: "Attendance", value: formatPercent(kpis?.attendanceRate), subtitle: "", icon: <PieChartRounded />, tone: theme.secondary },
+        { key: "punctualityRate", title: "Punctuality", value: formatPercent(kpis?.punctualityRate), subtitle: "", icon: <CheckCircleRounded />, tone: theme.success },
+        { key: "lateRecords", title: "Late", value: formatNumber(hrRecordGroups.lateRecords.length), subtitle: "", icon: <HourglassBottomRounded />, tone: theme.warning },
+        { key: "averageWorkingHours", title: "Avg Hours", value: formatDuration(hrWorkloadMetrics.averageWorkingHours), subtitle: "", icon: <AssessmentRounded />, tone: theme.primary },
+        { key: "overtimeHours", title: "Overtime", value: formatDuration(hrWorkloadMetrics.overtimeHours), subtitle: "", icon: <TrendingUpRounded />, tone: theme.purple },
+        { key: "missingCheckout", title: "Missing Out", value: formatNumber(hrRecordGroups.missingCheckoutRecords.length), subtitle: "", icon: <WarningAmberRounded />, tone: theme.danger },
+        { key: "lostWorkingHours", title: "Lost Hours", value: formatDuration(hrWorkloadMetrics.lostWorkingHours), subtitle: "", icon: <TrendingDownRounded />, tone: theme.danger },
+        { key: "biometricReadiness", title: "Biometric", value: formatPercent(biometricAnalytics?.enrollmentRate), subtitle: "", icon: <ShieldRounded />, tone: theme.accent },
+    ], [biometricAnalytics, hrRecordGroups, hrWorkloadMetrics, kpis, theme]);
+
+    const hodLateTodayRows = useMemo(() => {
+        const todayKey = getDateInputValue();
+        return hrRecordGroups.lateRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
+    }, [hrRecordGroups.lateRecords]);
+
+    const hodOfficialDutyTodayRows = useMemo(() => {
+        const todayKey = getDateInputValue();
+        return hrRecordGroups.officialDutyRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
+    }, [hrRecordGroups.officialDutyRecords]);
+
+    const hodOnLeaveDutyRows = useMemo(
+        () => [
+            ...scopedTodayRows.onLeave.map((row) => ({
+                ...row,
+                status: "On Leave",
+                date: getDateInputValue(),
+                reason: row.leaveType || "Approved Leave",
+            })),
+            ...hodOfficialDutyTodayRows.map((row) => ({
+                ...row,
+                status: "Official Duty",
+                reason: row.reason || "Official Duty",
+            })),
+        ],
+        [hodOfficialDutyTodayRows, scopedTodayRows.onLeave]
+    );
+
+    const hodTeamRows = useMemo(() => {
+        const todayKey = getDateInputValue();
+        const officialDutyEmails = new Set(hodOfficialDutyTodayRows.map((record) => String(record.email || "").toLowerCase()).filter(Boolean));
+        const presentEmails = new Set(scopedTodayRows.present.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
+        const leaveEmails = new Set(scopedTodayRows.onLeave.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
+        const absentEmails = new Set(scopedTodayRows.absent.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
+
+        const matchesPerson = (record, person) => {
+            const recordEmail = String(record.email || "").toLowerCase();
+            const personEmail = String(person.email || "").toLowerCase();
+            if (recordEmail && personEmail) return recordEmail === personEmail;
+            if (record.employeeId && person.employeeId && record.employeeId !== "N/A") return record.employeeId === person.employeeId;
+            return record.name === person.name;
+        };
+
+        return processedSummaryRows.map((row) => {
+            const email = String(row.email || "").toLowerCase();
+            const employeeRecords = processedRecords.filter((record) => matchesPerson(record, row));
+            const todayRecords = employeeRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
+            const lateCount = employeeRecords.filter((record) => record.timing === "Late").length;
+            const overtimeHours = employeeRecords.reduce((sum, record) => sum + Math.max(getRecordHours(record) - 8, 0), 0);
+            const completedRecords = employeeRecords.filter((record) => record.rawClockOut);
+            const averageHours = completedRecords.length
+                ? completedRecords.reduce((sum, record) => sum + getRecordHours(record), 0) / completedRecords.length
+                : 0;
+            const belowExpectedHours = completedRecords.reduce((sum, record) => {
+                const hours = getRecordHours(record);
+                return sum + (hours > 0 && hours < 8 ? 8 - hours : 0);
+            }, 0);
+            const lateToday = todayRecords.some((record) => record.timing === "Late");
+            const todayStatus = officialDutyEmails.has(email)
+                ? "Official Duty"
+                : leaveEmails.has(email)
+                    ? "On Leave"
+                    : absentEmails.has(email)
+                        ? "Absent"
+                        : lateToday
+                            ? "Late"
+                            : presentEmails.has(email) || todayRecords.length
+                                ? "Present"
+                                : "Unaccounted";
+            const status = Number(row.attendanceRate || 0) >= 95
+                ? "Excellent"
+                : Number(row.attendanceRate || 0) >= 90
+                    ? "Good"
+                    : Number(row.attendanceRate || 0) >= 80
+                        ? "Needs Improvement"
+                        : "Needs Attention";
+            const statusTone = status === "Excellent"
+                ? theme.success
+                : status === "Good"
+                    ? theme.secondary
+                    : status === "Needs Improvement"
+                        ? theme.warning
+                        : theme.danger;
+
+            return {
+                ...row,
+                lateCount,
+                overtimeHours,
+                averageHours,
+                belowExpectedHours,
+                todayStatus,
+                status,
+                statusTone,
+                issue: todayStatus,
+            };
+        }).sort((a, b) => Number(b.attendanceRate || 0) - Number(a.attendanceRate || 0));
+    }, [hodOfficialDutyTodayRows, processedRecords, processedSummaryRows, scopedTodayRows, theme]);
+
+    const hodPrimaryMetricCards = useMemo(() => {
+        const total = Number(kpis?.totalEmployees || 0);
+        const percentage = (value) => total ? formatPercent((Number(value || 0) / total) * 100) : "0.0%";
+        const leaveDutyCount = hodOnLeaveDutyRows.length;
+        return [
+            { key: "hodTeamMembers", title: "Total Staff", value: formatNumber(total), subtitle: "", icon: <GroupsRounded />, tone: theme.secondary },
+            { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
+            { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
+            { key: "onLeaveDuty", title: "Leave/Duty", value: formatNumber(leaveDutyCount), subtitle: percentage(leaveDutyCount), icon: <EventAvailableRounded />, tone: theme.warning },
+            { key: "lateRecords", title: "Late", value: formatNumber(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), subtitle: percentage(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), icon: <HourglassBottomRounded />, tone: theme.danger },
+        ];
+    }, [hodLateTodayRows.length, hodOnLeaveDutyRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
+
+    const hodTodayStatusRows = useMemo(() => [
+        { key: "presentToday", label: "Present", value: Number(kpis?.presentToday || 0), tone: theme.success },
+        { key: "lateRecords", label: "Late", value: hodLateTodayRows.length || hrRecordGroups.lateRecords.length, tone: theme.warning },
+        { key: "officialDuty", label: "Official Duty", value: hodOfficialDutyTodayRows.length, tone: theme.secondary },
+        { key: "absentToday", label: "Unaccounted", value: Number(kpis?.absentToday || 0), tone: theme.muted },
+    ], [hodLateTodayRows.length, hodOfficialDutyTodayRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
+
+    const hodAttendanceDistributionRows = useMemo(() => {
+        const total = Math.max(Number(kpis?.totalEmployees || 0), 1);
+        const lateValue = hodLateTodayRows.length || hrRecordGroups.lateRecords.length;
+        const leaveDutyValue = hodOnLeaveDutyRows.length;
+        const presentOnTime = Math.max(Number(kpis?.presentToday || 0) - lateValue, 0);
+        const rows = [
+            { key: "presentToday", name: "Present", value: presentOnTime, color: theme.success },
+            { key: "lateRecords", name: "Late", value: lateValue, color: theme.warning },
+            { key: "absentToday", name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
+            { key: "onLeaveDuty", name: "Leave / Duty", value: leaveDutyValue, color: theme.secondary },
+        ];
+        return rows.map((row) => ({
+            ...row,
+            percent: (Number(row.value || 0) / total) * 100,
+        })).filter((row) => row.value > 0);
+    }, [hodLateTodayRows.length, hodOnLeaveDutyRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
+
+    const hodAttentionRows = useMemo(() => {
+        const repeatedLatePeople = hodTeamRows.filter((row) => Number(row.lateCount || 0) >= 2);
+        const unexplainedAbsences = scopedTodayRows.absent;
+        const missingCheckoutRows = hrRecordGroups.missingCheckoutRecords;
+        const belowHoursPeople = hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0);
+        return [
+            repeatedLatePeople.length ? { key: "hodRepeatedLate", label: `${formatNumber(repeatedLatePeople.length)} employees arrived late repeatedly`, tone: theme.warning } : null,
+            unexplainedAbsences.length ? { key: "absentToday", label: `${formatNumber(unexplainedAbsences.length)} employee${unexplainedAbsences.length === 1 ? " has" : "s have"} an unexplained absence`, tone: theme.danger } : null,
+            missingCheckoutRows.length ? { key: "missingCheckout", label: `${formatNumber(missingCheckoutRows.length)} attendance records have missing checkout`, tone: theme.warning } : null,
+            belowHoursPeople.length ? { key: "hodBelowExpectedHours", label: `${formatNumber(belowHoursPeople.length)} employees below expected monthly hours`, tone: theme.danger } : null,
+        ].filter(Boolean);
+    }, [hodTeamRows, hrRecordGroups.missingCheckoutRecords, scopedTodayRows.absent, theme]);
+
+    const hodSpotlightCards = useMemo(() => {
+        const bestAttendance = hodTeamRows[0];
+        const mostLate = [...hodTeamRows].sort((a, b) => Number(b.lateCount || 0) - Number(a.lateCount || 0))[0];
+        const mostAbsent = [...hodTeamRows].sort((a, b) => Number(b.daysAbsent || 0) - Number(a.daysAbsent || 0))[0];
+        const mostOvertime = [...hodTeamRows].sort((a, b) => Number(b.overtimeHours || 0) - Number(a.overtimeHours || 0))[0];
+        const belowExpected = [...hodTeamRows].sort((a, b) => Number(b.belowExpectedHours || 0) - Number(a.belowExpectedHours || 0))[0];
+        return [
+            { key: "hodBestAttendance", title: "Best Attendance", value: bestAttendance?.name || "N/A", subtitle: formatPercent(bestAttendance?.attendanceRate), icon: <CheckCircleRounded />, tone: theme.success },
+            { key: "hodMostLate", title: "Most Late", value: mostLate?.name || "N/A", subtitle: `${formatNumber(mostLate?.lateCount || 0)} days`, icon: <HourglassBottomRounded />, tone: theme.danger },
+            { key: "hodMostAbsent", title: "Most Absence", value: mostAbsent?.name || "N/A", subtitle: `${formatNumber(mostAbsent?.daysAbsent || 0)} days`, icon: <WarningAmberRounded />, tone: theme.warning },
+            { key: "hodMostOvertime", title: "Most Overtime", value: mostOvertime?.name || "N/A", subtitle: formatDuration(mostOvertime?.overtimeHours || 0), icon: <TrendingUpRounded />, tone: theme.secondary },
+            { key: "hodBelowExpectedHours", title: "Below Hours", value: belowExpected?.name || "N/A", subtitle: formatDuration(belowExpected?.belowExpectedHours || 0), icon: <TrendingDownRounded />, tone: theme.danger },
+        ];
+    }, [hodTeamRows, theme]);
+
+    const metricDetails = useMemo(() => {
+        const withHours = (rows) => rows.map((row) => ({
+            ...row,
+            workedHoursLabel: row.workedHours ? formatDuration(row.workedHours) : "",
+        }));
+
+        return {
+            totalStaff: { title: "Total Staff in Scope", subtitle: scopeLabel, rows: processedSummaryRows, columns: detailColumns.summary },
+            hodTeamMembers: { title: "Department Team Members", subtitle: `${supervisorDepartment || "Department"} at ${supervisorStation || "assigned station"}`, rows: hodTeamRows, columns: detailColumns.hodTeam },
+            presentToday: { title: "Present Today", subtitle: "Staff with a clock-in today", rows: scopedTodayRows.present, columns: detailColumns.people },
+            absentToday: { title: "Absent Today", subtitle: "Staff without a clock-in and not on approved leave today", rows: scopedTodayRows.absent, columns: detailColumns.people },
+            onLeaveToday: { title: "On Leave Today", subtitle: "Approved leave in today's scope", rows: scopedTodayRows.onLeave, columns: [...detailColumns.people, { key: "leaveType", label: "Leave Type", minWidth: 140 }, { key: "leaveStart", label: "From", minWidth: 115 }, { key: "leaveEnd", label: "To", minWidth: 115 }] },
+            onLeaveDuty: { title: "On Leave / Official Duty", subtitle: "Approved leave and official-duty records visible today", rows: hodOnLeaveDutyRows, columns: detailColumns.hodDuty },
+            officialDuty: { title: "Official Duty Records", subtitle: "Outside-duty records classified from reason text", rows: hrRecordGroups.officialDutyRecords, columns: detailColumns.records },
+            fieldWork: { title: "Field Work Records", subtitle: "Field, research, remote, and site-based outside records", rows: hrRecordGroups.fieldWorkRecords, columns: detailColumns.records },
+            attendanceRate: { title: "Attendance Rate Contributors", subtitle: "Staff summary behind the selected attendance rate", rows: processedSummaryRows, columns: detailColumns.summary },
+            punctualityRate: { title: "Punctuality by Record", subtitle: "On-time and late records in the selected scope", rows: processedRecords, columns: detailColumns.records },
+            stationPerformance: { title: "All Station / Centre Performance", subtitle: "Configured stations with attendance metrics in the selected scope", rows: configuredStationPerformanceRows, columns: detailColumns.performance },
+            departmentPerformance: { title: "All Department Performance", subtitle: "Configured departments with attendance metrics in the selected scope", rows: configuredDepartmentPerformanceRows, columns: detailColumns.performance },
+            departmentHeatmap: { title: "Department Attendance Heatmap", subtitle: "Weekday attendance rates for all configured departments", rows: departmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
+            stationHeatmap: { title: "Station / Centre Attendance Heatmap", subtitle: "Weekday attendance rates for all configured stations", rows: stationHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Station", rowKey: "station" },
+            hodDepartmentHeatmap: { title: `${supervisorDepartment || "Department"} Attendance Heatmap`, subtitle: `${supervisorStation || "Assigned station"} weekday attendance pattern`, rows: hodDepartmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
+            hodAttendanceDistribution: { title: "Department Attendance Distribution", subtitle: "Today by attendance state", rows: hodAttendanceDistributionRows, columns: detailColumns.distribution },
+            lateRecords: { title: "Late Records", subtitle: "Late clock-ins in the selected scope", rows: hrRecordGroups.lateRecords, columns: detailColumns.records },
+            averageWorkingHours: { title: "Completed Working Hours", subtitle: "Records with clock-in and clock-out", rows: hrRecordGroups.completedRecords, columns: [...detailColumns.records, { key: "workedHours", label: "Hours", minWidth: 90, render: (row) => formatDuration(getRecordHours(row)) }] },
+            overtimeHours: { title: "Overtime Records", subtitle: "Completed records above 8 hours", rows: withHours(hrRecordGroups.overtimeRecords), columns: [...detailColumns.records, { key: "workedHoursLabel", label: "Worked", minWidth: 90 }] },
+            missingCheckout: { title: "Missing Checkout Records", subtitle: "Open or system-closed attendance records", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
+            lostWorkingHours: { title: "Lost Working Hour Drivers", subtitle: "Short completed days and absent days", rows: [...hrRecordGroups.shortHourRecords, ...processedSummaryRows.filter((row) => Number(row.daysAbsent || 0) > 0)], columns: [...detailColumns.summary, { key: "workedHours", label: "Worked", minWidth: 90, render: (row) => row.workedHours ? formatDuration(row.workedHours) : "Absence" }] },
+            biometricReadiness: { title: "Biometric Readiness", subtitle: "Scoped enrolment and device readiness totals", rows: [{ id: "biometric", name: "Biometric Readiness", staff: Number(kpis?.totalEmployees || 0), attendanceRate: biometricAnalytics?.enrollmentRate || 0, punctualityRate: biometricAnalytics?.deviceUptime || 0, absenteeismRate: 100 - Number(biometricAnalytics?.enrollmentRate || 0), lateCount: biometricAnalytics?.inactiveDevices || 0, onLeaveDays: biometricAnalytics?.lostDevices || 0, averageWorkingHours: 0 }], columns: detailColumns.performance },
+            outsideClocking: { title: "Outside Clocking Records", subtitle: "Off-premise or outside-location records", rows: hrRecordGroups.outsideRecords, columns: detailColumns.records },
+            openSessions: { title: "Open Sessions", subtitle: "Clock-ins without completed clock-outs", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
+            hodRepeatedLate: { title: "Repeated Late Arrivals", subtitle: "Team members with two or more late records in the selected period", rows: hodTeamRows.filter((row) => Number(row.lateCount || 0) >= 2), columns: detailColumns.hodTeam },
+            hodBelowExpectedHours: { title: "Below Expected Hours", subtitle: "Team members with completed days below expected hours", rows: hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0), columns: detailColumns.hodTeam },
+            hodBestAttendance: { title: "Best Attendance", subtitle: "Top department attendance performer", rows: hodTeamRows.slice(0, 1), columns: detailColumns.hodTeam },
+            hodMostLate: { title: "Most Late", subtitle: "Team member with the highest late count", rows: [...hodTeamRows].sort((a, b) => Number(b.lateCount || 0) - Number(a.lateCount || 0)).slice(0, 1), columns: detailColumns.hodTeam },
+            hodMostAbsent: { title: "Most Absence", subtitle: "Team member with the highest absent days", rows: [...hodTeamRows].sort((a, b) => Number(b.daysAbsent || 0) - Number(a.daysAbsent || 0)).slice(0, 1), columns: detailColumns.hodTeam },
+            hodMostOvertime: { title: "Most Overtime", subtitle: "Team member with the highest overtime hours", rows: [...hodTeamRows].sort((a, b) => Number(b.overtimeHours || 0) - Number(a.overtimeHours || 0)).slice(0, 1), columns: detailColumns.hodTeam },
+        };
+    }, [
+        biometricAnalytics,
+        configuredDepartmentPerformanceRows,
+        configuredStationPerformanceRows,
+        detailColumns,
+        departmentHeatmapRows,
+        hodAttendanceDistributionRows,
+        hodDepartmentHeatmapRows,
+        hodOnLeaveDutyRows,
+        hodTeamRows,
+        hrRecordGroups,
+        kpis,
+        processedRecords,
+        processedSummaryRows,
+        scopedTodayRows,
+        scopeLabel,
+        stationHeatmapRows,
+        supervisorDepartment,
+        supervisorStation,
+    ]);
+
+    const openMetricDetails = useCallback((key) => {
+        setMetricDialog(metricDetails[key] || null);
+    }, [metricDetails]);
 
     const exceptionSignalRows = useMemo(
         () => [
@@ -2046,46 +3635,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         ],
         [attendanceDelta, lowestAbsenteeismDepartment, lowestStation, reportingStationCount, reportingStationTotal, stationBelowTargetCount, theme]
     );
-
-    const teamInsightRows = useMemo(
-        () => [
-            { label: "Attendance Rate", value: formatPercent(kpis?.attendanceRate), tone: theme.secondary },
-            { label: "Punctuality Rate", value: formatPercent(kpis?.punctualityRate), tone: theme.success },
-            { label: "Repeated Lateness", value: `${formatNumber(lateToday)} staff`, tone: theme.warning },
-            { label: "Pending Reviews", value: formatNumber(attentionReviewRows.length || missingRecords), tone: theme.danger },
-        ],
-        [attentionReviewRows.length, kpis, lateToday, missingRecords, theme]
-    );
-
-    const hodExceptionRows = useMemo(() => {
-        const exceptionRows = processedRecords
-            .filter((row) => row.timing === "Late" || row.clockOut === "Open" || row.clockOut === "System")
-            .slice(0, 4)
-            .map((row) => {
-                const issue = row.timing === "Late"
-                    ? "Late Arrival"
-                    : row.clockOut === "System"
-                        ? "System Clock-out"
-                        : "Missing Clock-out";
-                return {
-                    employee: row.name || row.email || "Unknown",
-                    issue,
-                    date: row.date || "N/A",
-                    details: issue === "Late Arrival" ? row.clockIn : row.clockOut,
-                    status: issue === "System Clock-out" ? "Reviewed" : "Pending",
-                };
-            });
-
-        if (exceptionRows.length) return exceptionRows;
-
-        return attentionReviewRows.slice(0, 3).map((row) => ({
-            employee: row.name || "Unknown",
-            issue: "Absence Review",
-            date: periodRangeLabel,
-            details: `${formatNumber(row.daysAbsent)} absent`,
-            status: "Pending",
-        }));
-    }, [attentionReviewRows, periodRangeLabel, processedRecords]);
 
     const roleRecommendationCards = useMemo(() => {
         const totalEmployees = Number(kpis?.totalEmployees || 0);
@@ -2519,7 +4068,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         doc.setFontSize(8.5);
         doc.text(scopeLabel.toUpperCase(), pw / 2, 17, { align: "center" });
         doc.text(`${effectiveFilters.startDate} TO ${effectiveFilters.endDate}`.toUpperCase(), pw / 2, 23, { align: "center" });
-        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || "AUTHORIZED PERSONNEL").toUpperCase()} | ${(user?.rank || "").toUpperCase()}`, pw / 2, 29, { align: "center" });
+        doc.text(`GENERATED: ${new Date().toLocaleString().toUpperCase()} | BY: ${(user?.name || "AUTHORIZED PERSONNEL").toUpperCase()}`, pw / 2, 29, { align: "center" });
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.text("VERIFICATION QR", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
@@ -2905,13 +4454,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Role", "Rank",  "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
+                head: [["No.", "Employee ID", "Name", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
                 body: filteredSummaryRows.map((row, index) => [
                     index + 1,
                     row.employeeId,
                     row.name,
                     humanizeStaffAttribute(row.role),
-                    humanizeStaffAttribute(row.rank),
                     row.department,
                     row.totalDays,
                     row.workingDays,
@@ -2922,7 +4470,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
                 styles: { fontSize: 7.2, cellPadding: 1.7, halign: "center" },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
-                columnStyles: { 2: { cellWidth: 44 }, 4: { cellWidth: 24 }, 5: { cellWidth: 50 } },
+                columnStyles: { 2: { cellWidth: 48 }, 4: { cellWidth: 58 } },
             });
 
             await finalizeVerifiedPdf({
@@ -3136,10 +4684,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                         </Box>
                         <Box>
                             <FormControl fullWidth size="small">
-                                <InputLabel shrink>Staff Type / Rank</InputLabel>
+                                <InputLabel shrink>Staff Type</InputLabel>
                                 <Select
                                     value={draftFilters.staffFilter}
-                                    label="Staff Type / Rank"
+                                    label="Staff Type"
                                     onChange={handleFilterChange("staffFilter")}
                                     displayEmpty
                                     renderValue={(selected) => staffFilters.find((item) => item.value === selected)?.label || "All"}
@@ -3380,151 +4928,26 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                                 </Stack>
                             </>
                         ) : isSupervisorScope ? (
-                            <>
-                                <Grid container spacing={1.5}>
-                                    <Grid item xs={12} lg={8}>
-                                        <SectionCard title="Today" theme={theme}>
-                                            <Grid container spacing={1.1}>
-                                                {workforceMetricCards.map((metric) => (
-                                                    <Grid item xs={6} md={3} key={metric.title}>
-                                                        <OverviewMetricCard {...metric} theme={theme} />
-                                                    </Grid>
-                                                ))}
-                                            </Grid>
-                                        </SectionCard>
-                                    </Grid>
-                                    <Grid item xs={12} lg={4}>
-                                        <SectionCard title="Period" theme={theme}>
-                                            <Grid container spacing={1.1}>
-                                                {periodMetricCards.map((metric) => (
-                                                    <Grid item xs={12} sm={6} key={metric.title}>
-                                                        <OverviewMetricCard {...metric} theme={theme} />
-                                                    </Grid>
-                                                ))}
-                                            </Grid>
-                                        </SectionCard>
-                                    </Grid>
-                                </Grid>
-
-                                <Grid container spacing={1.5}>
-                                    <Grid item xs={12} lg={5}>
-                                        <SectionCard
-                                            title="Attendance Trend"
-                                            theme={theme}
-                                            action={
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                                                    {["Daily", "Weekly", "Monthly"].map((label, index) => (
-                                                        <Chip key={label} size="small" label={label} sx={{ height: 24, borderRadius: "6px", fontSize: 10, fontWeight: 900, bgcolor: index === 0 ? `${theme.secondary}14` : "transparent", color: index === 0 ? theme.secondary : theme.muted, border: `1px solid ${index === 0 ? `${theme.secondary}33` : theme.border}` }} />
-                                                    ))}
-                                                </Stack>
-                                            }
-                                        >
-                                            <Box sx={{ height: 245 }}>
-                                                {chartData.length ? (
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <LineChart data={chartData} margin={{ top: 8, right: 10, left: -18, bottom: 0 }}>
-                                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
-                                                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
-                                                            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
-                                                            <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance Rate"]} />
-                                                            <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={theme.success} strokeWidth={2.6} dot={{ r: 2.5 }} activeDot={{ r: 5 }} />
-                                                        </LineChart>
-                                                    </ResponsiveContainer>
-                                                ) : (
-                                                    <EmptyState label="No attendance trend data available." theme={theme} />
-                                                )}
-                                            </Box>
-                                        </SectionCard>
-                                    </Grid>
-                                    <Grid item xs={12} lg={4}>
-                                        <SectionCard title="Attendance Distribution" theme={theme}>
-                                            <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(kpis?.totalEmployees)} centerLabel="Total Staff" height={235} />
-                                        </SectionCard>
-                                    </Grid>
-                                    <Grid item xs={12} lg={3}>
-                                        <SectionCard title="Team Insights" theme={theme}>
-                                            <Stack spacing={1}>
-                                                {teamInsightRows.map((item) => (
-                                                    <Box key={item.label} sx={{ p: 1.1, borderRadius: "8px", border: `1px solid ${theme.border}`, bgcolor: `${item.tone}08` }}>
-                                                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                                                            <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{item.label}</Typography>
-                                                            <Typography sx={{ fontSize: 15, fontWeight: 950, color: item.tone }}>{item.value}</Typography>
-                                                        </Stack>
-                                                    </Box>
-                                                ))}
-                                            </Stack>
-                                        </SectionCard>
-                                    </Grid>
-                                </Grid>
-
-                                <Grid container spacing={1.5}>
-                                    <Grid item xs={12} lg={6}>
-                                        <SectionCard title="Staff Attendance" theme={theme}>
-                                            <TableContainer sx={{ overflowX: "auto" }}>
-                                                <Table size="small" stickyHeader sx={{ minWidth: 720 }}>
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            {["Employee", "Present Days", "Absent Days", "Late", "Early", "Attendance", "Status"].map((heading) => (
-                                                                <TableCell key={heading} align={heading === "Employee" ? "left" : "right"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>{heading}</TableCell>
-                                                            ))}
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {processedSummaryRows.slice(0, 5).map((row) => {
-                                                            const rate = Number(row.attendanceRate || 0);
-                                                            const employeeRecords = processedRecords.filter((record) => record.name === row.name);
-                                                            const lateCount = employeeRecords.filter((record) => record.timing === "Late").length;
-                                                            const statusLabel = rate >= 95 ? "Excellent" : rate >= 90 ? "Good" : "Needs Attention";
-                                                            return (
-                                                                <TableRow key={row.id}>
-                                                                    <TableCell><Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography></TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12 }}>{formatNumber(row.daysPresent)}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12 }}>{formatNumber(row.daysAbsent)}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12 }}>{formatNumber(lateCount)}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12 }}>0</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
-                                                                    <TableCell align="right"><Chip size="small" label={statusLabel} sx={{ height: 22, borderRadius: "6px", fontSize: 10, fontWeight: 900, color: getAttendanceColor(rate, theme), bgcolor: `${getAttendanceColor(rate, theme)}12` }} /></TableCell>
-                                                                </TableRow>
-                                                            );
-                                                        })}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        </SectionCard>
-                                    </Grid>
-                                    <Grid item xs={12} lg={6}>
-                                        <SectionCard title="Exceptions Requiring Review" theme={theme}>
-                                            <TableContainer sx={{ overflowX: "auto" }}>
-                                                <Table size="small" stickyHeader sx={{ minWidth: 680 }}>
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            {["Employee", "Issue", "Date", "Details", "Status"].map((heading) => (
-                                                                <TableCell key={heading} align={heading === "Status" ? "right" : "left"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>{heading}</TableCell>
-                                                            ))}
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {hodExceptionRows.map((row) => (
-                                                            <TableRow key={`${row.employee}-${row.issue}-${row.date}`}>
-                                                                <TableCell><Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.employee}</Typography></TableCell>
-                                                                <TableCell sx={{ fontSize: 12 }}>{row.issue}</TableCell>
-                                                                <TableCell sx={{ fontSize: 12 }}>{row.date}</TableCell>
-                                                                <TableCell sx={{ fontSize: 12 }}>{row.details}</TableCell>
-                                                                <TableCell align="right"><Chip size="small" label={row.status} sx={{ height: 22, borderRadius: "6px", fontSize: 10, fontWeight: 900, color: row.status === "Reviewed" ? theme.success : "#B45309", bgcolor: row.status === "Reviewed" ? `${theme.success}12` : "rgba(245,158,11,0.12)" }} /></TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        </SectionCard>
-                                    </Grid>
-                                </Grid>
-
-                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: theme.muted, px: 0.5 }}>
-                                    Data is based on biometric records. Last updated: {lastUpdatedLabel} EAT
-                                </Typography>
-                            </>
-                        ) : (
+                            <HodAttendanceAnalytics
+                                theme={theme}
+                                kpis={kpis}
+                                previousKpis={previousKpis}
+                                periodRangeLabel={periodRangeLabel}
+                                supervisorDepartment={supervisorDepartment}
+                                supervisorStation={supervisorStation}
+                                primaryMetricCards={hodPrimaryMetricCards}
+                                todayStatusRows={hodTodayStatusRows}
+                                chartData={chartData}
+                                attendanceDelta={attendanceDelta}
+                                punctualityDelta={punctualityDelta}
+                                hodTeamRows={hodTeamRows}
+                                attentionRows={hodAttentionRows}
+                                departmentHeatmapRows={hodDepartmentHeatmapRows}
+                                attendanceDistributionRows={hodAttendanceDistributionRows}
+                                spotlightCards={hodSpotlightCards}
+                                onMetricClick={openMetricDetails}
+                            />
+                        ) : false ? (
                             <>
                                 <Grid container spacing={1.5}>
                                     <Grid item xs={12} lg={8}>
@@ -3698,6 +5121,31 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                                     </Grid>
                                 </Grid>
                             </>
+                        ) : (
+                            <HrAttendanceAnalytics
+                                isStationScopedHr={isStationScopedHr}
+                                theme={theme}
+                                kpis={kpis}
+                                previousPeriodLabel={previousPeriodLabel}
+                                periodRangeLabel={periodRangeLabel}
+                                supervisorStation={supervisorStation}
+                                scopeLabel={scopeLabel}
+                                primaryMetricCards={hrPrimaryMetricCards}
+                                secondaryMetricCards={hrSecondaryMetricCards}
+                                chartData={chartData}
+                                attendanceDistributionRows={attendanceDistributionRows}
+                                configuredStationPerformanceRows={configuredStationPerformanceRows}
+                                configuredDepartmentPerformanceRows={configuredDepartmentPerformanceRows}
+                                todayStatusRows={todayStatusRows}
+                                arrivalBucketRows={arrivalBucketRows}
+                                workingHourRows={workingHourRows}
+                                leaveDutyRows={leaveDutyRows}
+                                topExceptionRows={topExceptionRows}
+                                departmentHeatmapRows={departmentHeatmapRows}
+                                stationHeatmapRows={stationHeatmapRows}
+                                keyInsights={hrKeyInsights}
+                                onMetricClick={openMetricDetails}
+                            />
                         )}
                     </Box>
 
@@ -4180,7 +5628,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                         <Stack spacing={1.2}>
                             {[
                                 ["Scope", scopeLabel],
-                                ["Staff Type / Rank", staffFilters.find((item) => item.value === filters.staffFilter)?.label || "All"],
+                                ["Staff Type", staffFilters.find((item) => item.value === filters.staffFilter)?.label || "All"],
                                 ["Clocking Type", clockingTypeOptions.find((item) => item.value === filters.clockingType)?.label || "All Clocking Types"],
                                 ["Period", quickRanges.find((item) => item.value === filters.quickRange)?.label || "Custom Period"],
                                 ["Performance Band", performanceBands.find((item) => item.value === filters.performanceBand)?.label || "All Performance"],
@@ -4267,6 +5715,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                     workingDaysInReferenceRange={workingDaysInReferenceRange}
                 />
             )}
+
+            <MetricDetailDialog
+                open={Boolean(metricDialog)}
+                metric={metricDialog}
+                theme={theme}
+                onClose={() => setMetricDialog(null)}
+            />
         </Box>
     );
 };
