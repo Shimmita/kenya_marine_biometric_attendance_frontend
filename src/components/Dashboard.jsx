@@ -110,6 +110,9 @@ const NAV_DISPLAY_LABELS = {
     'Holiday Management': 'Holiday Management',
     'System Audit Logs': 'AUDIT INTELLIGENCE',
     'Broader Statistics': 'Attendance Analytics',
+    'Attendance Analytics': 'Attendance Analytics',
+    'Attendance Records': 'Attendance Records',
+    'Attendance Summary': 'Attendance Summary',
     'Manage Your Members': 'Team Management',
     // 'Member Leave Requests': 'Team Leave Requests',
     'Lost Device': 'Lost Device Access',
@@ -151,6 +154,18 @@ const PAGE_META = {
     'Broader Statistics': {
         title: 'Attendance Analytics',
         subtitle: 'Explore attendance performance across staff, departments, and stations.',
+    },
+    'Attendance Analytics': {
+        title: 'Attendance Analytics',
+        subtitle: 'Explore attendance performance across staff, departments, and stations.',
+    },
+    'Attendance Records': {
+        title: 'Attendance Records',
+        subtitle: 'Review clock-in and clock-out records for the authorized attendance scope.',
+    },
+    'Attendance Summary': {
+        title: 'Attendance Summary',
+        subtitle: 'Review staff-level attendance totals and rates for the authorized scope.',
     },
     'Lost Device Requests': {
         title: 'Device Access Requests',
@@ -206,6 +221,11 @@ const PAGE_META = {
     },
 };
 
+const ATTENDANCE_REPORT_ITEMS = [
+    { text: 'Attendance Analytics', icon: <BarChartRounded /> },
+    { text: 'Attendance Records', icon: <History /> },
+    { text: 'Attendance Summary', icon: <QueryStats /> },
+];
 
 
 const SUPERADMIN_GENERAL_ITEMS = [
@@ -226,14 +246,11 @@ const SUPERADMIN_AUDITOR_ITEMS = [
 ];
 
 const SUPERADMIN_SUPERVISOR_ITEMS = [
-    { text: 'Broader Statistics', icon: <BarChartRounded /> },
     { text: 'Manage Your Members', icon: <SupervisorAccount /> },
     // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
 ];
 
-const SUPERADMIN_CEO_ITEMS = [
-    { text: 'Broader Statistics', icon: <BarChartRounded /> },
-];
+const SUPERADMIN_CEO_ITEMS = ATTENDANCE_REPORT_ITEMS;
 
 
 
@@ -594,19 +611,19 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'Holiday Management', icon: <EventAvailableRounded /> },
         { text: 'Register Intern/Attache', icon: <SchoolRounded /> },
         { text: 'Staff Registration', icon: <PeopleRounded /> },
-        { text: 'Broader Statistics', icon: <BarChartRounded /> },
+        ...ATTENDANCE_REPORT_ITEMS,
         { text: 'User Management', icon: <SupervisorAccount /> },
         { text: 'Feedback Statistics', icon: <InsightsRounded /> },
     ], [platformConfigVersion]);
 
     const supervisorItems = useMemo(() => [
-        { text: 'Broader Statistics', icon: <BarChartRounded /> },
+        ...ATTENDANCE_REPORT_ITEMS,
         { text: 'Manage Your Members', icon: <SupervisorAccount />, },
         // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded /> },
     ], [platformConfigVersion]);
 
     const ceoItems = useMemo(() => [
-        { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+        ...ATTENDANCE_REPORT_ITEMS,
     ], [platformConfigVersion]);
 
     return (
@@ -1007,6 +1024,7 @@ const EnhancedDashboard = () => {
     const isElevated = useMemo(() => ELEVATED_RANKS.includes(user?.rank), [user?.rank]);
     const isAuditor = useMemo(() => user?.rank === 'auditor', [user?.rank]);
     const canViewAdminFeatures = useMemo(() => isElevated || isAuditor, [isElevated, isAuditor]);
+    const canViewAttendanceReports = useMemo(() => ['hr', 'supervisor', 'ceo', 'superadmin'].includes(user?.rank), [user?.rank]);
     const isPrivileged = useMemo(() => PRIVILEGED_RANKS.includes(user?.rank), [user?.rank]);
     const rankMeta = useMemo(() => {
         return RANK_META[user?.rank]
@@ -1037,17 +1055,23 @@ const EnhancedDashboard = () => {
                 { text: 'Holiday Management', icon: <EventAvailableRounded />, color: coreDataDetails.navPalette?.holiday || '#14b8a6' },
                 { text: 'Register Intern/Attache', icon: <SchoolRounded />, color: coreDataDetails.navPalette?.register || '#10b981' },
                 { text: 'Staff Registration', icon: <PeopleRounded />, color: coreDataDetails.navPalette?.staff || '#8b5cf6' },
-                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+                { text: 'Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
                 { text: 'User Management', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#38bdf8' },
                 { text: 'Feedback Statistics', icon: <InsightsRounded />, color: coreDataDetails.navPalette?.feedback || '#e2e8f0' },
             ],
             supervisor: [
-                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+                { text: 'Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
                 // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
             ],
             ceo: [
-                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
+                { text: 'Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+                { text: 'Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
             ],
             auditor: [
                 { text: 'System Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
@@ -1063,7 +1087,9 @@ const EnhancedDashboard = () => {
                 { text: 'System Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
                 { text: 'Manage Your Members', icon: <SupervisorAccount />, color: coreDataDetails.navPalette?.members || '#0ea5e9' },
                 // { text: 'Member Leave Requests', icon: <SensorOccupiedRounded />, color: coreDataDetails.navPalette?.leave || '#06b6d4' },
-                { text: 'Broader Statistics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+                { text: 'Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
 
             ],
         };
@@ -1099,7 +1125,10 @@ const EnhancedDashboard = () => {
             case 'Leave Management': return canViewAdminFeatures ? <AdminLeaveManager key={`admin-leave-${platformConfigVersion}`} {...sharedProps} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Notification Panel': return <NotificationManagementContent {...sharedProps} currentUser={user} />;
             case 'Our Mobile App': return <DownloadMobileAppSection />;
-            case 'Broader Statistics': return canViewAdminFeatures ? <OrganisationStats user={user} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
+            case 'Broader Statistics': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="analytics" /> : <DashboardContent {...sharedProps} />;
+            case 'Attendance Analytics': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="analytics" /> : <DashboardContent {...sharedProps} />;
+            case 'Attendance Records': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="records" /> : <DashboardContent {...sharedProps} />;
+            case 'Attendance Summary': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="summary" /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
@@ -1116,24 +1145,24 @@ const EnhancedDashboard = () => {
             case 'Platform Administration': return user?.rank === 'superadmin' ? <SuperadminPanel onConfigLoaded={refreshPlatformConfig} /> : <DashboardContent {...sharedProps} />;
             default: return <DashboardContent {...sharedProps} />;
         }
-    }, [activeTab, canViewAdminFeatures, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user]);
+    }, [activeTab, canViewAdminFeatures, canViewAttendanceReports, isAuditor, platformConfigVersion, refreshPlatformConfig, sharedProps, user]);
 
     const pageTitle = useMemo(() => {
-        if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
-            return 'Department Broader Statistics';
+        if (['Broader Statistics', 'Attendance Analytics', 'Attendance Records', 'Attendance Summary'].includes(activeTab) && user?.rank === 'supervisor') {
+            return PAGE_META[activeTab]?.title || 'Department Attendance';
         }
 
         return PAGE_META[activeTab]?.title || getNavDisplayLabel(activeTab) || 'Dashboard';
     }, [activeTab, user?.rank]);
 
     const pageSubtitle = useMemo(() => {
-        if (activeTab === 'Broader Statistics' && user?.rank === 'supervisor') {
+        if (['Broader Statistics', 'Attendance Analytics', 'Attendance Records', 'Attendance Summary'].includes(activeTab) && user?.rank === 'supervisor') {
             const department = user?.department || 'your department';
             const station = user?.station || 'your station';
             return `Station and department scoped analytics for ${department} at ${station}`;
         }
 
-        if (activeTab === 'Broader Statistics' && user?.rank === 'hr') {
+        if (['Broader Statistics', 'Attendance Analytics', 'Attendance Records', 'Attendance Summary'].includes(activeTab) && user?.rank === 'hr') {
             return isMombasaCentreStation(user?.station)
                 ? 'Super HR analytics across all stations'
                 : `Station scoped HR analytics for ${user?.station || 'your station'}`;

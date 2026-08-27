@@ -21,8 +21,6 @@ import {
     TableHead,
     TablePagination,
     TableRow,
-    Tab,
-    Tabs,
     TextField,
     Tooltip,
     Typography,
@@ -206,6 +204,11 @@ const trendMetricOptions = [
     { value: "present", label: "Present Only" },
     { value: "risk", label: "Absence and Lateness" },
 ];
+
+const attendanceReportTabs = ["analytics", "records", "summary"];
+
+const normalizeReportTab = (value) =>
+    attendanceReportTabs.includes(value) ? value : "analytics";
 
 const normalizeStationAccessName = (value = "") =>
     String(value || "")
@@ -804,7 +807,318 @@ const EmployeeRankList = ({ rows, theme, emptyLabel }) => (
     </Stack>
 );
 
-const OrganisationStats = ({ user, readOnly = false }) => {
+const ReferenceStatsGrid = ({ theme, referenceMetrics }) => (
+    <Box
+        sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(5, minmax(0, 1fr))" },
+            gap: 1.2,
+            mb: 1.5,
+        }}
+    >
+        <StatCard title="Reference Records" value={formatNumber(referenceMetrics.records)} subtitle="Clocking rows in scope" icon={<HistoryRounded />} tone={theme.secondary} theme={theme} />
+        <StatCard title="Summary Staff" value={formatNumber(referenceMetrics.summaryRows)} subtitle="People in summary" icon={<GroupsRounded />} tone={theme.accent} theme={theme} />
+        <StatCard title="Open Sessions" value={formatNumber(referenceMetrics.openSessions)} subtitle="Missing clock-out" icon={<WarningAmberRounded />} tone={referenceMetrics.openSessions ? theme.warning : theme.success} theme={theme} />
+        <StatCard title="Late Records" value={formatNumber(referenceMetrics.lateRecords)} subtitle="Late arrivals in period" icon={<HourglassBottomRounded />} tone={referenceMetrics.lateRecords ? theme.danger : theme.success} theme={theme} />
+        <StatCard title="Avg Summary Rate" value={formatPercent(referenceMetrics.averageAttendance)} subtitle="Mean staff attendance" icon={<TableChartRounded />} tone={theme.primary} theme={theme} />
+    </Box>
+);
+
+const AttendanceRecords = ({
+    theme,
+    scopeLabel,
+    referenceMetrics,
+    referenceLoading,
+    referenceError,
+    referenceSearch,
+    onReferenceSearchChange,
+    onRefresh,
+    pdfExporting,
+    onExport,
+    filteredRecords,
+    paginatedRecords,
+    recordPage,
+    setRecordPage,
+    recordRowsPerPage,
+    setRecordRowsPerPage,
+}) => (
+    <SectionCard
+        title="Administrative Reference"
+        subtitle="Attendance records for audit, HR review, and station administration"
+        theme={theme}
+        action={
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Chip
+                    size="small"
+                    label={`${formatNumber(referenceMetrics.records)} records`}
+                    sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
+                />
+                <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={referenceLoading ? <CircularProgress size={12} /> : <RefreshRounded />}
+                    onClick={onRefresh}
+                    disabled={referenceLoading}
+                    sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, borderColor: theme.border, color: theme.primary }}
+                >
+                    Refresh Reference
+                </Button>
+            </Stack>
+        }
+    >
+        {referenceError && (
+            <Alert severity="warning" sx={{ mb: 1.5, borderRadius: "8px" }}>
+                {referenceError}
+            </Alert>
+        )}
+
+        <ReferenceStatsGrid theme={theme} referenceMetrics={referenceMetrics} />
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <TextField
+                size="small"
+                label="Search attendance records"
+                value={referenceSearch}
+                onChange={onReferenceSearchChange}
+                sx={{ minWidth: { xs: "100%", md: 360 } }}
+            />
+            <Button
+                variant="contained"
+                startIcon={pdfExporting === "records" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
+                onClick={onExport}
+                disabled={!filteredRecords.length}
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+            >
+                {pdfExporting === "records" ? "Exporting..." : "Export Records PDF"}
+            </Button>
+        </Stack>
+
+        <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.secondary}08` }}>
+                <Box>
+                    <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Records</Typography>
+                    <Typography sx={{ fontSize: 11, color: theme.muted }}>Clock-in and clock-out reference rows within {scopeLabel}</Typography>
+                </Box>
+                {referenceLoading && <CircularProgress size={16} sx={{ color: theme.secondary }} />}
+            </Stack>
+            <TableContainer sx={{ maxHeight: 430 }}>
+                <Table size="small" stickyHeader>
+                    <TableHead>
+                        <TableRow>
+                            {["Employee", "Date", "Clock In", "Clock Out", "Timing", "In Location", "Out Location", "Department"].map((heading) => (
+                                <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }}>
+                                    {heading}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {paginatedRecords.map((row) => (
+                            <TableRow key={row.id}>
+                                <TableCell sx={{ minWidth: 180 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
+                                    <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ whiteSpace: "nowrap" }}>{row.date}</TableCell>
+                                <TableCell>{row.clockIn}</TableCell>
+                                <TableCell>{row.clockOut}</TableCell>
+                                <TableCell>
+                                    <Chip size="small" label={row.timing} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.timing === "Late" ? `${theme.warning}18` : `${theme.success}16`, color: row.timing === "Late" ? "#B45309" : theme.success }} />
+                                </TableCell>
+                                <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                    <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.inLocation}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                    <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ minWidth: 170 }}>{row.department}</TableCell>
+                            </TableRow>
+                        ))}
+                        {!paginatedRecords.length && (
+                            <TableRow>
+                                <TableCell colSpan={8}>
+                                    <EmptyState label={referenceLoading ? "Loading attendance records..." : "No attendance records match the selected scope."} theme={theme} />
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+            <TablePagination
+                component="div"
+                count={filteredRecords.length}
+                page={recordPage}
+                onPageChange={(_, pageValue) => setRecordPage(pageValue)}
+                rowsPerPage={recordRowsPerPage}
+                onRowsPerPageChange={(event) => {
+                    setRecordRowsPerPage(Number(event.target.value));
+                    setRecordPage(0);
+                }}
+                rowsPerPageOptions={[10, 25, 50, 100]}
+            />
+        </Box>
+
+        <InsightNote theme={theme} tone={referenceMetrics.openSessions ? theme.warning : theme.secondary}>
+            Records prove the underlying attendance events behind the analytics, including timing, clock-out state, and location reference.
+        </InsightNote>
+    </SectionCard>
+);
+
+const AttendanceSummary = ({
+    theme,
+    referenceMetrics,
+    referenceLoading,
+    referenceError,
+    referenceSearch,
+    onReferenceSearchChange,
+    onRefresh,
+    pdfExporting,
+    onExport,
+    filteredSummaryRows,
+    paginatedSummaryRows,
+    summaryPage,
+    setSummaryPage,
+    summaryRowsPerPage,
+    setSummaryRowsPerPage,
+    workingDaysInReferenceRange,
+}) => (
+    <SectionCard
+        title="Administrative Reference"
+        subtitle="Attendance summary for audit, HR review, and station administration"
+        theme={theme}
+        action={
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Chip
+                    size="small"
+                    label={`${formatNumber(referenceMetrics.summaryRows)} staff`}
+                    sx={{ borderRadius: "8px", bgcolor: `${theme.accent}12`, color: theme.primary, fontWeight: 900 }}
+                />
+                <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={referenceLoading ? <CircularProgress size={12} /> : <RefreshRounded />}
+                    onClick={onRefresh}
+                    disabled={referenceLoading}
+                    sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, borderColor: theme.border, color: theme.primary }}
+                >
+                    Refresh Reference
+                </Button>
+            </Stack>
+        }
+    >
+        {referenceError && (
+            <Alert severity="warning" sx={{ mb: 1.5, borderRadius: "8px" }}>
+                {referenceError}
+            </Alert>
+        )}
+
+        <ReferenceStatsGrid theme={theme} referenceMetrics={referenceMetrics} />
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <TextField
+                size="small"
+                label="Search attendance summary"
+                value={referenceSearch}
+                onChange={onReferenceSearchChange}
+                sx={{ minWidth: { xs: "100%", md: 360 } }}
+            />
+            <Button
+                variant="contained"
+                startIcon={pdfExporting === "summary" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
+                onClick={onExport}
+                disabled={!filteredSummaryRows.length}
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
+            >
+                {pdfExporting === "summary" ? "Exporting..." : "Export Summary PDF"}
+            </Button>
+        </Stack>
+
+        <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.accent}08` }}>
+                <Box>
+                    <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Summary</Typography>
+                    <Typography sx={{ fontSize: 11, color: theme.muted }}>Working-day present and absent totals per staff member</Typography>
+                </Box>
+                <Chip size="small" label={`${workingDaysInReferenceRange} working days`} sx={{ borderRadius: "8px", fontWeight: 900, bgcolor: `${theme.accent}16`, color: theme.primary }} />
+            </Stack>
+            <TableContainer sx={{ maxHeight: 430 }}>
+                <Table size="small" stickyHeader>
+                    <TableHead>
+                        <TableRow>
+                            {["Employee", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
+                                <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent"].includes(heading) ? "right" : "left"}>
+                                    {heading}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {paginatedSummaryRows.map((row) => (
+                            <TableRow key={row.id}>
+                                <TableCell sx={{ minWidth: 180 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
+                                    <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
+                                </TableCell>
+                                <TableCell>{humanizeStaffAttribute(row.role)}</TableCell>
+                                <TableCell sx={{ minWidth: 180 }}>{row.department}</TableCell>
+                                <TableCell align="right">{formatNumber(row.totalDays)}</TableCell>
+                                <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
+                                <TableCell align="right">{formatNumber(row.daysPresent)}</TableCell>
+                                <TableCell align="right">{formatNumber(row.daysAbsent)}</TableCell>
+                                <TableCell sx={{ minWidth: 140 }}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={safePercent(row.attendanceRate)}
+                                            sx={{
+                                                width: 72,
+                                                height: 7,
+                                                borderRadius: 10,
+                                                bgcolor: "rgba(100,116,139,0.16)",
+                                                "& .MuiLinearProgress-bar": {
+                                                    bgcolor: getAttendanceColor(row.attendanceRate, theme),
+                                                    borderRadius: 10,
+                                                },
+                                            }}
+                                        />
+                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(row.attendanceRate, theme) }}>
+                                            {formatPercent(row.attendanceRate)}
+                                        </Typography>
+                                    </Stack>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {!paginatedSummaryRows.length && (
+                            <TableRow>
+                                <TableCell colSpan={8}>
+                                    <EmptyState label={referenceLoading ? "Loading attendance summary..." : "No summary rows match the selected scope."} theme={theme} />
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+            <TablePagination
+                component="div"
+                count={filteredSummaryRows.length}
+                page={summaryPage}
+                onPageChange={(_, pageValue) => setSummaryPage(pageValue)}
+                rowsPerPage={summaryRowsPerPage}
+                onRowsPerPageChange={(event) => {
+                    setSummaryRowsPerPage(Number(event.target.value));
+                    setSummaryPage(0);
+                }}
+                rowsPerPageOptions={[10, 25, 50, 100]}
+            />
+        </Box>
+
+        <InsightNote theme={theme} tone={referenceMetrics.openSessions ? theme.warning : theme.secondary}>
+            Summary rows translate daily attendance events into staff-level coverage for HOD follow-up, HR review, and executive reporting.
+        </InsightNote>
+    </SectionCard>
+);
+
+const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" }) => {
     const userRank = String(user?.rank || "").toLowerCase();
     const isSupervisorScope = userRank === "supervisor";
     const isHrScope = userRank === "hr";
@@ -853,7 +1167,7 @@ const OrganisationStats = ({ user, readOnly = false }) => {
     const [referenceError, setReferenceError] = useState("");
     const [referenceSearch, setReferenceSearch] = useState("");
     const deferredReferenceSearch = useDeferredValue(referenceSearch);
-    const [activeReportTab, setActiveReportTab] = useState("analytics");
+    const [activeReportTab, setActiveReportTab] = useState(() => normalizeReportTab(initialTab));
     const [pdfExporting, setPdfExporting] = useState("");
     const [recordPage, setRecordPage] = useState(0);
     const [summaryPage, setSummaryPage] = useState(0);
@@ -861,6 +1175,10 @@ const OrganisationStats = ({ user, readOnly = false }) => {
     const [summaryRowsPerPage, setSummaryRowsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        setActiveReportTab(normalizeReportTab(initialTab));
+    }, [initialTab]);
 
     const effectiveFilters = useMemo(
         () => ({
@@ -2920,31 +3238,6 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 </CardContent>
             </Card>
 
-            <Card elevation={0} sx={{ mb: 2.5, border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
-                <Tabs
-                    value={activeReportTab}
-                    onChange={(_, value) => setActiveReportTab(value)}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{
-                        minHeight: 48,
-                        bgcolor: "#fff",
-                        "& .MuiTab-root": {
-                            minHeight: 48,
-                            textTransform: "none",
-                            fontWeight: 900,
-                            color: theme.muted,
-                        },
-                        "& .Mui-selected": { color: theme.primary },
-                        "& .MuiTabs-indicator": { bgcolor: theme.primary, height: 3 },
-                    }}
-                >
-                    <Tab value="analytics" label="Analytics" icon={<AssessmentRounded fontSize="small" />} iconPosition="start" />
-                    <Tab value="records" label="Records" icon={<HistoryRounded fontSize="small" />} iconPosition="start" />
-                    <Tab value="summary" label="Summary" icon={<TableChartRounded fontSize="small" />} iconPosition="start" />
-                </Tabs>
-            </Card>
-
             {activeReportTab === "analytics" && (
                 <>
                     <Box sx={{ display: "grid", gap: 1.5 }}>
@@ -3925,251 +4218,54 @@ const OrganisationStats = ({ user, readOnly = false }) => {
                 </>
             )}
 
-            {activeReportTab !== "analytics" && (
-            <Box sx={{ mt: 2 }}>
-                <SectionCard
-                    title="Administrative Reference"
-                    subtitle="Attendance records and staff summary for audit, HR review, and station administration"
+            {activeReportTab === "records" && (
+                <AttendanceRecords
                     theme={theme}
-                    action={
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                            <Chip
-                                size="small"
-                                label={`${formatNumber(referenceMetrics.records)} records`}
-                                sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
-                            />
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={referenceLoading ? <CircularProgress size={12} /> : <RefreshRounded />}
-                                onClick={loadReferenceData}
-                                disabled={referenceLoading}
-                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, borderColor: theme.border, color: theme.primary }}
-                            >
-                                Refresh Reference
-                            </Button>
-                        </Stack>
-                    }
-                >
-                    {referenceError && (
-                        <Alert severity="warning" sx={{ mb: 1.5, borderRadius: "8px" }}>
-                            {referenceError}
-                        </Alert>
-                    )}
+                    scopeLabel={scopeLabel}
+                    referenceMetrics={referenceMetrics}
+                    referenceLoading={referenceLoading}
+                    referenceError={referenceError}
+                    referenceSearch={referenceSearch}
+                    onReferenceSearchChange={(event) => {
+                        setReferenceSearch(event.target.value);
+                        setRecordPage(0);
+                        setSummaryPage(0);
+                    }}
+                    onRefresh={loadReferenceData}
+                    pdfExporting={pdfExporting}
+                    onExport={handleExportRecordsPdf}
+                    filteredRecords={filteredRecords}
+                    paginatedRecords={paginatedRecords}
+                    recordPage={recordPage}
+                    setRecordPage={setRecordPage}
+                    recordRowsPerPage={recordRowsPerPage}
+                    setRecordRowsPerPage={setRecordRowsPerPage}
+                />
+            )}
 
-                    <Box
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: { xs: "1fr", md: "repeat(5, minmax(0, 1fr))" },
-                            gap: 1.2,
-                            mb: 1.5,
-                        }}
-                    >
-                        <StatCard title="Reference Records" value={formatNumber(referenceMetrics.records)} subtitle="Clocking rows in scope" icon={<HistoryRounded />} tone={theme.secondary} theme={theme} />
-                        <StatCard title="Summary Staff" value={formatNumber(referenceMetrics.summaryRows)} subtitle="People in summary" icon={<GroupsRounded />} tone={theme.accent} theme={theme} />
-                        <StatCard title="Open Sessions" value={formatNumber(referenceMetrics.openSessions)} subtitle="Missing clock-out" icon={<WarningAmberRounded />} tone={referenceMetrics.openSessions ? theme.warning : theme.success} theme={theme} />
-                        <StatCard title="Late Records" value={formatNumber(referenceMetrics.lateRecords)} subtitle="Late arrivals in period" icon={<HourglassBottomRounded />} tone={referenceMetrics.lateRecords ? theme.danger : theme.success} theme={theme} />
-                        <StatCard title="Avg Summary Rate" value={formatPercent(referenceMetrics.averageAttendance)} subtitle="Mean staff attendance" icon={<TableChartRounded />} tone={theme.primary} theme={theme} />
-                    </Box>
-
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 1.5 }}>
-                        <TextField
-                            size="small"
-                            label="Search records and summary"
-                            value={referenceSearch}
-                            onChange={(event) => {
-                                setReferenceSearch(event.target.value);
-                                setRecordPage(0);
-                                setSummaryPage(0);
-                            }}
-                            sx={{ minWidth: { xs: "100%", md: 360 } }}
-                        />
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            {activeReportTab === "records" && (
-                            <Button
-                                variant="contained"
-                                startIcon={pdfExporting === "records" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
-                                onClick={handleExportRecordsPdf}
-                                disabled={!filteredRecords.length}
-                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
-                            >
-                                {pdfExporting === "records" ? "Exporting..." : "Export Records PDF"}
-                            </Button>
-                            )}
-                            {activeReportTab === "summary" && (
-                            <Button
-                                variant="contained"
-                                startIcon={pdfExporting === "summary" ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : <DownloadRounded />}
-                                onClick={handleExportSummaryPdf}
-                                disabled={!filteredSummaryRows.length}
-                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 800, bgcolor: theme.primary }}
-                            >
-                                {pdfExporting === "summary" ? "Exporting..." : "Export Summary PDF"}
-                            </Button>
-                            )}
-                        </Stack>
-                    </Stack>
-
-                    <Grid container spacing={2}>
-                        {activeReportTab === "records" && (
-                        <Grid item xs={12}>
-                            <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.secondary}08` }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Records</Typography>
-                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>Clock-in and clock-out reference rows within {scopeLabel}</Typography>
-                                    </Box>
-                                    {referenceLoading && <CircularProgress size={16} sx={{ color: theme.secondary }} />}
-                                </Stack>
-                                <TableContainer sx={{ maxHeight: 430 }}>
-                                    <Table size="small" stickyHeader>
-                                        <TableHead>
-                                            <TableRow>
-                                                {["Employee", "Date", "Clock In", "Clock Out","Timing", "In Location", "Out Location", "Department"].map((heading) => (
-                                                    <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }}>
-                                                        {heading}
-                                                    </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {paginatedRecords.map((row) => (
-                                                <TableRow key={row.id}>
-                                                    <TableCell sx={{ minWidth: 180 }}>
-                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
-                                                        <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ whiteSpace: "nowrap" }}>{row.date}</TableCell>
-                                                    <TableCell>{row.clockIn}</TableCell>
-                                                    <TableCell>{row.clockOut}</TableCell>
-                                                    <TableCell>
-                                                        <Chip size="small" label={row.timing} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.timing === "Late" ? `${theme.warning}18` : `${theme.success}16`, color: row.timing === "Late" ? "#B45309" : theme.success }} />
-                                                    </TableCell>
-                                                  
-                                                    <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
-                                                        <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.inLocation}</Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
-                                                        <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ minWidth: 170 }}>{row.department}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {!paginatedRecords.length && (
-                                                <TableRow>
-                                                    <TableCell colSpan={8}>
-                                                        <EmptyState label={referenceLoading ? "Loading attendance records..." : "No attendance records match the selected scope."} theme={theme} />
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                                <TablePagination
-                                    component="div"
-                                    count={filteredRecords.length}
-                                    page={recordPage}
-                                    onPageChange={(_, pageValue) => setRecordPage(pageValue)}
-                                    rowsPerPage={recordRowsPerPage}
-                                    onRowsPerPageChange={(event) => {
-                                        setRecordRowsPerPage(Number(event.target.value));
-                                        setRecordPage(0);
-                                    }}
-                                    rowsPerPageOptions={[10, 25, 50, 100]}
-                                />
-                            </Box>
-                        </Grid>
-                        )}
-
-                        {activeReportTab === "summary" && (
-                        <Grid item xs={12}>
-                            <Box sx={{ border: `1px solid ${theme.border}`, borderRadius: "8px", overflow: "hidden" }}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, bgcolor: `${theme.accent}08` }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 900, color: theme.text }}>Attendance Summary</Typography>
-                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>Working-day present and absent totals per staff member</Typography>
-                                    </Box>
-                                    <Chip size="small" label={`${workingDaysInReferenceRange} working days`} sx={{ borderRadius: "8px", fontWeight: 900, bgcolor: `${theme.accent}16`, color: theme.primary }} />
-                                </Stack>
-                                <TableContainer sx={{ maxHeight: 430 }}>
-                                    <Table size="small" stickyHeader>
-                                        <TableHead>
-                                            <TableRow>
-                                                {["Employee", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
-                                                    <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent"].includes(heading) ? "right" : "left"}>
-                                                        {heading}
-                                                    </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {paginatedSummaryRows.map((row) => (
-                                                <TableRow key={row.id}>
-                                                    <TableCell sx={{ minWidth: 180 }}>
-                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
-                                                        <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
-                                                    </TableCell>
-                                                    <TableCell>{humanizeStaffAttribute(row.role)}</TableCell>
-                                                    <TableCell sx={{ minWidth: 180 }}>{row.department}</TableCell>
-                                                    <TableCell align="right">{formatNumber(row.totalDays)}</TableCell>
-                                                    <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
-                                                    <TableCell align="right">{formatNumber(row.daysPresent)}</TableCell>
-                                                    <TableCell align="right">{formatNumber(row.daysAbsent)}</TableCell>
-                                                    <TableCell sx={{ minWidth: 140 }}>
-                                                        <Stack direction="row" spacing={1} alignItems="center">
-                                                            <LinearProgress
-                                                                variant="determinate"
-                                                                value={safePercent(row.attendanceRate)}
-                                                                sx={{
-                                                                    width: 72,
-                                                                    height: 7,
-                                                                    borderRadius: 10,
-                                                                    bgcolor: "rgba(100,116,139,0.16)",
-                                                                    "& .MuiLinearProgress-bar": {
-                                                                        bgcolor: getAttendanceColor(row.attendanceRate, theme),
-                                                                        borderRadius: 10,
-                                                                    },
-                                                                }}
-                                                            />
-                                                            <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(row.attendanceRate, theme) }}>
-                                                                {formatPercent(row.attendanceRate)}
-                                                            </Typography>
-                                                        </Stack>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {!paginatedSummaryRows.length && (
-                                                <TableRow>
-                                                    <TableCell colSpan={9}>
-                                                        <EmptyState label={referenceLoading ? "Loading attendance summary..." : "No summary rows match the selected scope."} theme={theme} />
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                                <TablePagination
-                                    component="div"
-                                    count={filteredSummaryRows.length}
-                                    page={summaryPage}
-                                    onPageChange={(_, pageValue) => setSummaryPage(pageValue)}
-                                    rowsPerPage={summaryRowsPerPage}
-                                    onRowsPerPageChange={(event) => {
-                                        setSummaryRowsPerPage(Number(event.target.value));
-                                        setSummaryPage(0);
-                                    }}
-                                    rowsPerPageOptions={[10, 25, 50, 100]}
-                                />
-                            </Box>
-                        </Grid>
-                        )}
-                    </Grid>
-
-                    <InsightNote theme={theme} tone={referenceMetrics.openSessions ? theme.warning : theme.secondary}>
-                        This reference layer turns the dashboard from a chart-only view into an administration workspace: trends reveal the issue, records prove it, and summary rows support follow-up.
-                    </InsightNote>
-                </SectionCard>
-            </Box>
+            {activeReportTab === "summary" && (
+                <AttendanceSummary
+                    theme={theme}
+                    referenceMetrics={referenceMetrics}
+                    referenceLoading={referenceLoading}
+                    referenceError={referenceError}
+                    referenceSearch={referenceSearch}
+                    onReferenceSearchChange={(event) => {
+                        setReferenceSearch(event.target.value);
+                        setRecordPage(0);
+                        setSummaryPage(0);
+                    }}
+                    onRefresh={loadReferenceData}
+                    pdfExporting={pdfExporting}
+                    onExport={handleExportSummaryPdf}
+                    filteredSummaryRows={filteredSummaryRows}
+                    paginatedSummaryRows={paginatedSummaryRows}
+                    summaryPage={summaryPage}
+                    setSummaryPage={setSummaryPage}
+                    summaryRowsPerPage={summaryRowsPerPage}
+                    setSummaryRowsPerPage={setSummaryRowsPerPage}
+                    workingDaysInReferenceRange={workingDaysInReferenceRange}
+                />
             )}
         </Box>
     );
