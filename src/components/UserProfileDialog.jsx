@@ -194,7 +194,7 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
         setSaving(true);
         try {
             await onSave?.({ phone, newPassword: newPassword || undefined, avatarFile });
-            
+
             setSaveSuccess(true);
             setNewPassword('');
             setConfirmPassword('');
@@ -319,18 +319,20 @@ const UserProfileDialog = ({ open, onClose, user, onSave }) => {
                                     label={(user?.rank ?? 'user').toUpperCase()}
                                     size="small"
                                     sx={{
-                                        height: 20, fontWeight: 900, fontSize: '0.55rem', letterSpacing: 1.5,
-                                        bgcolor: rankStyle.bg, color: rankStyle.color,
-                                        border: `1px solid ${rankStyle.border}`, borderRadius: '7px',
+                                        height: 20, fontWeight: 700, fontSize: '0.58rem',
+                                        bgcolor: 'rgba(255,255,255,0.16)', color: '#fff',
+                                        border: '1px solid rgba(255,255,255,0.24)', borderRadius: '7px',
+                                        fontFamily: 'monospace',
                                     }}
                                 />
                                 <Chip
                                     label={(user?.role ?? 'employee').replace('-', ' ').toUpperCase()}
                                     size="small"
                                     sx={{
-                                        height: 20, fontWeight: 800, fontSize: '0.55rem', letterSpacing: 1.2,
-                                        bgcolor: roleStyle.bg, color: roleStyle.color,
-                                        border: `1px solid ${roleStyle.border}`, borderRadius: '7px',
+                                        height: 20, fontWeight: 700, fontSize: '0.58rem',
+                                        bgcolor: 'rgba(255,255,255,0.16)', color: '#fff',
+                                        border: '1px solid rgba(255,255,255,0.24)', borderRadius: '7px',
+                                        fontFamily: 'monospace',
                                     }}
                                 />
                                 {user?.employeeId && (

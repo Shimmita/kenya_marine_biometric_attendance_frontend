@@ -2161,6 +2161,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const isCeoHodScope = userRank === "ceo" && scopeMode === "hod";
     const isCeoExecutiveScope = userRank === "ceo" && !isCeoHodScope;
     const isSupervisorScope = userRank === "supervisor" || isCeoHodScope;
+    const isSupervisorStationLockedScope = userRank === "supervisor";
     const isHrScope = userRank === "hr";
     const isStationScopedHr = isHrScope && !isMombasaCentreStation(user?.station);
     const isFullHr = isHrScope && isMombasaCentreStation(user?.station);
@@ -2224,38 +2225,51 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const effectiveFilters = useMemo(
         () => ({
             ...filters,
-            ...(isSupervisorScope
+            ...(isSupervisorStationLockedScope
                 ? {
                     station: supervisorStation,
                     department: supervisorDepartment,
                 }
-                : isStationScopedHr
+                : isCeoHodScope
                     ? {
-                        station: supervisorStation,
+                        department: supervisorDepartment,
                     }
-                : {}),
+                    : isStationScopedHr
+                        ? {
+                            station: supervisorStation,
+                        }
+                        : {}),
         }),
-        [filters, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]
+        [filters, isCeoHodScope, isStationScopedHr, isSupervisorStationLockedScope, supervisorDepartment, supervisorStation]
     );
 
     const effectiveDraftFilters = useMemo(
         () => ({
             ...draftFilters,
-            ...(isSupervisorScope
+            ...(isSupervisorStationLockedScope
                 ? {
                     station: supervisorStation,
                     department: supervisorDepartment,
                 }
-                : isStationScopedHr
+                : isCeoHodScope
                     ? {
-                        station: supervisorStation,
+                        department: supervisorDepartment,
                     }
-                : {}),
+                    : isStationScopedHr
+                        ? {
+                            station: supervisorStation,
+                        }
+                        : {}),
         }),
-        [draftFilters, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]
+        [draftFilters, isCeoHodScope, isStationScopedHr, isSupervisorStationLockedScope, supervisorDepartment, supervisorStation]
     );
 
     const scopeLabel = useMemo(() => {
+        if (isCeoHodScope) {
+            const departmentLabel = supervisorDepartment || "Assigned department";
+            const stationLabel = effectiveFilters.station || "All stations";
+            return `${departmentLabel} / ${stationLabel}`;
+        }
         if (isSupervisorScope) {
             const departmentLabel = supervisorDepartment || "Assigned department";
             const stationLabel = supervisorStation || "assigned station";
@@ -2272,12 +2286,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         }
 
         return effectiveFilters.station || effectiveFilters.department || "All Stations and Departments";
-    }, [effectiveFilters.department, effectiveFilters.station, isCeoExecutiveScope, isFullHr, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]);
+    }, [effectiveFilters.department, effectiveFilters.station, isCeoExecutiveScope, isCeoHodScope, isFullHr, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]);
 
     const displayedFilterOptions = useMemo(() => ({
-        stations: (isSupervisorScope || isStationScopedHr) ? [supervisorStation].filter(Boolean) : filterOptions.stations,
+        stations: (isSupervisorStationLockedScope || isStationScopedHr) ? [supervisorStation].filter(Boolean) : filterOptions.stations,
         departments: isSupervisorScope ? [supervisorDepartment].filter(Boolean) : filterOptions.departments,
-    }), [filterOptions.departments, filterOptions.stations, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]);
+    }), [filterOptions.departments, filterOptions.stations, isStationScopedHr, isSupervisorScope, isSupervisorStationLockedScope, supervisorDepartment, supervisorStation]);
 
     const params = useMemo(
         () => buildParams(effectiveFilters),
@@ -2331,7 +2345,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 applyPlatformConfigToCoreData(config);
                 setTheme(buildTheme(config));
                 setFilterOptions({
-                    stations: (isSupervisorScope || isStationScopedHr)
+                    stations: (isSupervisorStationLockedScope || isStationScopedHr)
                         ? [supervisorStation].filter(Boolean)
                         : uniqueValues(config.stations || coreDataDetails.AvailableStations),
                     departments: isSupervisorScope
@@ -2366,7 +2380,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         } finally {
             setLoading(false);
         }
-    }, [isStationScopedHr, isSupervisorScope, params, previousParams, supervisorDepartment, supervisorStation]);
+    }, [isStationScopedHr, isSupervisorScope, isSupervisorStationLockedScope, params, previousParams, supervisorDepartment, supervisorStation]);
 
     useEffect(() => {
         loadDashboard();
@@ -3412,10 +3426,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     );
     const reportingStationTotal = useMemo(
         () => {
-            if (isSupervisorScope || isStationScopedHr) return supervisorStation ? 1 : reportingStationCount;
+            if (isSupervisorStationLockedScope || isStationScopedHr) return supervisorStation ? 1 : reportingStationCount;
             return Math.max(filterOptions.stations.length, reportingStationCount);
         },
-        [filterOptions.stations.length, isStationScopedHr, isSupervisorScope, reportingStationCount, supervisorStation]
+        [filterOptions.stations.length, isStationScopedHr, isSupervisorStationLockedScope, reportingStationCount, supervisorStation]
     );
 
     const analyticsCopy = useMemo(() => {
@@ -4023,7 +4037,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     ]);
 
     const handleFilterChange = (field) => (event) => {
-        if ((isSupervisorScope || isStationScopedHr) && field === "station") return;
+        if ((isSupervisorStationLockedScope || isStationScopedHr) && field === "station") return;
         if (isSupervisorScope && field === "department") return;
 
         const value = event.target.value;
@@ -4070,7 +4084,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         const resetFilters = {
             startDate: getMonthStart(),
             endDate: getDateInputValue(),
-            station: (isSupervisorScope || isStationScopedHr) ? supervisorStation : "",
+            station: (isSupervisorStationLockedScope || isStationScopedHr) ? supervisorStation : "",
             department: isSupervisorScope ? supervisorDepartment : "",
             staffFilter: "",
             clockingType: "",
@@ -4709,13 +4723,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                 <InputLabel shrink>Station</InputLabel>
                                 <Select
                                     value={effectiveDraftFilters.station}
-                                    label={(isSupervisorScope || isStationScopedHr) ? "Station Scope" : "Station"}
+                                    label={(isSupervisorStationLockedScope || isStationScopedHr) ? "Station Scope" : "Station"}
                                     onChange={handleFilterChange("station")}
-                                    disabled={isSupervisorScope || isStationScopedHr}
+                                    disabled={isSupervisorStationLockedScope || isStationScopedHr}
                                     displayEmpty
-                                    renderValue={(selected) => selected || ((isSupervisorScope || isStationScopedHr) ? "No station assigned" : "All Stations")}
+                                    renderValue={(selected) => selected || ((isSupervisorStationLockedScope || isStationScopedHr) ? "No station assigned" : "All Stations")}
                                 >
-                                    {(isSupervisorScope || isStationScopedHr) ? (
+                                    {(isSupervisorStationLockedScope || isStationScopedHr) ? (
                                         <MenuItem value={supervisorStation}>{supervisorStation || "No station assigned"}</MenuItem>
                                     ) : (
                                         [
@@ -5008,7 +5022,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                 previousKpis={previousKpis}
                                 periodRangeLabel={periodRangeLabel}
                                 supervisorDepartment={supervisorDepartment}
-                                supervisorStation={supervisorStation}
+                                supervisorStation={isCeoHodScope ? (effectiveFilters.station || "All Stations") : supervisorStation}
                                 primaryMetricCards={hodPrimaryMetricCards}
                                 todayStatusRows={hodTodayStatusRows}
                                 chartData={chartData}

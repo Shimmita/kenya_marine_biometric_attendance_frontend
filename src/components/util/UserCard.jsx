@@ -286,6 +286,8 @@ const UserCard = ({
     const { user: currentUser } = useSelector(s => s.currentUser);
     const currentUserRank = String(currentUser?.rank || "").toLowerCase();
     const canManageRank = currentUserRank === "superadmin";
+    const canManageRole = ["hr", "superadmin"].includes(currentUserRank);
+    const rankAccent = canManageRank ? rankColor : C.cyanFresh;
 
     const [clockOutside, setClockOutside] = useState(user.canClockOutside ? "yes" : "no");
     const [openModal, setOpenModal] = useState(false);
@@ -390,8 +392,7 @@ const UserCard = ({
                     willChange: "transform",
                 }}
             >
-                {/* ── Rank accent line ── */}
-                <Box sx={{ height: 3, background: `linear-gradient(90deg, ${rankColor}cc, ${rankColor}22, transparent)` }} />
+                <Box sx={{ height: 3, background: `linear-gradient(90deg, ${rankAccent}cc, ${rankAccent}22, transparent)` }} />
 
                 <Box sx={{ p: { xs: 2, md: 2.5 } }}>
                     {/* ── Header ── */}
@@ -408,11 +409,11 @@ const UserCard = ({
                                     src={user?.avatar}
                                     sx={{
                                         width: 48, height: 48,
-                                        background: `linear-gradient(135deg, ${rankColor}38, ${rankColor}12)`,
-                                        color: rankColor,
+                                        background: `linear-gradient(135deg, ${rankAccent}38, ${rankAccent}12)`,
+                                        color: rankAccent,
                                         fontWeight: 800,
                                         fontSize: "1.1rem",
-                                        border: `2px solid ${rankColor}44`,
+                                        border: `2px solid ${rankAccent}44`,
                                         fontFamily: "'Exo 2', sans-serif",
                                     }}
                                 >
@@ -440,21 +441,25 @@ const UserCard = ({
                                     {user.email}
                                 </Typography>
                                 <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
-                                    <Chip label={user.rank} size="small" sx={{
-                                        height: 20, fontSize: "0.62rem", fontWeight: 800,
-                                        textTransform: "uppercase", letterSpacing: "0.04em",
-                                        background: `${rankColor}28`, color: rankColor, border: `1px solid ${rankColor}44`,
-                                    }} />
-                                    <Chip
-                                        icon={<WorkRounded sx={{ fontSize: "0.7rem !important" }} />}
-                                        label={user.role} size="small"
-                                        sx={{
-                                            height: 20, fontSize: "0.62rem",
-                                            background: "rgba(0,229,255,0.12)", color: C.aquaVibrant,
-                                            border: `1px solid ${C.aquaVibrant}38`,
-                                            "& .MuiChip-icon": { color: C.aquaVibrant },
-                                        }}
-                                    />
+                                    {canManageRank && (
+                                        <Chip label={user.rank} size="small" sx={{
+                                            height: 20, fontSize: "0.62rem", fontWeight: 800,
+                                            textTransform: "uppercase", letterSpacing: "0.04em",
+                                            background: `${rankColor}28`, color: rankColor, border: `1px solid ${rankColor}44`,
+                                        }} />
+                                    )}
+                                    {canManageRole && (
+                                        <Chip
+                                            icon={<WorkRounded sx={{ fontSize: "0.7rem !important" }} />}
+                                            label={user.role} size="small"
+                                            sx={{
+                                                height: 20, fontSize: "0.62rem",
+                                                background: "rgba(0,229,255,0.12)", color: C.aquaVibrant,
+                                                border: `1px solid ${C.aquaVibrant}38`,
+                                                "& .MuiChip-icon": { color: C.aquaVibrant },
+                                            }}
+                                        />
+                                    )}
                                     {user.department && (
                                         <Chip
                                             icon={<LocationOnRounded sx={{ fontSize: "0.7rem !important" }} />}
@@ -514,13 +519,15 @@ const UserCard = ({
                             </FormControl>
                         </ControlField>}
 
-                        <ControlField label="Role" minWidth={155}>
-                            <FormControl size="small" fullWidth>
-                                <Select disabled={currentUser?.rank !== 'hr' || readOnly} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
-                                    {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                        </ControlField>
+                        {canManageRole && (
+                            <ControlField label="Role" minWidth={155}>
+                                <FormControl size="small" fullWidth>
+                                    <Select disabled={readOnly} value={user.role} onChange={(e) => onRoleChange(user._id, e.target.value)} sx={selectSx} MenuProps={menuProps}>
+                                        {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                                    </Select>
+                                </FormControl>
+                            </ControlField>
+                        )}
 
                         <ControlField label="Supervisor" minWidth={185}>
                             <FormControl size="small" fullWidth>

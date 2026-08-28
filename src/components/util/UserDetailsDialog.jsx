@@ -406,9 +406,10 @@ export default function UserDetailsDialog({
     const canManageLeaveStatus = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageAssignments = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageClockOutside = ["admin", "hr", "supervisor", "superadmin"].includes(currentUserRank);
-    const canManageRole = ["admin", "hr", "ceo", "superadmin"].includes(currentUserRank);
+    const canManageRole = ["hr", "superadmin"].includes(currentUserRank);
     const canManageRank = currentUserRank === "superadmin";
-    const showRankManagement = currentUserRank === "superadmin";
+    const showRoleManagement = ["hr", "superadmin"].includes(currentUserRank) && !hideRoleRankManagement;
+    const showRankManagement = currentUserRank === "superadmin" && !hideRoleRankManagement;
     const canAssignSupervisor = ["admin", "hr", "ceo", "superadmin"].includes(currentUserRank);
     const canManageLifecycle = ["hr", "superadmin", "admin"].includes(currentUserRank);
     const canResetBiometrics = ["admin", "hr", "superadmin"].includes(currentUserRank);
@@ -602,8 +603,8 @@ export default function UserDetailsDialog({
                                 {safeValue(user.email)}
                             </Typography>
                             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                                <StatusChip label={toTitle(user.role)} tone="blue" />
-                                <StatusChip label={toTitle(user.rank)} tone="purple" />
+                                {showRoleManagement && <StatusChip label={toTitle(user.role)} tone="blue" />}
+                                {showRankManagement && <StatusChip label={toTitle(user.rank)} tone="purple" />}
                                 <StatusChip label={user.isAccountActive ? "Active" : "Inactive"} tone={accountTone} />
                             </Stack>
                         </Box>
@@ -715,7 +716,11 @@ export default function UserDetailsDialog({
                                     <DetailItem label="Department" value={user.department} icon={<BusinessRounded fontSize="small" />} />
                                     <DetailItem label="Station" value={user.station} icon={<LocationOnRounded fontSize="small" />} />
                                     <DetailItem label="Supervisor" value={user.supervisor} icon={<SupervisorAccountRounded fontSize="small" />} />
-                                    <DetailItem label="Role / Rank" value={`${toTitle(user.role)} / ${toTitle(user.rank)}`} icon={<WorkRounded fontSize="small" />} />
+                                    {showRankManagement ? (
+                                        <DetailItem label="Role / Rank" value={`${toTitle(user.role)} / ${toTitle(user.rank)}`} icon={<WorkRounded fontSize="small" />} />
+                                    ) : showRoleManagement ? (
+                                        <DetailItem label="Role" value={toTitle(user.role)} icon={<WorkRounded fontSize="small" />} />
+                                    ) : null}
                                 </Box>
                             </Section>
                         </Box>
@@ -724,7 +729,7 @@ export default function UserDetailsDialog({
 
                 {tab === 1 && (
                     <Stack spacing={2}>
-                        {!hideRoleRankManagement && (
+                        {showRoleManagement && (
                             <Section
                                 icon={<SecurityRounded fontSize="small" />}
                                 title={showRankManagement ? "Role And Rank" : "Role"}
@@ -733,7 +738,7 @@ export default function UserDetailsDialog({
                                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: showRankManagement ? "1fr 1fr" : "minmax(0, 1fr)" }, gap: 2 }}>
                                     <FieldBlock
                                         label="Role"
-                                        helper={!canManageRole ? "Only authorised HR, admin, CEO, or superadmin ranks can change roles." : "Choose the user's employment category."}
+                                        helper={!canManageRole ? "Only HR or superadmin can change roles." : "Choose the user's employment category."}
                                         disabled={disabledBase || !canManageRole || !onRoleChange}
                                     >
                                         <FormControl fullWidth size="small">

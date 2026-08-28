@@ -1,13 +1,14 @@
 {
-  "name": "KMFRI Attendance System",
-  "short_name": "KMFRI Attendance",
+  "name": "KMFRI",
+  "short_name": "KMFRI",
   "description": "Secure attendance clocking and reporting for KMFRI staff, interns, and attaches.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b3140",
   "theme_color": "#0b3140",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
     {
       "src": "/kmfri.png",

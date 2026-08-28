@@ -165,22 +165,15 @@ const UserManagementContent = () => {
         const search = searchTerm.toLowerCase();
         return users.filter((user) => {
             const matchesSearch = !search ||
-                user.name.toLowerCase().includes(search) ||
-                user.email.toLowerCase().includes(search) ||
-                user.email.toLowerCase().includes(search) ||
-                user.rank.toLowerCase().includes(search) ||
-                user.employeeId?.toLowerCase().includes(search) ||
-
-                user.role.toLowerCase().includes(search) ||
-                (user.department || "").toLowerCase().includes(search) ||
+                String(user.name || "").toLowerCase().includes(search) ||
+                String(user.email || "").toLowerCase().includes(search) ||
+                String(user.employeeId || "").toLowerCase().includes(search) ||
+                String(user.role || "").toLowerCase().includes(search) ||
                 (user.supervisor || "none").toLowerCase().includes(search);
 
             return (
                 matchesSearch &&
-                (!rankFilter || user.rank === rankFilter) &&
                 (!roleFilter || user.role === roleFilter) &&
-                (!departmentFilter || user.department === departmentFilter) &&
-                (!stationFilter || user.station === stationFilter) &&
                 (statusFilter === ""
                     ? true
                     : statusFilter === "active"
@@ -188,7 +181,7 @@ const UserManagementContent = () => {
                         : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
-    }, [users, searchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
+    }, [users, searchTerm, roleFilter, statusFilter]);
 
     const handlePageChange = (event, newPage) => setPage(newPage);
     const handleRowsPerPageChange = (event) => {
@@ -251,6 +244,10 @@ const UserManagementContent = () => {
                         totalCount={users.length}
                         filteredCount={filteredUsers.length}
                         isMobile={isMobile}
+                        showRankFilter={false}
+                        showRoleFilter
+                        showDepartmentFilter={false}
+                        showStationFilter={false}
                     />
                 </motion.div>
 
@@ -275,6 +272,7 @@ const UserManagementContent = () => {
                         setSelectedUser(user);
                         setDialogOpen(true);
                     }}
+                    showRoleColumn
                 />
 
                 <UserDetailsDialog

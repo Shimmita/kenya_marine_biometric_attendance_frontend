@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kmfri-attendance-cache-v3';
+const CACHE_NAME = 'kmfri-attendance-cache-v4';
 const RUNTIME_CACHE = 'kmfri-attendance-runtime-v2';
 const PRECACHE_URLS = [
   '/index.html',

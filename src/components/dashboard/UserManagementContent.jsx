@@ -144,7 +144,24 @@ export const FilterBar = ({
     totalCount, filteredCount,
     isStationScopedHr = false,
     currentStation = "",
+    showRankFilter = false,
+    showRoleFilter = false,
+    showDepartmentFilter = true,
+    showStationFilter = true,
 }) => {
+    const visibleFilterCount = 1
+        + (showRankFilter ? 1 : 0)
+        + (showRoleFilter ? 1 : 0)
+        + (showDepartmentFilter ? 1 : 0)
+        + (showStationFilter ? 1 : 0);
+    const searchTerms = [
+        "ID",
+        "name",
+        "email",
+        showRoleFilter ? "role" : null,
+        showDepartmentFilter ? "department" : null,
+        showStationFilter ? "station" : null,
+    ].filter(Boolean);
     const fieldLabelSx = {
         mb: 0.7,
         fontSize: 11,
@@ -170,9 +187,7 @@ export const FilterBar = ({
                     gridTemplateColumns: {
                         xs: "1fr",
                         sm: "repeat(2, minmax(190px, 1fr))",
-                        lg: isStationScopedHr
-                            ? "minmax(280px, 1.65fr) repeat(4, minmax(128px, 0.75fr)) minmax(170px, 0.78fr)"
-                            : "minmax(280px, 1.65fr) repeat(5, minmax(128px, 0.75fr)) minmax(132px, 0.62fr)",
+                        lg: `minmax(280px, 1.65fr) repeat(${visibleFilterCount}, minmax(128px, 0.75fr))`,
                     },
                     gap: 1,
                     alignItems: "end",
@@ -186,7 +201,7 @@ export const FilterBar = ({
                     <TextField
                         size="small"
                         fullWidth
-                        placeholder="search ID, Name, Station, Dept"
+                        placeholder={`Search ${searchTerms.join(", ")}`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         InputProps={{
@@ -213,25 +228,29 @@ export const FilterBar = ({
                     />
                 </Box>
 
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={fieldLabelSx}>Rank</Typography>
-                    <FormControl fullWidth size="small" >
-                        <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="">All</MenuItem>
-                            {RANK_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Box>
+                {showRankFilter && (
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={fieldLabelSx}>Rank</Typography>
+                        <FormControl fullWidth size="small" >
+                            <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value="">All</MenuItem>
+                                {RANK_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                )}
 
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={fieldLabelSx}>Role</Typography>
-                    <FormControl size="small" fullWidth >
-                        <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="">All</MenuItem>
-                            {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Box>
+                {showRoleFilter && (
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={fieldLabelSx}>Role</Typography>
+                        <FormControl size="small" fullWidth >
+                            <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                                <MenuItem value="">All</MenuItem>
+                                {ROLE_OPTIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                )}
 
                 <Box sx={{ minWidth: 0 }}>
                     <Typography sx={fieldLabelSx}>Status</Typography>
@@ -252,49 +271,53 @@ export const FilterBar = ({
                     </FormControl>
                 </Box>
 
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={fieldLabelSx}>Department</Typography>
-                    <FormControl fullWidth size="small" >
-                        <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
-                            <MenuItem value="">All</MenuItem>
-                            {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Box>
-
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={fieldLabelSx}>{isStationScopedHr ? "Station Scope" : "Station"}</Typography>
-                    {isStationScopedHr ? (
-                        <Box
-                            sx={{
-                                minHeight: 42,
-                                display: "flex",
-                                alignItems: "center",
-                                px: 1.4,
-                                borderRadius: "8px",
-                                bgcolor: "rgba(17,103,232,0.06)",
-                                border: `1px solid rgba(17,103,232,0.18)`,
-                                color: C.ink,
-                                fontSize: "0.82rem",
-                                fontWeight: 900,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            {currentStation || "Assigned station"}
-                        </Box>
-                    ) : (
-                        <FormControl fullWidth size="small">
-                            <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                {showDepartmentFilter && (
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={fieldLabelSx}>Department</Typography>
+                        <FormControl fullWidth size="small" >
+                            <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
                                 <MenuItem value="">All</MenuItem>
-                                {AvailableStations.map((station) => (
-                                    <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
-                                ))}
+                                {availableDepartments.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                             </Select>
                         </FormControl>
-                    )}
-                </Box>
+                    </Box>
+                )}
+
+                {showStationFilter && (
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={fieldLabelSx}>{isStationScopedHr ? "Station Scope" : "Station"}</Typography>
+                        {isStationScopedHr ? (
+                            <Box
+                                sx={{
+                                    minHeight: 42,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    px: 1.4,
+                                    borderRadius: "8px",
+                                    bgcolor: "rgba(17,103,232,0.06)",
+                                    border: `1px solid rgba(17,103,232,0.18)`,
+                                    color: C.ink,
+                                    fontSize: "0.82rem",
+                                    fontWeight: 900,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {currentStation || "Assigned station"}
+                            </Box>
+                        ) : (
+                            <FormControl fullWidth size="small">
+                                <Select value={stationFilter} onChange={(e) => setStationFilter(e.target.value)} displayEmpty renderValue={(selected) => selected || "All"} sx={selectSx} MenuProps={menuProps}>
+                                    <MenuItem value="">All</MenuItem>
+                                    {AvailableStations.map((station) => (
+                                        <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
+                    </Box>
+                )}
             </Box>
 
         </Box>
@@ -467,6 +490,10 @@ const UserManagementContent = ({ readOnly = false }) => {
     const currentUserRank = String(currentUser?.rank || "").toLowerCase();
     const isStationScopedHr =
         currentUserRank === "hr" && normalizeStationName(currentUser?.station) !== "mombasa centre";
+    const showRankControls = currentUserRank === "superadmin";
+    const showRoleControls = ["hr", "superadmin"].includes(currentUserRank);
+    const showDepartmentFilter = true;
+    const showStationFilter = !isStationScopedHr;
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -571,14 +598,16 @@ const UserManagementContent = ({ readOnly = false }) => {
                 String(user.employeeId || "").toLowerCase().includes(search) ||
                 String(user.department || "").toLowerCase().includes(search) ||
                 String(user.station || "").toLowerCase().includes(search) ||
-                String(user.supervisor || "").toLowerCase().includes(search);
+                String(user.supervisor || "").toLowerCase().includes(search) ||
+                (showRoleControls && String(user.role || "").toLowerCase().includes(search)) ||
+                (showRankControls && String(user.rank || "").toLowerCase().includes(search));
 
             return (
                 matchesSearch &&
-                (!rankFilter || user.rank === rankFilter) &&
-                (!roleFilter || user.role === roleFilter) &&
-                (!departmentFilter || user.department === departmentFilter) &&
-                (!stationFilter || user.station === stationFilter) &&
+                (!showRankControls || !rankFilter || user.rank === rankFilter) &&
+                (!showRoleControls || !roleFilter || user.role === roleFilter) &&
+                (!showDepartmentFilter || !departmentFilter || user.department === departmentFilter) &&
+                (!showStationFilter || !stationFilter || user.station === stationFilter) &&
                 (statusFilter === ""
                     ? true
                     : statusFilter === "active"
@@ -586,7 +615,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                         : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
-    }, [users, deferredSearchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter]);
+    }, [users, deferredSearchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter, showDepartmentFilter, showRankControls, showRoleControls, showStationFilter]);
 
     const handleToggleActive = async (id) => {
         try {
@@ -608,6 +637,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     };
 
     const handleRankChange = async (id, rank) => {
+        if (!showRankControls) return;
         try {
             setLoading(true);
             setUpdatingId(id);
@@ -627,6 +657,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     };
 
     const handleRoleChange = async (id, role) => {
+        if (!showRoleControls) return;
         try {
             setLoading(true);
             setUpdatingId(id);
@@ -843,6 +874,10 @@ const UserManagementContent = ({ readOnly = false }) => {
                         isMobile={isMobile}
                         isStationScopedHr={isStationScopedHr}
                         currentStation={currentUser?.station || ""}
+                        showRankFilter={showRankControls}
+                        showRoleFilter={showRoleControls}
+                        showDepartmentFilter={showDepartmentFilter}
+                        showStationFilter={showStationFilter}
                     />
                 </Motion.div>
 
@@ -878,6 +913,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                         setDialogOpen(true);
 
                     }}
+                    showRoleColumn={showRoleControls}
 
                 />
 

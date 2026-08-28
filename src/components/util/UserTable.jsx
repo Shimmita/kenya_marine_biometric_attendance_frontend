@@ -53,12 +53,25 @@ export default function UserTable({
     onPageChange,
     onRowsPerPageChange,
     onViewUser,
+    showRoleColumn = true,
 }) {
     const pageCount = Math.max(1, Math.ceil(users.length / rowsPerPage));
     const safePage = Math.min(page, pageCount - 1);
     const visibleUsers = React.useMemo(
         () => users.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage),
         [safePage, rowsPerPage, users]
+    );
+    const columns = React.useMemo(
+        () => [
+            ["Staff No", "10%"],
+            ["Name", showRoleColumn ? "24%" : "30%"],
+            ...(showRoleColumn ? [["Role", "12%"]] : []),
+            ["Department", showRoleColumn ? "21%" : "24%"],
+            ["Station", showRoleColumn ? "18%" : "20%"],
+            ["Status", "10%"],
+            ["Actions", 92],
+        ],
+        [showRoleColumn]
     );
 
     return (
@@ -76,15 +89,7 @@ export default function UserTable({
                 <Table stickyHeader sx={{ minWidth: 980, tableLayout: "fixed" }}>
                     <TableHead>
                         <TableRow>
-                            {[
-                                ["Staff No", "10%"],
-                                ["Name", "24%"],
-                                ["Role", "12%"],
-                                ["Department", "21%"],
-                                ["Station", "18%"],
-                                ["Status", "10%"],
-                                ["Actions", 92],
-                            ].map(([label, width]) => (
+                            {columns.map(([label, width]) => (
                                 <TableCell
                                     key={label}
                                     sx={{
@@ -144,11 +149,13 @@ export default function UserTable({
                                         </Box>
                                     </TableCell>
 
-                                    <TableCell sx={{ py: 1.6, borderBottom: `1px solid ${T.line}` }}>
-                                        <Tooltip arrow title={user.role || ""}>
-                                            <Chip size="small" label={formatName(user.role)} sx={roleChipSx(user.role)} />
-                                        </Tooltip>
-                                    </TableCell>
+                                    {showRoleColumn && (
+                                        <TableCell sx={{ py: 1.6, borderBottom: `1px solid ${T.line}` }}>
+                                            <Tooltip arrow title={user.role || ""}>
+                                                <Chip size="small" label={formatName(user.role)} sx={roleChipSx(user.role)} />
+                                            </Tooltip>
+                                        </TableCell>
+                                    )}
 
                                     <TableCell sx={{ py: 1.6, borderBottom: `1px solid ${T.line}` }}>
                                         <Tooltip arrow title={user.department || ""}>
@@ -219,7 +226,7 @@ export default function UserTable({
                                 {user.canClockOutside && (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={columns.length}
                                             sx={{ py: 1.2, px: 2, bgcolor: "rgba(22,163,74,0.035)", borderBottom: `1px solid ${T.line}` }}
                                         >
                                             <Box

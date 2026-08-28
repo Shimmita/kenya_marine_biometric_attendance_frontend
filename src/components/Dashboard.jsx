@@ -989,7 +989,7 @@ const EnhancedDashboard = () => {
         const handleAppInstalled = () => {
             setCanInstall(false);
             setDeferredInstallPrompt(null);
-            setInstallStatus('KMFRI Attendance System has been installed');
+            setInstallStatus('KMFRI has been installed');
         };
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstall);
@@ -1030,7 +1030,7 @@ const EnhancedDashboard = () => {
         const choiceResult = await deferredInstallPrompt.userChoice;
 
         if (choiceResult.outcome === 'accepted') {
-            setInstallStatus('Installation accepted. You can now launch the app from your device home screen.');
+            setInstallStatus('Installation accepted. You can now launch KMFRI from your device home screen.');
         } else {
             setInstallStatus('Installation dismissed. You can install later from the browser menu.');
         }

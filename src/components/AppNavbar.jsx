@@ -492,7 +492,7 @@ function AppNavbar({
 
                             {/* PWA Install Button */}
                             {canInstall && (
-                                <Tooltip title="Install KMFRI Digital Attendance System">
+                                <Tooltip title="Install KMFRI">
                                     <IconButton
                                         color="inherit"
                                         onClick={handleInstall}
