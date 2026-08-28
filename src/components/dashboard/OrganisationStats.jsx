@@ -751,53 +751,99 @@ const InsightNote = ({ children, theme, tone }) => (
     </Stack>
 );
 
-const DonutVisualization = ({ data, theme, centerValue, centerLabel, height = 260 }) => (
-    <Box sx={{ height, position: "relative" }}>
-        {data.length ? (
-            <>
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            data={data}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="42%"
-                            innerRadius="48%"
-                            outerRadius="72%"
-                            paddingAngle={2}
-                        >
-                            {data.map((item) => (
-                                <Cell key={item.name} fill={item.color} />
-                            ))}
-                        </Pie>
-                        <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                        <RechartsTooltip formatter={(value, name) => [formatNumber(value), name]} />
-                    </PieChart>
-                </ResponsiveContainer>
+const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+    return {
+        x: centerX + radius * Math.cos(angleInRadians),
+        y: centerY + radius * Math.sin(angleInRadians),
+    };
+};
+
+const describeDonutSegment = (centerX, centerY, outerRadius, innerRadius, startAngle, endAngle) => {
+    const safeEndAngle = Math.min(endAngle, startAngle + 359.99);
+    const outerStart = polarToCartesian(centerX, centerY, outerRadius, safeEndAngle);
+    const outerEnd = polarToCartesian(centerX, centerY, outerRadius, startAngle);
+    const innerStart = polarToCartesian(centerX, centerY, innerRadius, startAngle);
+    const innerEnd = polarToCartesian(centerX, centerY, innerRadius, safeEndAngle);
+    const largeArcFlag = safeEndAngle - startAngle <= 180 ? "0" : "1";
+
+    return [
+        `M ${outerStart.x} ${outerStart.y}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${outerEnd.x} ${outerEnd.y}`,
+        `L ${innerStart.x} ${innerStart.y}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${innerEnd.x} ${innerEnd.y}`,
+        "Z",
+    ].join(" ");
+};
+
+const DonutVisualization = ({ data, theme, centerValue, centerLabel, height = 260 }) => {
+    const legendRows = data?.length ? data : [];
+    const visibleRows = legendRows.filter((item) => Number(item.value || 0) > 0);
+    const chartRows = visibleRows.length
+        ? visibleRows
+        : [{ name: "No attendance yet", value: 1, color: theme.border, muted: true }];
+    const total = chartRows.reduce((sum, item) => sum + Number(item.value || 0), 0) || 1;
+    let currentAngle = 0;
+
+    const segments = chartRows.map((item) => {
+        const sweep = (Number(item.value || 0) / total) * 360;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + sweep;
+        currentAngle = endAngle;
+        return {
+            ...item,
+            path: describeDonutSegment(60, 60, 48, 28, startAngle, endAngle),
+            percent: total ? (Number(item.value || 0) / total) * 100 : 0,
+        };
+    });
+
+    return (
+        <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ height, minHeight: height, width: "100%" }}>
+            <Box sx={{ position: "relative", width: "min(100%, 210px)", aspectRatio: "1 / 1" }}>
+                <svg viewBox="0 0 120 120" width="100%" height="100%" role="img" aria-label={centerLabel || "Attendance distribution"}>
+                    <circle cx="60" cy="60" r="48" fill="none" stroke={`${theme.border}`} strokeWidth="1" />
+                    {segments.map((segment) => (
+                        <Tooltip key={segment.name} title={`${segment.name}: ${formatNumber(segment.muted ? 0 : segment.value)} (${formatPercent(segment.muted ? 0 : segment.percent)})`}>
+                            <path
+                                d={segment.path}
+                                fill={segment.color}
+                                opacity={segment.muted ? 0.55 : 1}
+                                style={{ cursor: segment.muted ? "default" : "pointer", transition: "opacity 160ms ease" }}
+                            />
+                        </Tooltip>
+                    ))}
+                </svg>
                 <Box
                     sx={{
                         position: "absolute",
-                        top: "41%",
+                        top: "50%",
                         left: "50%",
                         transform: "translate(-50%, -50%)",
                         textAlign: "center",
                         pointerEvents: "none",
                     }}
                 >
-                    <Typography sx={{ fontSize: 23, fontWeight: 900, color: theme.text, lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: 23, fontWeight: 950, color: theme.text, lineHeight: 1 }}>
                         {centerValue}
                     </Typography>
-                    <Typography sx={{ fontSize: 10, color: theme.muted, fontWeight: 800 }}>
+                    <Typography sx={{ fontSize: 10, color: theme.muted, fontWeight: 850 }}>
                         {centerLabel}
                     </Typography>
                 </Box>
-            </>
-        ) : (
-            <EmptyState label="No chart data available." theme={theme} />
-        )}
-    </Box>
-);
+            </Box>
+            <Stack direction="row" spacing={0.8} useFlexGap flexWrap="wrap" justifyContent="center" sx={{ px: 0.5 }}>
+                {(legendRows.length ? legendRows : chartRows).map((item) => (
+                    <Stack key={item.name} direction="row" spacing={0.45} alignItems="center">
+                        <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color, opacity: item.muted ? 0.55 : 1 }} />
+                        <Typography sx={{ fontSize: 10.5, color: item.muted ? theme.muted : theme.text, fontWeight: 800 }}>
+                            {item.name}
+                        </Typography>
+                    </Stack>
+                ))}
+            </Stack>
+        </Stack>
+    );
+};
 
 const EmployeeRankList = ({ rows, theme, emptyLabel }) => (
     <Stack spacing={1}>
@@ -3189,7 +3235,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         return rows.map((row) => ({
             ...row,
             percent: (Number(row.value || 0) / total) * 100,
-        })).filter((row) => row.value > 0);
+        }));
     }, [hodLateTodayRows.length, hodOnLeaveDutyRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
 
     const hodAttentionRows = useMemo(() => {
@@ -3304,7 +3350,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             { name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
             { name: "On Leave", value: Number(kpis?.onLeaveToday || 0), color: theme.warning },
             { name: "Outside Duty", value: outsideClockingCount, color: theme.purple },
-        ].filter((item) => item.value > 0),
+        ],
         [kpis, outsideClockingCount, theme]
     );
 
