@@ -56,8 +56,6 @@ import {
     Legend,
     Line,
     LineChart,
-    Pie,
-    PieChart,
     ResponsiveContainer,
     Tooltip as RechartsTooltip,
     XAxis,
@@ -1524,6 +1522,7 @@ const HodAttendanceAnalytics = ({
 
 const HrAttendanceAnalytics = ({
     isStationScopedHr,
+    isCeoExecutiveScope = false,
     theme,
     kpis,
     previousPeriodLabel,
@@ -1594,7 +1593,12 @@ const HrAttendanceAnalytics = ({
         { key: "lateCount", label: "Late", align: "right", render: (row) => formatNumber(row.lateCount) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
     ];
-    const exceptionColumns = [
+    const exceptionColumns = isCeoExecutiveScope ? [
+        { key: "station", label: "Station / Centre", minWidth: 145, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.station}</Typography> },
+        { key: "department", label: "Department", minWidth: 145 },
+        { key: "issue", label: "Issue", minWidth: 130 },
+        { key: "occurrences", label: "Occurrences", align: "right", render: (row) => formatNumber(row.occurrences) },
+    ] : [
         { key: "name", label: "Employee", minWidth: 145, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
         { key: "station", label: "Station", minWidth: 120 },
         { key: "department", label: "Department", minWidth: 120 },
@@ -1606,7 +1610,7 @@ const HrAttendanceAnalytics = ({
         <>
             <SectionCard
                 title={isStationScopedHr ? supervisorStation || scopeLabel : "Overall Attendance Overview"}
-                subtitle={isStationScopedHr ? "Station / centre HR dashboard" : "All-stations HR dashboard"}
+                subtitle={isStationScopedHr ? "Station / centre HR dashboard" : ""}
                 theme={theme}
                 action={<Chip size="small" label={periodRangeLabel} sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }} />}
             >
@@ -1739,22 +1743,9 @@ const HrAttendanceAnalytics = ({
                         )}
                     </SectionCard>
                 </Grid>
-                <Grid item xs={12} lg={isStationScopedHr ? 3 : 3}>
-                    <SectionCard
-                        title={isStationScopedHr ? "Leave & Duty Overview" : "Department Heatmap"}
-                        subtitle={isStationScopedHr ? undefined : "Attendance by weekday"}
-                        theme={theme}
-                        action={!isStationScopedHr ? (
-                            <Button
-                                size="small"
-                                onClick={() => onMetricClick("departmentHeatmap")}
-                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
-                            >
-                                View All
-                            </Button>
-                        ) : undefined}
-                    >
-                        {isStationScopedHr ? (
+                {isStationScopedHr && (
+                    <Grid item xs={12} lg={3}>
+                        <SectionCard title="Leave & Duty Overview" theme={theme}>
                             <Stack spacing={1}>
                                 {leaveDutyRows.map((row) => (
                                     <Stack key={row.label} direction="row" justifyContent="space-between" spacing={1}>
@@ -1763,12 +1754,54 @@ const HrAttendanceAnalytics = ({
                                     </Stack>
                                 ))}
                             </Stack>
-                        ) : (
-                            <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" preview />
-                        )}
-                    </SectionCard>
-                </Grid>
+                        </SectionCard>
+                    </Grid>
+                )}
             </Grid>
+
+            {!isStationScopedHr && (
+                <Grid container spacing={1.5} sx={{ mt: 0 }}>
+                    <Grid item xs={12} lg={6}>
+                        <SectionCard
+                            title="Department Heatmap"
+                            subtitle="Attendance by weekday"
+                            theme={theme}
+                            action={
+                                <Button
+                                    size="small"
+                                    onClick={() => onMetricClick("departmentHeatmap")}
+                                    sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                                >
+                                    View All
+                                </Button>
+                            }
+                        >
+                            <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" preview />
+                        </SectionCard>
+                    </Grid>
+                    <Grid item xs={12} lg={6}>
+                        <SectionCard
+                            title="Station Heatmap"
+                            subtitle="Centre attendance by weekday"
+                            theme={theme}
+                            action={
+                                <Button
+                                    size="small"
+                                    onClick={() => onMetricClick("stationHeatmap")}
+                                    sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
+                                >
+                                    View All
+                                </Button>
+                            }
+                        >
+                            <HrAttendanceHeatmap rows={stationHeatmapRows} theme={theme} rowLabel="Station" rowKey="station" preview />
+                            <InsightNote theme={theme} tone={theme.secondary}>
+                                Click any KPI card to inspect the people, departments, stations, and records behind the number.
+                            </InsightNote>
+                        </SectionCard>
+                    </Grid>
+                </Grid>
+            )}
 
             <Grid container spacing={1.5} sx={{ mt: 0 }}>
                 <Grid item xs={12} lg={isStationScopedHr ? 4 : 4}>
@@ -1783,36 +1816,21 @@ const HrAttendanceAnalytics = ({
                         />
                     </SectionCard>
                 </Grid>
-                <Grid item xs={12} lg={isStationScopedHr ? 4 : 5}>
+                <Grid item xs={12} lg={isStationScopedHr ? 4 : 8}>
                     <SectionCard title="Top Exceptions This Month" theme={theme}>
                         <HrCompactTable columns={exceptionColumns} rows={topExceptionRows.slice(0, 7)} emptyLabel="No exception records in the selected scope." theme={theme} />
                     </SectionCard>
                 </Grid>
-                <Grid item xs={12} lg={isStationScopedHr ? 4 : 3}>
-                    <SectionCard
-                        title={isStationScopedHr ? "Attendance Composition" : "Station Heatmap"}
-                        subtitle={isStationScopedHr ? undefined : "Centre attendance by weekday"}
-                        theme={theme}
-                        action={!isStationScopedHr ? (
-                            <Button
-                                size="small"
-                                onClick={() => onMetricClick("stationHeatmap")}
-                                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}
-                            >
-                                View All
-                            </Button>
-                        ) : undefined}
-                    >
-                        {isStationScopedHr ? (
+                {isStationScopedHr && (
+                    <Grid item xs={12} lg={4}>
+                        <SectionCard title="Attendance Composition" theme={theme}>
                             <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(totalStaff)} centerLabel="Total" height={230} />
-                        ) : (
-                            <HrAttendanceHeatmap rows={stationHeatmapRows} theme={theme} rowLabel="Station" rowKey="station" preview />
-                        )}
-                        <InsightNote theme={theme} tone={theme.secondary}>
-                            Click any KPI card to inspect the people, departments, stations, and records behind the number.
-                        </InsightNote>
-                    </SectionCard>
-                </Grid>
+                            <InsightNote theme={theme} tone={theme.secondary}>
+                                Click any KPI card to inspect the people, departments, stations, and records behind the number.
+                            </InsightNote>
+                        </SectionCard>
+                    </Grid>
+                )}
             </Grid>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ mt: 1, px: 0.5 }}>
@@ -2138,9 +2156,11 @@ const AttendanceSummary = ({
     </SectionCard>
 );
 
-const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" }) => {
+const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", scopeMode = "default" }) => {
     const userRank = String(user?.rank || "").toLowerCase();
-    const isSupervisorScope = userRank === "supervisor";
+    const isCeoHodScope = userRank === "ceo" && scopeMode === "hod";
+    const isCeoExecutiveScope = userRank === "ceo" && !isCeoHodScope;
+    const isSupervisorScope = userRank === "supervisor" || isCeoHodScope;
     const isHrScope = userRank === "hr";
     const isStationScopedHr = isHrScope && !isMombasaCentreStation(user?.station);
     const isFullHr = isHrScope && isMombasaCentreStation(user?.station);
@@ -2247,12 +2267,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         if (isFullHr) {
             return "Super HR - all stations";
         }
-        if (userRank === "ceo") {
+        if (isCeoExecutiveScope) {
             return "CEO - all stations";
         }
 
         return effectiveFilters.station || effectiveFilters.department || "All Stations and Departments";
-    }, [effectiveFilters.department, effectiveFilters.station, isFullHr, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation, userRank]);
+    }, [effectiveFilters.department, effectiveFilters.station, isCeoExecutiveScope, isFullHr, isStationScopedHr, isSupervisorScope, supervisorDepartment, supervisorStation]);
 
     const displayedFilterOptions = useMemo(() => ({
         stations: (isSupervisorScope || isStationScopedHr) ? [supervisorStation].filter(Boolean) : filterOptions.stations,
@@ -2948,18 +2968,24 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
 
     const topExceptionRows = useMemo(() => {
         const grouped = new Map();
-        const addIssue = (record, issue) => {
-            const key = `${record.email || record.name}-${issue}`;
+        const addIssue = (record, issue, weight = 1) => {
+            const station = record.station || "Unassigned";
+            const department = record.department || "Unassigned";
+            const key = isCeoExecutiveScope
+                ? `${station}-${department}-${issue}`
+                : `${record.email || record.name}-${issue}`;
             const existing = grouped.get(key) || {
                 id: key,
-                name: record.name || record.email || "Unknown",
-                email: record.email || "",
-                station: record.station || "Unassigned",
-                department: record.department || "Unassigned",
+                ...(isCeoExecutiveScope ? {} : {
+                    name: record.name || record.email || "Unknown",
+                    email: record.email || "",
+                }),
+                station,
+                department,
                 issue,
                 occurrences: 0,
             };
-            existing.occurrences += 1;
+            existing.occurrences += Number(weight || 1);
             grouped.set(key, existing);
         };
 
@@ -2969,10 +2995,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         processedSummaryRows.filter((row) => Number(row.daysAbsent || 0) > 0).forEach((row) => addIssue({
             ...row,
             email: row.id,
-        }, "Absence"));
+        }, "Absence", isCeoExecutiveScope ? row.daysAbsent : 1));
 
         return [...grouped.values()].sort((a, b) => b.occurrences - a.occurrences).slice(0, 10);
-    }, [hrRecordGroups, processedSummaryRows]);
+    }, [hrRecordGroups, isCeoExecutiveScope, processedSummaryRows]);
 
     const leaveDutyRows = useMemo(
         () => [
@@ -3393,31 +3419,31 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
     );
 
     const analyticsCopy = useMemo(() => {
-        if (userRank === "ceo") {
+        if (isCeoExecutiveScope) {
             return {
-                pageHeading: "KMFRI Executive Attendance Overview",
-                pageSubtitle: "Strategic attendance performance across the organisation.",
-                scopeChipLabel: readOnly ? "Read Only" : "CEO Executive View",
-                workforceTitle: "Executive KPIs",
-                workforceSubtitle: "Strategic workforce indicators for the selected period",
-                periodTitle: "Executive Pulse",
-                periodSubtitle: "Attendance target, availability, and compliance signals",
-                trendTitle: "Organisation Attendance Trend",
-                trendSubtitle: "Attendance rate movement across the selected period",
-                distributionTitle: "Workforce Distribution",
-                distributionSubtitle: "Today by organisation attendance state",
-                qualityTitle: "Governance Signals",
-                qualitySubtitle: "Compliance and exception signals for executive visibility",
-                stationTableTitle: "Station Performance",
-                stationTableSubtitle: "Attendance, punctuality, and absence comparison across stations",
-                departmentTableTitle: "Department Overview",
-                departmentTableSubtitle: "Department-level attendance and punctuality profile",
-                performanceTitle: "Station Performance",
-                performanceSubtitle: "Executive comparison across KMFRI stations",
-                insightTitle: "Executive Summary",
-                insightSubtitle: "High-signal cards for executive action",
-                recommendationTitle: "Executive Recommendations",
-                recommendationSubtitle: "Strategic actions for organisation-wide attendance governance",
+                pageHeading: "Organisation Attendance Analytics",
+                pageSubtitle: "Organisation-wide attendance, punctuality, absenteeism and compliance across KMFRI stations and departments.",
+                scopeChipLabel: readOnly ? "Read Only" : "CEO Overall Scope",
+                workforceTitle: "Today's Workforce",
+                workforceSubtitle: "Live workforce status for the selected scope",
+                periodTitle: "Period Performance",
+                periodSubtitle: `${formatDateLabel(effectiveFilters.startDate)} - ${formatDateLabel(effectiveFilters.endDate)}`,
+                trendTitle: "Attendance Trend",
+                trendSubtitle: "Attendance rate across working days in the selected period",
+                distributionTitle: "Attendance Distribution",
+                distributionSubtitle: "Today by attendance state",
+                qualityTitle: "Attendance Quality",
+                qualitySubtitle: "Exceptions requiring review",
+                stationTableTitle: "Attendance by Station",
+                stationTableSubtitle: "Station attendance, punctuality, and absence profile",
+                departmentTableTitle: "Department Performance",
+                departmentTableSubtitle: "Department attendance and punctuality profile",
+                performanceTitle: "Station Insights",
+                performanceSubtitle: "Best, lowest, and most improved operational signals",
+                insightTitle: "Management Insights",
+                insightSubtitle: "High-signal cards for management action",
+                recommendationTitle: "CEO Attendance Recommendations",
+                recommendationSubtitle: "Cross-station and cross-department actions for organisation-wide attendance governance",
             };
         }
 
@@ -3499,13 +3525,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
     }, [
         effectiveFilters.endDate,
         effectiveFilters.startDate,
+        isCeoExecutiveScope,
         isFullHr,
         isStationScopedHr,
         isSupervisorScope,
         readOnly,
         supervisorDepartment,
         supervisorStation,
-        userRank,
     ]);
 
     const workforceMetricCards = useMemo(() => {
@@ -3524,7 +3550,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             { title: "On Leave Today", value: formatNumber(onLeaveToday), subtitle: `${formatPercent(leaveCoverage)} of staff`, icon: <EventAvailableRounded />, tone: theme.warning },
         ];
 
-        if (userRank !== "ceo") return baseCards;
+        if (!isCeoExecutiveScope) return baseCards;
 
         return [
             baseCards[0],
@@ -3545,11 +3571,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         reportingStationCount,
         reportingStationTotal,
         theme,
-        userRank,
+        isCeoExecutiveScope,
     ]);
 
     const periodMetricCards = useMemo(() => {
-        if (userRank === "ceo") {
+        if (isCeoExecutiveScope) {
             return [
                 { title: "Attendance vs Target", value: `${formatPercent(kpis?.attendanceRate)} / 90%`, subtitle: `${formatDelta(Number(kpis?.attendanceRate || 0) - 90, "pp")} target gap`, icon: <AssessmentRounded />, tone: Number(kpis?.attendanceRate || 0) >= 90 ? theme.success : theme.warning, delta: Number(kpis?.attendanceRate || 0) - 90 },
                 { title: "Stations Below Target", value: formatNumber(sortedStations.filter((station) => Number(station.attendanceRate || 0) < 90).length), subtitle: "Below 90% attendance", icon: <WarningAmberRounded />, tone: theme.danger },
@@ -3573,7 +3599,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         referenceMetrics.openSessions,
         sortedStations,
         theme,
-        userRank,
+        isCeoExecutiveScope,
     ]);
 
     const periodRangeLabel = `${formatDateLabel(effectiveFilters.startDate)} - ${formatDateLabel(effectiveFilters.endDate)}`;
@@ -3701,7 +3727,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         const scopedStationLabel = supervisorStation || "assigned station";
         const scopedDepartmentLabel = supervisorDepartment || "assigned department";
 
-        if (userRank === "ceo") {
+        if (isCeoExecutiveScope) {
             return [
                 {
                     chip: "Executive",
@@ -3977,6 +4003,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         attentionCount,
         attentionReviewRows.length,
         biometricAnalytics,
+        isCeoExecutiveScope,
         isFullHr,
         isStationScopedHr,
         isSupervisorScope,
@@ -3993,7 +4020,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
         theme,
         topPerformer,
         topStation,
-        userRank,
     ]);
 
     const handleFilterChange = (field) => (event) => {
@@ -4177,6 +4203,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             const successRgb = hexToRgb(theme.success, [16, 185, 129]);
             const warningRgb = hexToRgb(theme.warning, [245, 158, 11]);
             const mutedRgb = [226, 232, 240];
+            const pdfMetricHeading = isSupervisorScope ? "Department Metric" : isCeoExecutiveScope ? "Executive Metric" : "Attendance Metric";
+            const pdfInsightHeading = isSupervisorScope ? "HOD Insight" : isCeoExecutiveScope ? "Management Insight" : "Management Insight";
 
             const drawPdfBarChart = ({ title, rows, labelKey, valueKey, color = secondaryRgb, maxValue = 100, valueSuffix = "%", note = "" }) => {
                 if (!rows.length) return;
@@ -4246,7 +4274,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
 
             autoTable(doc, {
                 startY: 45,
-                head: [["Executive Metric", "Value", "Administrative Reading"]],
+                head: [[pdfMetricHeading, "Value", "Administrative Reading"]],
                 body: [
                     ["Total Staff", formatNumber(kpis?.totalEmployees), "Active workforce inside the authorized scope"],
                     ["Present Today", formatNumber(kpis?.presentToday), "Current clocked-in workforce"],
@@ -4265,7 +4293,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
 
             autoTable(doc, {
                 startY: doc.lastAutoTable.finalY + 6,
-                head: [["Management Insight", "Value", "Recommended Administrative Use"]],
+                head: [[pdfInsightHeading, "Value", "Recommended Administrative Use"]],
                 body: [
                     ["Best Performing Station", topStation?.station || "N/A", `Attendance ${formatPercent(topStation?.attendanceRate)}`],
                     ["Lowest Attendance Station", lowestStation?.station || "N/A", `Attendance ${formatPercent(lowestStation?.attendanceRate)}; review staffing, leave, and lateness drivers`],
@@ -4835,7 +4863,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
             {activeReportTab === "analytics" && (
                 <>
                     <Box sx={{ display: "grid", gap: 1.5 }}>
-                        {userRank === "ceo" ? (
+                        {false ? (
                             <>
                                 <Grid container spacing={1.5}>
                                     <Grid item xs={12} lg={6}>
@@ -5170,6 +5198,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics" })
                         ) : (
                             <HrAttendanceAnalytics
                                 isStationScopedHr={isStationScopedHr}
+                                isCeoExecutiveScope={isCeoExecutiveScope}
                                 theme={theme}
                                 kpis={kpis}
                                 previousPeriodLabel={previousPeriodLabel}

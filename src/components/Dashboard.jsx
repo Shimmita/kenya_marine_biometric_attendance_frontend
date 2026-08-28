@@ -113,6 +113,9 @@ const NAV_DISPLAY_LABELS = {
     'Attendance Analytics': 'Attendance Analytics',
     'Attendance Records': 'Attendance Records',
     'Attendance Summary': 'Attendance Summary',
+    'HOD Attendance Analytics': 'HOD Attendance Analytics',
+    'HOD Attendance Records': 'HOD Attendance Records',
+    'HOD Attendance Summary': 'HOD Attendance Summary',
     'Manage Your Members': 'Team Management',
     // 'Member Leave Requests': 'Team Leave Requests',
     'Lost Device': 'Lost Device Access',
@@ -166,6 +169,18 @@ const PAGE_META = {
     'Attendance Summary': {
         title: 'Attendance Summary',
         subtitle: 'Review staff-level attendance totals and rates for the authorized scope.',
+    },
+    'HOD Attendance Analytics': {
+        title: 'HOD Attendance Analytics',
+        subtitle: 'Review attendance insights for your assigned department and station scope.',
+    },
+    'HOD Attendance Records': {
+        title: 'HOD Attendance Records',
+        subtitle: 'Review attendance records for your assigned department and station scope.',
+    },
+    'HOD Attendance Summary': {
+        title: 'HOD Attendance Summary',
+        subtitle: 'Review staff-level attendance totals for your assigned department and station scope.',
     },
     'Lost Device Requests': {
         title: 'Device Access Requests',
@@ -225,6 +240,12 @@ const ATTENDANCE_REPORT_ITEMS = [
     { text: 'Attendance Analytics', icon: <BarChartRounded /> },
     { text: 'Attendance Records', icon: <History /> },
     { text: 'Attendance Summary', icon: <QueryStats /> },
+];
+
+const HOD_ATTENDANCE_REPORT_ITEMS = [
+    { text: 'HOD Attendance Analytics', icon: <BarChartRounded /> },
+    { text: 'HOD Attendance Records', icon: <History /> },
+    { text: 'HOD Attendance Summary', icon: <QueryStats /> },
 ];
 
 
@@ -740,6 +761,13 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
                             ))}
                         </List>
+
+                        <SectionLabel>Supervisor / HOD Panel</SectionLabel>
+                        <List disablePadding>
+                            {HOD_ATTENDANCE_REPORT_ITEMS.map(item => (
+                                <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
+                            ))}
+                        </List>
                     </>
                 )}
 
@@ -792,7 +820,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                             ))}
                         </List>
 
-                        <SectionLabel>Supervisor Operations</SectionLabel>
+                        <SectionLabel>Supervisor / HOD Panel</SectionLabel>
                         <List disablePadding>
                             {SUPERADMIN_SUPERVISOR_ITEMS.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -823,7 +851,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
                 {/* Supervisor Panel */}
                 {isSupervisor && (
                     <>
-                        <SectionLabel>Supervisor Operations</SectionLabel>
+                        <SectionLabel>Supervisor / HOD Panel</SectionLabel>
                         <List disablePadding>
                             {supervisorItems.map(item => (
                                 <NavItem key={item.text} item={item} isActive={activeTab === item.text} pendingCount={pendingCount} onClick={() => onTabChange(item.text)} />
@@ -1072,6 +1100,9 @@ const EnhancedDashboard = () => {
                 { text: 'Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#22d3ee' },
                 { text: 'Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
                 { text: 'Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
+                { text: 'HOD Attendance Analytics', icon: <BarChartRounded />, color: coreDataDetails.navPalette?.stats || '#34d399' },
+                { text: 'HOD Attendance Records', icon: <History />, color: coreDataDetails.navPalette?.history || '#60a5fa' },
+                { text: 'HOD Attendance Summary', icon: <QueryStats />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
             ],
             auditor: [
                 { text: 'System Audit Logs', icon: <History />, color: coreDataDetails.navPalette?.audit || '#8b5cf6' },
@@ -1129,6 +1160,9 @@ const EnhancedDashboard = () => {
             case 'Attendance Analytics': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="analytics" /> : <DashboardContent {...sharedProps} />;
             case 'Attendance Records': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="records" /> : <DashboardContent {...sharedProps} />;
             case 'Attendance Summary': return canViewAttendanceReports ? <OrganisationStats user={user} initialTab="summary" /> : <DashboardContent {...sharedProps} />;
+            case 'HOD Attendance Analytics': return user?.rank === 'ceo' ? <OrganisationStats user={user} initialTab="analytics" scopeMode="hod" /> : <DashboardContent {...sharedProps} />;
+            case 'HOD Attendance Records': return user?.rank === 'ceo' ? <OrganisationStats user={user} initialTab="records" scopeMode="hod" /> : <DashboardContent {...sharedProps} />;
+            case 'HOD Attendance Summary': return user?.rank === 'ceo' ? <OrganisationStats user={user} initialTab="summary" scopeMode="hod" /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device Requests': return canViewAdminFeatures ? <UserRequestsContent onCountChange={setPendingCount} readOnly={isAuditor} /> : <DashboardContent {...sharedProps} />;
             case 'Lost Device': return <LostDeviceContent />;
             case 'Add Device': return <AddDeviceContent />;
@@ -1156,7 +1190,16 @@ const EnhancedDashboard = () => {
     }, [activeTab, user?.rank]);
 
     const pageSubtitle = useMemo(() => {
-        if (['Broader Statistics', 'Attendance Analytics', 'Attendance Records', 'Attendance Summary'].includes(activeTab) && user?.rank === 'supervisor') {
+        if (
+            (
+                ['Broader Statistics', 'Attendance Analytics', 'Attendance Records', 'Attendance Summary'].includes(activeTab)
+                && user?.rank === 'supervisor'
+            )
+            || (
+                ['HOD Attendance Analytics', 'HOD Attendance Records', 'HOD Attendance Summary'].includes(activeTab)
+                && user?.rank === 'ceo'
+            )
+        ) {
             const department = user?.department || 'your department';
             const station = user?.station || 'your station';
             return `Station and department scoped analytics for ${department} at ${station}`;
