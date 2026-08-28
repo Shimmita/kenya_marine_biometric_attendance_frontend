@@ -4,7 +4,6 @@ import {
     CheckCircle, Close,
     Email,
     HelpOutlineRounded,
-    InstallDesktop,
     Lock,
     MenuBookRounded,
     SendRounded,
@@ -15,7 +14,7 @@ import {
     Box, Button, Card,
     CircularProgress,
     Container, Dialog, DialogContent,
-    Grid, IconButton, InputAdornment,
+    IconButton, InputAdornment,
     Snackbar, Stack,
     TextField,
     Tooltip,
@@ -39,6 +38,7 @@ import GmailIcon from './custom/Gmail';
 import GuideDialog from './GuideDialog';
 
 const { colorPalette } = coreDataDetails;
+const MotionDiv = motion.div;
 
 
 /* ══ GLASS DESIGN TOKENS (WHITENING BODY & COOL NAVBAR) ═════════════════════ */
@@ -174,33 +174,6 @@ const applyBrandingToDocument = (cfg) => {
     root.style.setProperty('--kmfri-accent-soft', hexToRgba(accent, 0.22));
     root.style.setProperty('--kmfri-gradient', `linear-gradient(135deg, ${secondary} 0%, ${primary} 100%)`);
 };
-
-/* ══ ACCESSIBILITY WIDGET ═══════════════════════════════════════════════════
-   A small, self-contained control that lets any visitor adjust text size,
-   toggle a high-contrast palette, and reduce motion — persisted locally so
-   the preference survives a reload. */
-const A11Y_STORAGE_KEY = 'kmfri_a11y_prefs_v1';
-const FONT_SCALES = [0.9, 1, 1.1, 1.25];
-const BASE_ROOT_FONT_PX = 16;
-const PWA_INSTALLED_STORAGE_KEY = 'kmfri_pwa_installed_v1';
-
-const isRunningAsPwa = () => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator?.standalone === true;
-};
-
-const loadA11yPrefs = () => {
-    try {
-        const raw = window.localStorage.getItem(A11Y_STORAGE_KEY);
-        if (!raw) return { scaleIndex: 1, highContrast: false, reducedMotion: false };
-        return { scaleIndex: 1, highContrast: false, reducedMotion: false, ...JSON.parse(raw) };
-    } catch {
-        return { scaleIndex: 1, highContrast: false, reducedMotion: false };
-    }
-};
-
-
-
 
 /* ══ HELP & SUPPORT DIALOG ═══════════════════════════════════════════════════ */
 const HelpSupportDialog = ({ open, onClose, supportEmail, supportPhone }) => {
@@ -495,7 +468,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
     };
 
     return (
-        <motion.div style={{ willChange: 'transform, opacity' }} {...motionProps}>
+        <MotionDiv style={{ willChange: 'transform, opacity' }} {...motionProps}>
             <Card
                 elevation={0}
                 sx={{
@@ -527,7 +500,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                             </Typography>
                         </Box>
                         <Stack spacing={2}>
-                            <motion.div whileHover={reducedMotion ? undefined : { scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                            <MotionDiv whileHover={reducedMotion ? undefined : { scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                                 <Box onClick={() => selectRole('staff')} sx={{ ...G.themedRoleCard }}>
                                     <Stack direction="row" spacing={2} alignItems="center">
                                         <Box sx={{ width: 50, height: 50, borderRadius: '12px', background: 'var(--kmfri-secondary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--kmfri-secondary)' }}>
@@ -539,9 +512,9 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                                         </Box>
                                     </Stack>
                                 </Box>
-                            </motion.div>
+                            </MotionDiv>
 
-                            <motion.div whileHover={reducedMotion ? undefined : { scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                            <MotionDiv whileHover={reducedMotion ? undefined : { scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                                 <Box onClick={() => selectRole('intern')} sx={{ ...G.themedRoleCard }}>
                                     <Stack direction="row" spacing={2} alignItems="center">
                                         <Box sx={{ width: 50, height: 50, borderRadius: '12px', background: 'var(--kmfri-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--kmfri-accent)' }}>
@@ -553,7 +526,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                                         </Box>
                                     </Stack>
                                 </Box>
-                            </motion.div>
+                            </MotionDiv>
                         </Stack>
                     </>
                 ) : currentView === 'signin' ? (
@@ -753,7 +726,7 @@ const SignInCard = ({ onBack, reducedMotion }) => {
                     Password reset request submitted!
                 </Alert>
             </Snackbar>
-        </motion.div>
+        </MotionDiv>
     );
 };
 
@@ -766,51 +739,10 @@ const EnhancedLandingPage = () => {
     const [guideOpen, setGuideOpen] = useState(false);
     const [branding, setBranding] = useState(null);
     const [a11yPrefs, setA11yPrefs] = useAccessibilityPrefs();
-    const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
-    const [pwaInstalled, setPwaInstalled] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return isRunningAsPwa() || window.localStorage.getItem(PWA_INSTALLED_STORAGE_KEY) === '1';
-    });
-    const [pwaStatus, setPwaStatus] = useState('');
 
     useEffect(() => {
         document.title = view === 'landing' ? 'KMFRI Attendance System' : 'Sign In | KMFRI Attendance';
     }, [view]);
-
-    useEffect(() => {
-        const handleBeforeInstall = (event) => {
-            event.preventDefault();
-            setDeferredInstallPrompt(event);
-            setPwaInstalled(false);
-        };
-
-        const handleAppInstalled = () => {
-            window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, '1');
-            setDeferredInstallPrompt(null);
-            setPwaInstalled(true);
-            setPwaStatus('KMFRI has been installed.');
-        };
-
-        const handleDisplayModeChange = () => {
-            if (isRunningAsPwa()) {
-                window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, '1');
-                setPwaInstalled(true);
-                setDeferredInstallPrompt(null);
-            }
-        };
-
-        const displayModeQuery = window.matchMedia?.('(display-mode: standalone)');
-        handleDisplayModeChange();
-        window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-        window.addEventListener('appinstalled', handleAppInstalled);
-        displayModeQuery?.addEventListener?.('change', handleDisplayModeChange);
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-            window.removeEventListener('appinstalled', handleAppInstalled);
-            displayModeQuery?.removeEventListener?.('change', handleDisplayModeChange);
-        };
-    }, []);
 
     // Pull live branding/theme from the PlatformConfig singleton so superadmin
     // changes (colors, org name, support contacts, active theme) reflect here immediately.
@@ -869,41 +801,18 @@ const EnhancedLandingPage = () => {
         }
         : {};
 
-    const handlePwaAction = async () => {
-        if (isRunningAsPwa()) {
-            navigate('/', { replace: true });
-            return;
-        }
-
-        if (deferredInstallPrompt) {
-            deferredInstallPrompt.prompt();
-            const choiceResult = await deferredInstallPrompt.userChoice;
-            setDeferredInstallPrompt(null);
-
-            if (choiceResult.outcome === 'accepted') {
-                window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, '1');
-                setPwaInstalled(true);
-                setPwaStatus('Installing KMFRI. You can open it from your device apps.');
-            } else {
-                setPwaStatus('Install dismissed. You can try again from your browser menu.');
-            }
-            return;
-        }
-
-        setPwaStatus('Use your browser menu to install the App.');
-    };
-
-
     return (
         <Box sx={{
-            height: "100vh",
+            minHeight: "100vh",
+            height: { xs: "auto", md: "100vh" },
             "@supports (height: 100dvh)": {
-                height: "100dvh",
+                minHeight: "100dvh",
+                height: { xs: "auto", md: "100dvh" },
             },
             display: "flex",
             flexDirection: "column",
             position: "relative",
-            overflow: view === 'landing' ? "hidden" : "auto",
+            overflow: view === 'landing' ? { xs: "auto", md: "hidden" } : "auto",
             isolation: "isolate",
             background: G.meshBg,
             ...highContrastOverrides
@@ -921,31 +830,33 @@ const EnhancedLandingPage = () => {
 
             {/* ══ LANDING ══ */}
             {view === 'landing' && (
-                <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: { xs: "visible", md: "hidden" } }}>
                     {/* Hero */}
                     <Box component="main" sx={{
                         flex: "1 1 auto",
                         minHeight: 0,
                         display: "flex",
                         alignItems: "center",
-                        pt: { xs: "76px", sm: "84px", md: "94px" },
-                        pb: { xs: 1.25, sm: 1.75, md: 2.5 },
+                        pt: { xs: "82px", sm: "92px", md: "94px" },
+                        pb: { xs: 2.5, sm: 3, md: 2.5 },
                         position: 'relative',
-                        overflow: 'hidden',
-                        backgroundImage: {
-                            xs: `linear-gradient(90deg, rgba(255,255,255,0.92), rgba(255,255,255,0.76)), url(${ClockingImage})`,
-                            md: 'none',
-                        },
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 58%',
-                        backgroundSize: { xs: 'min(70vw, 260px) auto', sm: 'min(46vw, 340px) auto', md: 'auto' },
+                        overflow: { xs: 'visible', md: 'hidden' },
                     }}>
-                        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', alignItems: 'center' }}>
-                            <Grid container spacing={{ xs: 2, sm: 3, md: 5 }} alignItems="center" sx={{ flex: 1, minHeight: 0 }}>
-                                <Grid item xs={12} md={6}>
-                                    <motion.div
+                        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{
+                                flex: 1,
+                                minHeight: 0,
+                                width: '100%',
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
+                                gap: { xs: 2.5, sm: 3, md: 5 },
+                                alignItems: 'center',
+                                justifyItems: { xs: 'center', md: 'stretch' },
+                            }}>
+                                <Box sx={{ width: '100%', maxWidth: { xs: '100%', sm: 620, md: 'none' }, mx: { xs: 'auto', md: 0 }, textAlign: { xs: 'center', md: 'left' } }}>
+                                    <MotionDiv
                                         style={{ willChange: 'transform, opacity' }}
-                                        initial={a11yPrefs.reducedMotion ? false : { opacity: 0, x: -44 }}
+                                        initial={false}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ duration: a11yPrefs.reducedMotion ? 0 : 0.75 }}
                                     >
@@ -955,7 +866,7 @@ const EnhancedLandingPage = () => {
                                                 color: 'var(--kmfri-text, #0f172a)',
                                                 mb: { xs: 1.25, sm: 1.5, md: 2 },
                                                 lineHeight: 1.16,
-                                                fontSize: { xs: "clamp(1.02rem, 5vw, 1.25rem)", sm: "1.25rem", md: "1.5rem" }
+                                                fontSize: { xs: "clamp(1.08rem, 5vw, 1.3rem)", sm: "1.35rem", md: "1.5rem" }
                                             }}
                                         >
                                             <Box component="span" sx={{ color: 'var(--kmfri-secondary, #005B96)', display: 'block', mb: 0.5, fontWeight: 900 }}>
@@ -963,11 +874,16 @@ const EnhancedLandingPage = () => {
                                             </Box>
                                         </Typography>
 
-                                        <Typography sx={{ color: 'rgba(15, 23, 42, 0.78)', mb: { xs: 2, sm: 2.5, md: 3.5 }, fontWeight: 500, lineHeight: { xs: 1.5, md: 1.7 }, maxWidth: 520, fontSize: { xs: '0.9rem', sm: 'clamp(0.95rem, 1.6vw, 1.15rem)' } }}>
+                                        <Typography sx={{ color: 'rgba(15, 23, 42, 0.78)', mb: { xs: 2, sm: 2.5, md: 3.5 }, fontWeight: 500, lineHeight: { xs: 1.5, md: 1.7 }, maxWidth: 520, mx: { xs: 'auto', md: 0 }, fontSize: { xs: '0.9rem', sm: 'clamp(0.95rem, 1.6vw, 1.15rem)' } }}>
                                             Digital platform for synchronized clocking and reporting for all our employees, interns, and attaches across research stations nationwide.
                                         </Typography>
 
-                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                        <Stack
+                                            direction={{ xs: 'column', sm: 'row' }}
+                                            spacing={2}
+                                            justifyContent={{ xs: 'center', md: 'flex-start' }}
+                                            sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}
+                                        >
                                             <Button variant="contained" size="large" startIcon={<Lock />} onClick={() => setView('signin')}
                                                 sx={{ background: 'var(--kmfri-gradient)', color: '#fff', fontWeight: 800, px: { xs: 2.5, sm: 4 }, py: { xs: 1.25, sm: 1.55, md: 1.75 }, borderRadius: '14px', textTransform: 'none', fontSize: { xs: '0.92rem', sm: '1rem' }, boxShadow: '0 10px 30px var(--kmfri-secondary-soft)', transition: 'all 0.26s ease', '&:hover': { filter: 'brightness(1.08)', transform: 'translateY(-2px)', boxShadow: '0 14px 36px var(--kmfri-secondary-soft)' } }}>
                                                 Sign In to Portal
@@ -977,12 +893,12 @@ const EnhancedLandingPage = () => {
                                                 Explore Guide
                                             </Button>
                                         </Stack>
-                                    </motion.div>
-                                </Grid>
+                                    </MotionDiv>
+                                </Box>
 
-                                <Grid item xs={12} md={6} sx={{ display: { xs: 'none', sm: 'block' } }}>
-                                    <motion.div
-                                        initial={a11yPrefs.reducedMotion ? false : { opacity: 0, scale: 0.9 }}
+                                <Box sx={{ width: '100%', maxWidth: { xs: '100%', sm: 620, md: 'none' }, mx: { xs: 'auto', md: 0 } }}>
+                                    <MotionDiv
+                                        initial={false}
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ duration: a11yPrefs.reducedMotion ? 0 : 0.8, delay: a11yPrefs.reducedMotion ? 0 : 0.2 }}
                                     >
@@ -994,12 +910,12 @@ const EnhancedLandingPage = () => {
                                                 loading="eager"
                                                 fetchPriority="high"
                                                 decoding="async"
-                                                sx={{ width: "100%", maxWidth: { sm: 340, md: 500 }, maxHeight: { sm: '30dvh', md: 'min(52dvh, 440px)' }, borderRadius: { sm: 3, md: 4 }, ...G.surfaceStrong, objectFit: "contain", transition: ".4s", "&:hover": { transform: a11yPrefs.reducedMotion ? 'none' : "translateY(-8px) scale(1.02)" } }}
+                                                sx={{ display: 'block', width: "100%", height: 'auto', mx: 'auto', maxWidth: { xs: '100%', sm: 430, md: 500 }, maxHeight: { xs: '34dvh', sm: '36dvh', md: 'min(52dvh, 440px)' }, borderRadius: { xs: 2.5, sm: 3, md: 4 }, ...G.surfaceStrong, objectFit: "contain", transition: ".4s", "&:hover": { transform: a11yPrefs.reducedMotion ? 'none' : "translateY(-8px) scale(1.02)" } }}
                                             />
                                         </Box>
-                                    </motion.div>
-                                </Grid>
-                            </Grid>
+                                    </MotionDiv>
+                                </Box>
+                            </Box>
                         </Container>
                     </Box>
 
@@ -1039,27 +955,6 @@ const EnhancedLandingPage = () => {
                                 </Typography>
 
                                 <Stack direction="row" spacing={{ xs: 2, sm: 2.5 }} alignItems="center" flexWrap="wrap" justifyContent="center">
-
-                                    {!pwaInstalled && (
-                                        <Button size="small" onClick={handlePwaAction} startIcon={<InstallDesktop sx={{ fontSize: 15 }} />} sx={{
-                                            color: 'var(--kmfri-secondary, rgba(0,91,150,0.75))',
-                                            textTransform: 'none',
-                                            fontWeight: 600,
-                                            fontSize: '0.8rem',
-                                            p: 0,
-                                            minWidth: 'auto',
-                                            borderRadius: '8px',
-                                            px: 1,
-                                            py: 0.5,
-                                            '&:hover': {
-                                                color: 'var(--kmfri-secondary)',
-                                                bgcolor: 'var(--kmfri-secondary-soft, rgba(0,91,150,0.08))',
-                                            }
-                                        }}>
-                                            Install
-                                        </Button>
-                                    )}
-
                                     <Button size="small" onClick={() => setGuideOpen(true)} startIcon={<MenuBookRounded sx={{ fontSize: 15 }} />} sx={{
                                         color: 'var(--kmfri-secondary, rgba(0,91,150,0.75))',
                                         textTransform: 'none',
@@ -1105,7 +1000,7 @@ const EnhancedLandingPage = () => {
 
             {/* ══ AUTH VIEWS ══ */}
             {view !== 'landing' && (
-                <motion.div style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: a11yPrefs.reducedMotion ? 0 : 0.38 }}>
+                <MotionDiv style={{ willChange: 'transform, opacity' }} key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: a11yPrefs.reducedMotion ? 0 : 0.38 }}>
                     <Box sx={{
                         minHeight: '100vh',
                         "@supports (height: 100dvh)": {
@@ -1125,7 +1020,7 @@ const EnhancedLandingPage = () => {
                             }
                         </Container>
                     </Box>
-                </motion.div>
+                </MotionDiv>
             )}
 
             <HelpSupportDialog
@@ -1135,11 +1030,6 @@ const EnhancedLandingPage = () => {
                 supportPhone={branding?.supportPhone}
             />
             <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-            <Snackbar open={Boolean(pwaStatus)} autoHideDuration={3600} onClose={() => setPwaStatus('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-                <Alert onClose={() => setPwaStatus('')} severity="info" sx={{ borderRadius: '14px', fontWeight: 600 }}>
-                    {pwaStatus}
-                </Alert>
-            </Snackbar>
         </Box>
     );
 };

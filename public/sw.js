@@ -1,9 +1,11 @@
-const CACHE_NAME = 'kmfri-attendance-cache-v4';
+const CACHE_NAME = 'kmfri-attendance-cache-v5';
 const RUNTIME_CACHE = 'kmfri-attendance-runtime-v2';
 const PRECACHE_URLS = [
   '/index.html',
   '/manifest.json',
   '/kmfri.png',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
