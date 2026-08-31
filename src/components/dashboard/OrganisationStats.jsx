@@ -266,9 +266,11 @@ const formatDuration = (hours) => {
 };
 
 const formatLocationLabel = (record, isEntry) => {
-    const locationName = isEntry ? record.clockInLocationName : record.clockOutLocationName;
+    const primaryLocationName = isEntry ? record.clockInLocationName : record.clockOutLocationName;
     const withinPremise = isEntry ? record.clockInWithinPremise : record.clockOutWithinPremise;
-    const offPremise = record?.clockedOutside || record?.clockedOutSide || locationName;
+    const outsideFallback = (withinPremise === false || isEntry) ? record.outsideLocation : "";
+    const locationName = primaryLocationName || outsideFallback || "";
+    const offPremise = withinPremise === false || record?.clockedOutside || record?.clockedOutSide || locationName;
 
     if (withinPremise === true) return "In Premise";
     if (!locationName) return withinPremise === false || offPremise ? "Off Premise" : "In Premise";
@@ -284,6 +286,94 @@ const compactTitleCase = (value) => {
         .trim()
         .toLowerCase()
         .replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.slice(1));
+};
+
+const getPdfSafeValue = (value) => {
+    if (value == null || value === "") return "N/A";
+    return String(value);
+};
+
+const formatDialogExportValue = (row, column) => {
+    const key = column?.key;
+    const value = row?.[key];
+    if (key === "role") return humanizeStaffAttribute(value);
+    if (["attendanceRate", "punctualityRate", "absenteeismRate", "lateRate", "percent"].includes(key) || HEATMAP_WEEKDAYS.includes(key)) return formatPercent(value);
+    if (key === "workedHours" && !value && Number(row?.daysAbsent || 0) > 0) return "Absence";
+    if (["averageWorkingHours", "averageHours", "workedHours"].includes(key)) return formatDuration(value);
+    if (["staff", "value", "lateCount", "daysAbsent", "daysPresent", "workingDays", "totalDays", "onLeaveDays"].includes(key)) return formatNumber(value);
+    return getPdfSafeValue(value);
+};
+
+const buildPdfColumnStyles = (columns, availableWidth) => {
+    const preferredWidths = {
+        employeeId: 22,
+        name: 34,
+        employee: 34,
+        station: 28,
+        department: 32,
+        role: 20,
+        todayStatus: 25,
+        date: 22,
+        clockIn: 17,
+        clockOut: 17,
+        timing: 17,
+        status: 28,
+        issue: 24,
+        inLocation: 45,
+        outLocation: 45,
+        reason: 44,
+        leaveType: 30,
+        leaveStart: 24,
+        leaveEnd: 24,
+        staff: 18,
+        value: 34,
+        percent: 34,
+        totalDays: 18,
+        workingDays: 22,
+        daysPresent: 20,
+        daysAbsent: 20,
+        attendanceRate: 26,
+        punctualityRate: 28,
+        absenteeismRate: 28,
+        lateRate: 20,
+        lateCount: 18,
+        onLeaveDays: 22,
+        averageWorkingHours: 28,
+        averageHours: 26,
+        workedHours: 24,
+        workedHoursLabel: 24,
+    };
+    const numericKeys = new Set([
+        "staff",
+        "value",
+        "percent",
+        "totalDays",
+        "workingDays",
+        "daysPresent",
+        "daysAbsent",
+        "attendanceRate",
+        "punctualityRate",
+        "absenteeismRate",
+        "lateRate",
+        "lateCount",
+        "onLeaveDays",
+        "averageWorkingHours",
+        "averageHours",
+        "workedHours",
+        "workedHoursLabel",
+    ]);
+    const totalPreferred = columns.reduce((sum, column) => sum + (preferredWidths[column.key] || 28), 0) || availableWidth;
+    const scale = Math.min(1, availableWidth / totalPreferred);
+    const styles = {};
+    columns.forEach((column, index) => {
+        const width = Math.max(14, (preferredWidths[column.key] || 28) * scale);
+        styles[index] = {
+            cellWidth: Number(width.toFixed(1)),
+            halign: numericKeys.has(column.key) ? "center" : "left",
+            fontStyle: ["name", "employee", "station", "department"].includes(column.key) ? "bold" : "normal",
+        };
+    });
+    return styles;
 };
 
 const getTotalDays = (startDate, endDate) => {
@@ -692,7 +782,7 @@ const ChartReading = ({ items = [], theme }) => (
     </Box>
 );
 
-const SectionCard = ({ title, subtitle, action, children, theme }) => (
+const SectionCard = ({ title, subtitle, action, children, theme, contentSx = {} }) => (
     <Card
         elevation={0}
         sx={{
@@ -702,7 +792,7 @@ const SectionCard = ({ title, subtitle, action, children, theme }) => (
             background: theme.white,
         }}
     >
-        <CardContent sx={{ p: 2 }}>
+        <CardContent sx={{ p: 2, ...contentSx }}>
             <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
                 <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontSize: 15, fontWeight: 900, color: theme.text, letterSpacing: 0 }}>
@@ -972,7 +1062,7 @@ const DrilldownMetricCard = ({ title, value, subtitle, icon, tone, theme, onClic
     );
 };
 
-const MetricDetailDialog = ({ open, metric, theme, onClose }) => {
+const MetricDetailDialog = ({ open, metric, theme, onClose, onExport, exporting = false }) => {
     const rows = useMemo(() => metric?.rows || [], [metric?.rows]);
     const columns = useMemo(() => metric?.columns || [], [metric?.columns]);
     const [dialogFilters, setDialogFilters] = useState({
@@ -1042,6 +1132,15 @@ const MetricDetailDialog = ({ open, metric, theme, onClose }) => {
         setDialogPage(0);
         setDialogFilters({ search: "", station: "", department: "", staffFilter: "role:employee", status: "", issue: "", date: "" });
     };
+    const handleDialogExport = () => {
+        if (!onExport || !filteredRows.length) return;
+        onExport({
+            metric,
+            rows: filteredRows,
+            columns,
+            filters: dialogFilters,
+        });
+    };
 
     return (
         <Dialog
@@ -1068,10 +1167,22 @@ const MetricDetailDialog = ({ open, metric, theme, onClose }) => {
                             </Typography>
                         )}
                     </Box>
-                    <Chip
-                        label={`${formatNumber(filteredRows.length)} of ${formatNumber(rows.length)} rows`}
-                        sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
-                    />
+                    <Stack direction="row" spacing={0.8} alignItems="center" justifyContent={{ xs: "space-between", sm: "flex-end" }}>
+                        <Chip
+                            label={`${formatNumber(filteredRows.length)} of ${formatNumber(rows.length)} rows`}
+                            sx={{ borderRadius: "8px", bgcolor: `${theme.secondary}12`, color: theme.secondary, fontWeight: 900 }}
+                        />
+                        <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={exporting ? <CircularProgress size={14} color="inherit" /> : <DownloadRounded />}
+                            disabled={exporting || !filteredRows.length}
+                            onClick={handleDialogExport}
+                            sx={{ minHeight: 32, borderRadius: "8px", textTransform: "none", fontWeight: 900, bgcolor: theme.secondary }}
+                        >
+                            Export
+                        </Button>
+                    </Stack>
                 </Stack>
             </DialogTitle>
             <DialogContent sx={{ pt: 1.4, bgcolor: "#F8FAFC" }}>
@@ -1361,14 +1472,11 @@ const HodAttendanceAnalytics = ({
     supervisorDepartment,
     supervisorStation,
     primaryMetricCards,
-    todayStatusRows,
     chartData,
     attendanceDelta,
     punctualityDelta,
     hodTeamRows,
-    attentionRows,
     departmentHeatmapRows,
-    attendanceDistributionRows,
     spotlightCards,
     onMetricClick,
 }) => {
@@ -1433,53 +1541,49 @@ const HodAttendanceAnalytics = ({
                 theme={theme}
                 action={<Chip size="small" label={periodRangeLabel} sx={{ borderRadius: "8px", bgcolor: `${theme.success}12`, color: theme.success, fontWeight: 900 }} />}
             >
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(5, minmax(0, 1fr))" }, gap: 1 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(6, minmax(0, 1fr))" }, gap: 1 }}>
                     {primaryMetricCards.map((card) => (
                         <DrilldownMetricCard key={card.key} {...card} theme={theme} onClick={() => onMetricClick(card.key)} />
                     ))}
                 </Box>
             </SectionCard>
 
+            <Box sx={{ mt: 0, width: "100%", maxWidth: "100%", minWidth: 0 }}>
+                <SectionCard title="Department Attendance Trend" theme={theme} contentSx={{ px: { xs: 1.25, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+                    <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, height: { xs: 270, sm: 310, md: 340, lg: 370 } }}>
+                        {chartData.length ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData} margin={{ top: 8, right: 14, left: -18, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
+                                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
+                                    <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance Rate"]} />
+                                    <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={theme.success} strokeWidth={2.8} dot={{ r: 2.8 }} activeDot={{ r: 5 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <EmptyState label="No department attendance trend available." theme={theme} />
+                        )}
+                    </Box>
+                </SectionCard>
+            </Box>
+
             <Grid container spacing={1.5} sx={{ mt: 0 }}>
-                <Grid item xs={12} md={3} lg={2}>
-                    <SectionCard title="Today's Status" theme={theme}>
-                        <Stack spacing={1}>
-                            {todayStatusRows.map((row) => (
-                                <Button
-                                    key={row.key}
-                                    onClick={() => onMetricClick(row.key)}
-                                    sx={{ px: 0.8, py: 0.4, minHeight: 28, justifyContent: "space-between", borderRadius: "8px", textTransform: "none", color: theme.text }}
-                                >
-                                    <Stack direction="row" spacing={0.8} alignItems="center">
-                                        <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: row.tone }} />
-                                        <Typography sx={{ fontSize: 11.5, fontWeight: 900 }}>{formatNumber(row.value)}</Typography>
-                                        <Typography sx={{ fontSize: 11, color: theme.muted }}>{row.label}</Typography>
-                                    </Stack>
-                                </Button>
-                            ))}
-                        </Stack>
+                <Grid item xs={12} lg={7}>
+                    <SectionCard
+                        title="Department Heatmap"
+                        subtitle="Attendance by weekday"
+                        theme={theme}
+                        action={
+                            <Button size="small" onClick={() => onMetricClick("hodDepartmentHeatmap")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
+                                View All
+                            </Button>
+                        }
+                    >
+                        <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" />
                     </SectionCard>
                 </Grid>
-                <Grid item xs={12} md={6} lg={7}>
-                    <SectionCard title="Department Attendance Trend" theme={theme}>
-                        <Box sx={{ height: 225 }}>
-                            {chartData.length ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData} margin={{ top: 8, right: 14, left: -18, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.16)" />
-                                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.muted }} minTickGap={16} />
-                                        <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: theme.muted }} tickFormatter={(value) => `${value}%`} />
-                                        <RechartsTooltip formatter={(value) => [formatPercent(value), "Attendance Rate"]} />
-                                        <Line type="monotone" dataKey="attendance" name="Attendance Rate" stroke={theme.success} strokeWidth={2.8} dot={{ r: 2.8 }} activeDot={{ r: 5 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <EmptyState label="No department attendance trend available." theme={theme} />
-                            )}
-                        </Box>
-                    </SectionCard>
-                </Grid>
-                <Grid item xs={12} md={3} lg={3}>
+                <Grid item xs={12} lg={5}>
                     <SectionCard title="This Month vs Last Month" theme={theme}>
                         <Stack spacing={1}>
                             {monthRows.map((row) => (
@@ -1500,59 +1604,7 @@ const HodAttendanceAnalytics = ({
             </Grid>
 
             <Grid container spacing={1.5} sx={{ mt: 0 }}>
-                <Grid item xs={12} lg={7}>
-                    <SectionCard
-                        title="Department Heatmap"
-                        subtitle="Attendance by weekday"
-                        theme={theme}
-                        action={
-                            <Button size="small" onClick={() => onMetricClick("hodDepartmentHeatmap")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
-                                View All
-                            </Button>
-                        }
-                    >
-                        <HrAttendanceHeatmap rows={departmentHeatmapRows} theme={theme} rowLabel="Department" rowKey="department" />
-                    </SectionCard>
-                </Grid>
-                <Grid item xs={12} lg={5}>
-                    <SectionCard
-                        title="Attendance Distribution"
-                        subtitle="Today"
-                        theme={theme}
-                        action={
-                            <Button size="small" onClick={() => onMetricClick("hodAttendanceDistribution")} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 900, color: theme.secondary }}>
-                                View Details
-                            </Button>
-                        }
-                    >
-                        <Grid container spacing={1} alignItems="center">
-                            <Grid item xs={12} sm={6}>
-                                <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(kpis?.totalEmployees)} centerLabel="Total" height={210} />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <Stack spacing={0.75}>
-                                    {attendanceDistributionRows.map((row) => (
-                                        <Button
-                                            key={row.name}
-                                            onClick={() => onMetricClick(row.key)}
-                                            sx={{ px: 0.8, py: 0.45, justifyContent: "space-between", borderRadius: "8px", textTransform: "none", color: theme.text, bgcolor: `${row.color}0F` }}
-                                        >
-                                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                                                <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: row.color, flexShrink: 0 }} />
-                                                <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 900 }}>{row.name}</Typography>
-                                            </Stack>
-                                            <Typography sx={{ fontSize: 11.5, fontWeight: 950, color: row.color }}>{formatNumber(row.value)}</Typography>
-                                        </Button>
-                                    ))}
-                                </Stack>
-                            </Grid>
-                        </Grid>
-                    </SectionCard>
-                </Grid>
-            </Grid>
-
-            <Grid container spacing={1.5} sx={{ mt: 0 }}>
-                <Grid item xs={12} lg={8}>
+                <Grid item xs={12}>
                     <SectionCard
                         title="Team Attendance Overview"
                         theme={theme}
@@ -1563,24 +1615,6 @@ const HodAttendanceAnalytics = ({
                         }
                     >
                         <HrCompactTable columns={teamColumns} rows={hodTeamRows.slice(0, 6)} emptyLabel="No team attendance data in this department scope." theme={theme} />
-                    </SectionCard>
-                </Grid>
-                <Grid item xs={12} lg={4}>
-                    <SectionCard title="Attention Required" theme={theme}>
-                        <Stack spacing={1}>
-                            {attentionRows.length ? attentionRows.map((row) => (
-                                <Button
-                                    key={row.key}
-                                    onClick={() => onMetricClick(row.key)}
-                                    sx={{ justifyContent: "flex-start", textTransform: "none", borderRadius: "8px", color: theme.text, px: 1, py: 0.8, bgcolor: `${row.tone}0D` }}
-                                >
-                                    <WarningAmberRounded sx={{ fontSize: 16, color: row.tone, mr: 1 }} />
-                                    <Typography sx={{ fontSize: 11.5, fontWeight: 850, textAlign: "left" }}>{row.label}</Typography>
-                                </Button>
-                            )) : (
-                                <EmptyState label="No attendance exceptions requiring HOD attention." theme={theme} />
-                            )}
-                        </Stack>
                     </SectionCard>
                 </Grid>
             </Grid>
@@ -1665,53 +1699,9 @@ const HrAttendanceAnalytics = ({
         { key: "lateRate", label: "Late %", align: "right", render: (row) => formatPercent(row.lateRate) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
     ];
-    const workforceStatusRows = attendanceDistributionRows.map((row) => ({
-        ...row,
-        percent: Number(row.percent ?? ((Number(row.value || 0) / Math.max(totalStaff, 1)) * 100)),
-    }));
-    const workforceSplitIndex = Math.ceil(workforceStatusRows.length / 2);
-    const workforceLeftRows = workforceStatusRows.slice(0, workforceSplitIndex);
-    const workforceRightRows = workforceStatusRows.slice(workforceSplitIndex);
-    const renderWorkforceStatColumn = (rows) => (
-        <Stack spacing={0.75}>
-            {rows.map((item) => (
-                <Button
-                    key={item.name}
-                    onClick={() => item.key && onMetricClick(item.key)}
-                    sx={{
-                        minHeight: 56,
-                        px: 1,
-                        py: 0.75,
-                        borderRadius: "8px",
-                        border: `1px solid ${item.color}26`,
-                        bgcolor: `${item.color}0D`,
-                        color: theme.text,
-                        justifyContent: "space-between",
-                        textTransform: "none",
-                        gap: 1,
-                    }}
-                >
-                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                        <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: item.color, flexShrink: 0 }} />
-                        <Box sx={{ minWidth: 0, textAlign: "left" }}>
-                            <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 950, color: theme.text }}>
-                                {item.name}
-                            </Typography>
-                            <Typography sx={{ fontSize: 10.5, fontWeight: 850, color: item.color }}>
-                                {formatPercent(item.percent)}
-                            </Typography>
-                        </Box>
-                    </Stack>
-                    <Typography sx={{ fontSize: 17, fontWeight: 950, color: item.color, flexShrink: 0 }}>
-                        {formatNumber(item.value)}
-                    </Typography>
-                </Button>
-            ))}
-        </Stack>
-    );
-    const renderAttendanceTrendCard = (height) => (
-        <SectionCard title="Attendance Rate Over Time" theme={theme}>
-            <Box sx={{ height }}>
+    const renderAttendanceTrendCard = (height = { xs: 270, sm: 310, lg: 360 }) => (
+        <SectionCard title="Attendance Rate Over Time" theme={theme} contentSx={{ px: { xs: 1.25, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+            <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, height }}>
                 {chartData.length ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
@@ -1725,29 +1715,6 @@ const HrAttendanceAnalytics = ({
                 ) : (
                     <EmptyState label="No attendance trend data available." theme={theme} />
                 )}
-            </Box>
-        </SectionCard>
-    );
-    const renderWorkforceStatusCard = () => (
-        <SectionCard title="Workforce Status Today" theme={theme}>
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateAreas: {
-                        xs: "\"donut\" \"left\" \"right\"",
-                        sm: "\"donut donut\" \"left right\"",
-                        md: "\"left donut right\"",
-                    },
-                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "minmax(128px, 1fr) minmax(168px, 210px) minmax(128px, 1fr)" },
-                    gap: { xs: 1, md: 1.2 },
-                    alignItems: "center",
-                }}
-            >
-                <Box sx={{ gridArea: "left", minWidth: 0 }}>{renderWorkforceStatColumn(workforceLeftRows)}</Box>
-                <Box sx={{ gridArea: "donut", display: "flex", justifyContent: "center", minWidth: 0 }}>
-                    <DonutVisualization data={attendanceDistributionRows} theme={theme} centerValue={formatNumber(totalStaff)} centerLabel="Total" height={190} chartSize={190} showLegend={false} />
-                </Box>
-                <Box sx={{ gridArea: "right", minWidth: 0 }}>{renderWorkforceStatColumn(workforceRightRows)}</Box>
             </Box>
         </SectionCard>
     );
@@ -1808,35 +1775,18 @@ const HrAttendanceAnalytics = ({
                 </Box>
             </SectionCard>
 
-            {isStationScopedHr ? (
-                <Grid container spacing={1.5} sx={{ mt: 0 }}>
-                    <Grid item xs={12} lg={4}>
-                        {renderAttendanceTrendCard(220)}
-                    </Grid>
-                    <Grid item xs={12} lg={8}>
-                        {renderKeyInsightsCard()}
-                    </Grid>
+            <Box sx={{ mt: 0, width: "100%", maxWidth: "100%", minWidth: 0 }}>
+                {renderAttendanceTrendCard({ xs: 270, sm: 310, md: 340, lg: 370 })}
+            </Box>
+
+            <Grid container spacing={1.5} sx={{ mt: 0, alignItems: "stretch" }}>
+                <Grid item xs={12} md={isStationScopedHr ? 7 : 5}>
+                    {renderKeyInsightsCard()}
                 </Grid>
-            ) : (
-                <Grid container spacing={1.5} sx={{ mt: 0, alignItems: "stretch" }}>
-                    <Grid item xs={12} lg={5}>
-                        {renderAttendanceTrendCard({ xs: 250, lg: 372 })}
-                    </Grid>
-                    <Grid item xs={12} lg={7}>
-                        <Stack spacing={1.5}>
-                            {renderWorkforceStatusCard()}
-                            <Grid container spacing={1.5}>
-                                <Grid item xs={12} md={5}>
-                                    {renderKeyInsightsCard()}
-                                </Grid>
-                                <Grid item xs={12} md={7}>
-                                    {renderArrivalCard()}
-                                </Grid>
-                            </Grid>
-                        </Stack>
-                    </Grid>
+                <Grid item xs={12} md={isStationScopedHr ? 5 : 7}>
+                    {renderArrivalCard(isStationScopedHr ? "Time of Arrival Today" : "Time of Arrival Distribution", isStationScopedHr ? theme.secondary : theme.purple)}
                 </Grid>
-            )}
+            </Grid>
 
             <Grid container spacing={1.5} sx={{ mt: 0 }}>
                 <Grid item xs={12} lg={isStationScopedHr ? 6 : 5}>
@@ -1861,9 +1811,9 @@ const HrAttendanceAnalytics = ({
                         />
                     </SectionCard>
                 </Grid>
-                <Grid item xs={12} lg={isStationScopedHr ? 3 : 4}>
+                <Grid item xs={12} lg={isStationScopedHr ? 6 : 4}>
                     <SectionCard
-                        title={isStationScopedHr ? "Time of Arrival Today" : "Department Performance"}
+                        title={isStationScopedHr ? "Leave Overview" : "Department Performance"}
                         subtitle={isStationScopedHr ? undefined : "Top departments"}
                         theme={theme}
                         action={!isStationScopedHr ? (
@@ -1877,7 +1827,18 @@ const HrAttendanceAnalytics = ({
                         ) : undefined}
                     >
                         {isStationScopedHr ? (
-                            <HrHorizontalBars rows={arrivalBucketRows} theme={theme} valueKey="value" labelKey="label" max={Math.max(...arrivalBucketRows.map((row) => row.value), 1)} tone={theme.secondary} />
+                            <Stack spacing={1}>
+                                {leaveDutyRows.map((row) => (
+                                    <Button
+                                        key={row.key}
+                                        onClick={() => onMetricClick(row.key)}
+                                        sx={{ px: 1, py: 0.75, justifyContent: "space-between", borderRadius: "8px", textTransform: "none", color: theme.text, bgcolor: `${row.tone}12` }}
+                                    >
+                                        <Typography sx={{ fontSize: 11.5, fontWeight: 900 }}>{row.label}</Typography>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 950, color: row.tone }}>{formatNumber(row.value)}</Typography>
+                                    </Button>
+                                ))}
+                            </Stack>
                         ) : (
                             <HrHorizontalBars
                                 rows={configuredDepartmentPerformanceRows.slice(0, 6).map((department) => ({
@@ -1892,20 +1853,6 @@ const HrAttendanceAnalytics = ({
                         )}
                     </SectionCard>
                 </Grid>
-                {isStationScopedHr && (
-                    <Grid item xs={12} lg={3}>
-                        <SectionCard title="Leave & Duty Overview" theme={theme}>
-                            <Stack spacing={1}>
-                                {leaveDutyRows.map((row) => (
-                                    <Stack key={row.label} direction="row" justifyContent="space-between" spacing={1}>
-                                        <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: theme.text }}>{row.label}</Typography>
-                                        <Typography sx={{ fontSize: 11.5, fontWeight: 950, color: row.tone }}>{formatNumber(row.value)}</Typography>
-                                    </Stack>
-                                ))}
-                            </Stack>
-                        </SectionCard>
-                    </Grid>
-                )}
             </Grid>
 
             {!isStationScopedHr && (
@@ -1979,7 +1926,7 @@ const HrAttendanceAnalytics = ({
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ mt: 1, px: 0.5 }}>
                 <Typography sx={{ fontSize: 11, color: theme.muted, fontWeight: 700 }}>
-                    Data source: attendance records, user scope, leave status, outside-duty authorisations, and device enrolment readiness.
+                    Data source: attendance records, user scope, leave status, duty authorisations, and device enrolment readiness.
                 </Typography>
                 <Typography sx={{ fontSize: 11, color: theme.muted, fontWeight: 700 }}>
                     Previous comparison: {previousPeriodLabel}
@@ -2815,7 +2762,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             notes.push({
                 label: "Maintain controls",
                 value: "Stable attendance",
-                subtitle: "Continue monitoring punctuality, device readiness, and outside-duty authorisations weekly.",
+                subtitle: "Continue monitoring punctuality, device readiness, and duty authorisations weekly.",
                 tone: theme.success,
                 positive: true,
             });
@@ -2989,9 +2936,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             const location = `${record.inLocation || ""} ${record.outLocation || ""}`.toLowerCase();
             return record.reason || location.includes("off premise") || record.inLocation !== "In Premise" || record.outLocation !== "In Premise";
         });
-        const officialDutyRecords = outsideRecords.filter((record) => /official|duty|training|meeting|conference|assignment/i.test(record.reason || ""));
-        const fieldWorkRecords = outsideRecords.filter((record) => /field|research|sampling|survey|site|project|remote/i.test(record.reason || ""))
-            .concat(officialDutyRecords.length ? [] : outsideRecords);
         const lateRecords = processedRecords.filter((record) => record.timing === "Late");
         const missingCheckoutRecords = processedRecords.filter((record) => record.status === "Open" || record.clockOut === "System");
         const overtimeRecords = processedRecords
@@ -3004,8 +2948,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
 
         return {
             outsideRecords,
-            officialDutyRecords,
-            fieldWorkRecords,
+            dutyRecords: outsideRecords,
             lateRecords,
             missingCheckoutRecords,
             overtimeRecords,
@@ -3135,13 +3078,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const leaveDutyRows = useMemo(
         () => [
             { key: "onLeaveToday", label: "On Leave Today", value: Number(kpis?.onLeaveToday || 0), tone: theme.warning },
-            { key: "officialDuty", label: "Official Duty", value: hrRecordGroups.officialDutyRecords.length, tone: theme.secondary },
-            { key: "fieldWork", label: "Field Work", value: hrRecordGroups.fieldWorkRecords.length, tone: theme.accent },
-            { key: "outsideClocking", label: "Outside Clocking", value: hrRecordGroups.outsideRecords.length, tone: theme.purple },
-            { key: "missingCheckout", label: "Missing Checkout", value: hrRecordGroups.missingCheckoutRecords.length, tone: theme.danger },
-            { key: "openSessions", label: "Open Sessions", value: referenceMetrics.openSessions, tone: theme.warning },
         ],
-        [hrRecordGroups, kpis, referenceMetrics.openSessions, theme]
+        [kpis, theme]
     );
 
     const hrKeyInsights = useMemo(
@@ -3246,8 +3184,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
             { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
             { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
-            { key: "officialDuty", title: "Duty", value: formatNumber(hrRecordGroups.officialDutyRecords.length), subtitle: percentage(hrRecordGroups.officialDutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
-            { key: "fieldWork", title: "Field", value: formatNumber(hrRecordGroups.fieldWorkRecords.length), subtitle: percentage(hrRecordGroups.fieldWorkRecords.length), icon: <GroupsRounded />, tone: theme.accent },
+            { key: "dutyRecords", title: "Duty", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
         ];
     }, [hrRecordGroups, kpis, theme]);
 
@@ -3267,31 +3204,24 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         return hrRecordGroups.lateRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
     }, [hrRecordGroups.lateRecords]);
 
-    const hodOfficialDutyTodayRows = useMemo(() => {
+    const hodDutyTodayRows = useMemo(() => {
         const todayKey = getDateInputValue();
-        return hrRecordGroups.officialDutyRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
-    }, [hrRecordGroups.officialDutyRecords]);
+        return hrRecordGroups.dutyRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
+    }, [hrRecordGroups.dutyRecords]);
 
-    const hodOnLeaveDutyRows = useMemo(
-        () => [
-            ...scopedTodayRows.onLeave.map((row) => ({
+    const hodLeaveRows = useMemo(
+        () => scopedTodayRows.onLeave.map((row) => ({
                 ...row,
                 status: "On Leave",
                 date: getDateInputValue(),
                 reason: row.leaveType || "Approved Leave",
             })),
-            ...hodOfficialDutyTodayRows.map((row) => ({
-                ...row,
-                status: "Official Duty",
-                reason: row.reason || "Official Duty",
-            })),
-        ],
-        [hodOfficialDutyTodayRows, scopedTodayRows.onLeave]
+        [scopedTodayRows.onLeave]
     );
 
     const hodTeamRows = useMemo(() => {
         const todayKey = getDateInputValue();
-        const officialDutyEmails = new Set(hodOfficialDutyTodayRows.map((record) => String(record.email || "").toLowerCase()).filter(Boolean));
+        const dutyEmails = new Set(hodDutyTodayRows.map((record) => String(record.email || "").toLowerCase()).filter(Boolean));
         const presentEmails = new Set(scopedTodayRows.present.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
         const leaveEmails = new Set(scopedTodayRows.onLeave.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
         const absentEmails = new Set(scopedTodayRows.absent.map((row) => String(row.email || "").toLowerCase()).filter(Boolean));
@@ -3319,8 +3249,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 return sum + (hours > 0 && hours < 8 ? 8 - hours : 0);
             }, 0);
             const lateToday = todayRecords.some((record) => record.timing === "Late");
-            const todayStatus = officialDutyEmails.has(email)
-                ? "Official Duty"
+            const todayStatus = dutyEmails.has(email)
+                ? "Duty"
                 : leaveEmails.has(email)
                     ? "On Leave"
                     : absentEmails.has(email)
@@ -3357,57 +3287,20 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 issue: todayStatus,
             };
         }).sort((a, b) => Number(b.attendanceRate || 0) - Number(a.attendanceRate || 0));
-    }, [hodOfficialDutyTodayRows, processedRecords, processedSummaryRows, scopedTodayRows, theme]);
+    }, [hodDutyTodayRows, processedRecords, processedSummaryRows, scopedTodayRows, theme]);
 
     const hodPrimaryMetricCards = useMemo(() => {
         const total = Number(kpis?.totalEmployees || 0);
         const percentage = (value) => total ? formatPercent((Number(value || 0) / total) * 100) : "0.0%";
-        const leaveDutyCount = hodOnLeaveDutyRows.length;
         return [
-            { key: "hodTeamMembers", title: "Total Staff", value: formatNumber(total), subtitle: "", icon: <GroupsRounded />, tone: theme.secondary },
+            { key: "hodTeamMembers", title: "Total Staff", value: formatNumber(total), subtitle: "", icon: <GroupsRounded />, tone: theme.purple },
             { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
             { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
-            { key: "onLeaveDuty", title: "Leave/Duty", value: formatNumber(leaveDutyCount), subtitle: percentage(leaveDutyCount), icon: <EventAvailableRounded />, tone: theme.warning },
+            { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
+            { key: "dutyRecords", title: "Duty", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
             { key: "lateRecords", title: "Late", value: formatNumber(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), subtitle: percentage(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), icon: <HourglassBottomRounded />, tone: theme.danger },
         ];
-    }, [hodLateTodayRows.length, hodOnLeaveDutyRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
-
-    const hodTodayStatusRows = useMemo(() => [
-        { key: "presentToday", label: "Present", value: Number(kpis?.presentToday || 0), tone: theme.success },
-        { key: "lateRecords", label: "Late", value: hodLateTodayRows.length || hrRecordGroups.lateRecords.length, tone: theme.warning },
-        { key: "officialDuty", label: "Official Duty", value: hodOfficialDutyTodayRows.length, tone: theme.secondary },
-        { key: "absentToday", label: "Unaccounted", value: Number(kpis?.absentToday || 0), tone: theme.muted },
-    ], [hodLateTodayRows.length, hodOfficialDutyTodayRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
-
-    const hodAttendanceDistributionRows = useMemo(() => {
-        const total = Math.max(Number(kpis?.totalEmployees || 0), 1);
-        const lateValue = hodLateTodayRows.length || hrRecordGroups.lateRecords.length;
-        const leaveDutyValue = hodOnLeaveDutyRows.length;
-        const presentOnTime = Math.max(Number(kpis?.presentToday || 0) - lateValue, 0);
-        const rows = [
-            { key: "presentToday", name: "Present", value: presentOnTime, color: theme.success },
-            { key: "lateRecords", name: "Late", value: lateValue, color: theme.warning },
-            { key: "absentToday", name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
-            { key: "onLeaveDuty", name: "Leave / Duty", value: leaveDutyValue, color: theme.secondary },
-        ];
-        return rows.map((row) => ({
-            ...row,
-            percent: (Number(row.value || 0) / total) * 100,
-        }));
-    }, [hodLateTodayRows.length, hodOnLeaveDutyRows.length, hrRecordGroups.lateRecords.length, kpis, theme]);
-
-    const hodAttentionRows = useMemo(() => {
-        const repeatedLatePeople = hodTeamRows.filter((row) => Number(row.lateCount || 0) >= 2);
-        const unexplainedAbsences = scopedTodayRows.absent;
-        const missingCheckoutRows = hrRecordGroups.missingCheckoutRecords;
-        const belowHoursPeople = hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0);
-        return [
-            repeatedLatePeople.length ? { key: "hodRepeatedLate", label: `${formatNumber(repeatedLatePeople.length)} employees arrived late repeatedly`, tone: theme.warning } : null,
-            unexplainedAbsences.length ? { key: "absentToday", label: `${formatNumber(unexplainedAbsences.length)} employee${unexplainedAbsences.length === 1 ? " has" : "s have"} an unexplained absence`, tone: theme.danger } : null,
-            missingCheckoutRows.length ? { key: "missingCheckout", label: `${formatNumber(missingCheckoutRows.length)} attendance records have missing checkout`, tone: theme.warning } : null,
-            belowHoursPeople.length ? { key: "hodBelowExpectedHours", label: `${formatNumber(belowHoursPeople.length)} employees below expected monthly hours`, tone: theme.danger } : null,
-        ].filter(Boolean);
-    }, [hodTeamRows, hrRecordGroups.missingCheckoutRecords, scopedTodayRows.absent, theme]);
+    }, [hodLateTodayRows.length, hrRecordGroups.dutyRecords.length, hrRecordGroups.lateRecords.length, kpis, theme]);
 
     const hodSpotlightCards = useMemo(() => {
         const bestAttendance = hodTeamRows[0];
@@ -3436,9 +3329,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             presentToday: { title: "Present Today", subtitle: "Staff with a clock-in today", rows: scopedTodayRows.present, columns: detailColumns.people },
             absentToday: { title: "Absent Today", subtitle: "Staff without a clock-in and not on approved leave today", rows: scopedTodayRows.absent, columns: detailColumns.people },
             onLeaveToday: { title: "On Leave Today", subtitle: "Approved leave in today's scope", rows: scopedTodayRows.onLeave, columns: [...detailColumns.people, { key: "leaveType", label: "Leave Type", minWidth: 140 }, { key: "leaveStart", label: "From", minWidth: 115 }, { key: "leaveEnd", label: "To", minWidth: 115 }] },
-            onLeaveDuty: { title: "On Leave / Official Duty", subtitle: "Approved leave and official-duty records visible today", rows: hodOnLeaveDutyRows, columns: detailColumns.hodDuty },
-            officialDuty: { title: "Official Duty Records", subtitle: "Outside-duty records classified from reason text", rows: hrRecordGroups.officialDutyRecords, columns: detailColumns.records },
-            fieldWork: { title: "Field Work Records", subtitle: "Field, research, remote, and site-based outside records", rows: hrRecordGroups.fieldWorkRecords, columns: detailColumns.records },
+            leaveRecords: { title: "Leave Records", subtitle: "Approved leave records visible today", rows: hodLeaveRows, columns: detailColumns.hodDuty },
+            dutyRecords: { title: "Duty Records", subtitle: "Outside-clocking records in the selected scope", rows: hrRecordGroups.dutyRecords, columns: detailColumns.records },
             attendanceRate: { title: "Attendance Rate Contributors", subtitle: "Staff summary behind the selected attendance rate", rows: processedSummaryRows, columns: detailColumns.summary },
             punctualityRate: { title: "Punctuality by Record", subtitle: "On-time and late records in the selected scope", rows: processedRecords, columns: detailColumns.records },
             stationPerformance: { title: "All Station / Centre Performance", subtitle: "Configured stations with attendance metrics in the selected scope", rows: configuredStationPerformanceRows, columns: detailColumns.performance },
@@ -3446,14 +3338,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             departmentHeatmap: { title: "Department Attendance Heatmap", subtitle: "Weekday attendance rates for all configured departments", rows: departmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
             stationHeatmap: { title: "Station / Centre Attendance Heatmap", subtitle: "Weekday attendance rates for all configured stations", rows: stationHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Station", rowKey: "station" },
             hodDepartmentHeatmap: { title: `${supervisorDepartment || "Department"} Attendance Heatmap`, subtitle: `${supervisorStation || "Assigned station"} weekday attendance pattern`, rows: hodDepartmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
-            hodAttendanceDistribution: { title: "Department Attendance Distribution", subtitle: "Today by attendance state", rows: hodAttendanceDistributionRows, columns: detailColumns.distribution },
             lateRecords: { title: "Late Records", subtitle: "Late clock-ins in the selected scope", rows: hrRecordGroups.lateRecords, columns: detailColumns.records },
             averageWorkingHours: { title: "Completed Working Hours", subtitle: "Records with clock-in and clock-out", rows: hrRecordGroups.completedRecords, columns: [...detailColumns.records, { key: "workedHours", label: "Hours", minWidth: 90, render: (row) => formatDuration(getRecordHours(row)) }] },
             overtimeHours: { title: "Overtime Records", subtitle: "Completed records above 8 hours", rows: withHours(hrRecordGroups.overtimeRecords), columns: [...detailColumns.records, { key: "workedHoursLabel", label: "Worked", minWidth: 90 }] },
             missingCheckout: { title: "Missing Checkout Records", subtitle: "Open or system-closed attendance records", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
             lostWorkingHours: { title: "Lost Working Hour Drivers", subtitle: "Short completed days and absent days", rows: [...hrRecordGroups.shortHourRecords, ...processedSummaryRows.filter((row) => Number(row.daysAbsent || 0) > 0)], columns: [...detailColumns.summary, { key: "workedHours", label: "Worked", minWidth: 90, render: (row) => row.workedHours ? formatDuration(row.workedHours) : "Absence" }] },
             biometricReadiness: { title: "Biometric Readiness", subtitle: "Scoped enrolment and device readiness totals", rows: [{ id: "biometric", name: "Biometric Readiness", staff: Number(kpis?.totalEmployees || 0), attendanceRate: biometricAnalytics?.enrollmentRate || 0, punctualityRate: biometricAnalytics?.deviceUptime || 0, absenteeismRate: 100 - Number(biometricAnalytics?.enrollmentRate || 0), lateCount: biometricAnalytics?.inactiveDevices || 0, onLeaveDays: biometricAnalytics?.lostDevices || 0, averageWorkingHours: 0 }], columns: detailColumns.performance },
-            outsideClocking: { title: "Outside Clocking Records", subtitle: "Off-premise or outside-location records", rows: hrRecordGroups.outsideRecords, columns: detailColumns.records },
+            outsideClocking: { title: "Duty Records", subtitle: "Outside-clocking records in the selected scope", rows: hrRecordGroups.outsideRecords, columns: detailColumns.records },
             openSessions: { title: "Open Sessions", subtitle: "Clock-ins without completed clock-outs", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
             hodRepeatedLate: { title: "Repeated Late Arrivals", subtitle: "Team members with two or more late records in the selected period", rows: hodTeamRows.filter((row) => Number(row.lateCount || 0) >= 2), columns: detailColumns.hodTeam },
             hodBelowExpectedHours: { title: "Below Expected Hours", subtitle: "Team members with completed days below expected hours", rows: hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0), columns: detailColumns.hodTeam },
@@ -3468,9 +3359,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         configuredStationPerformanceRows,
         detailColumns,
         departmentHeatmapRows,
-        hodAttendanceDistributionRows,
         hodDepartmentHeatmapRows,
-        hodOnLeaveDutyRows,
+        hodLeaveRows,
         hodTeamRows,
         hrRecordGroups,
         kpis,
@@ -3494,7 +3384,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { name: "Early Departures", count: earlyDepartureCount, fill: theme.purple },
             { name: "Missing In", count: Number(complianceAnalytics?.totalMissingClockIns || 0), fill: theme.danger },
             { name: "Missing Out", count: Number(complianceAnalytics?.totalMissingClockOuts || 0), fill: theme.warning },
-            { name: "Outside Duty", count: outsideClockingCount, fill: theme.secondary },
+            { name: "Duty", count: outsideClockingCount, fill: theme.secondary },
             { name: "Open Sessions", count: referenceMetrics.openSessions, fill: theme.accent },
             { name: "Inactive Devices", count: Number(biometricAnalytics?.inactiveDevices || 0), fill: theme.muted },
             { name: "Lost Devices", count: Number(biometricAnalytics?.lostDevices || 0), fill: theme.danger },
@@ -3509,7 +3399,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 { key: "presentToday", name: "Present", value: Number(kpis?.presentToday || 0), color: theme.success },
                 { key: "absentToday", name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
                 { key: "onLeaveToday", name: "On Leave", value: Number(kpis?.onLeaveToday || 0), color: theme.warning },
-                { key: "outsideClocking", name: "Outside Duty", value: outsideClockingCount, color: theme.purple },
+                { key: "outsideClocking", name: "Duty", value: outsideClockingCount, color: theme.purple },
             ].map((row) => ({
                 ...row,
                 percent: (Number(row.value || 0) / total) * 100,
@@ -4088,11 +3978,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 3: { cellWidth: 45, halign: "right" },
                 4: { cellWidth: 82, halign: "center", fontStyle: "bold" },
             };
-            const distributionColumnStyles = {
-                0: { cellWidth: 128, halign: "left", fontStyle: "bold" },
-                1: { cellWidth: 70, halign: "right" },
-                2: { cellWidth: 83, halign: "center", fontStyle: "bold" },
-            };
             const comparisonColumnStyles = {
                 0: { cellWidth: 128, halign: "left", fontStyle: "bold" },
                 1: { cellWidth: 76, halign: "center" },
@@ -4163,23 +4048,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 ]),
                 columnStyles: trendColumnStyles,
             });
-            addTable({
-                title: isSupervisorScope ? "Attendance Distribution" : "Workforce Status Today",
-                head: [["Status", "Count", "Percentage"]],
-                body: (isSupervisorScope ? hodAttendanceDistributionRows : attendanceDistributionRows).map((row) => [
-                    row.name,
-                    formatNumber(row.value),
-                    formatPercent(row.percent),
-                ]),
-                columnStyles: distributionColumnStyles,
-            });
             if (isSupervisorScope) {
-                addTable({
-                    title: "Today's Status",
-                    head: [["Status", "Count"]],
-                    body: hodTodayStatusRows.map((row) => [row.label, formatNumber(row.value)]),
-                    columnStyles: twoColumnCountStyles,
-                });
                 addTable({
                     title: "This Month vs Last Month",
                     head: [["Metric", "Current", "Previous"]],
@@ -4232,7 +4101,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 });
                 if (isStationScopedHr) {
                     addTable({
-                        title: "Leave and Duty Overview",
+                        title: "Leave Overview",
                         head: [["Category", "Count"]],
                         body: leaveDutyRows.map((row) => [row.label, formatNumber(row.value)]),
                         columnStyles: twoColumnCountStyles,
@@ -4296,9 +4165,22 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     row.department,
                 ]),
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
-                styles: { fontSize: 6.8, cellPadding: 1.4, halign: "center" },
+                styles: { fontSize: 6.4, cellPadding: 1.2, halign: "center", overflow: "linebreak", valign: "middle" },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
                 margin: { left: 6, right: 6 },
+                tableWidth: ctx.pw - 12,
+                columnStyles: {
+                    0: { cellWidth: 9 },
+                    1: { cellWidth: 22 },
+                    2: { cellWidth: 34, halign: "left", fontStyle: "bold" },
+                    3: { cellWidth: 22 },
+                    4: { cellWidth: 18 },
+                    5: { cellWidth: 18 },
+                    6: { cellWidth: 18 },
+                    7: { cellWidth: 48, halign: "left" },
+                    8: { cellWidth: 48, halign: "left" },
+                    9: { cellWidth: 48, halign: "left" },
+                },
             });
 
             await finalizeVerifiedPdf({
@@ -4346,6 +4228,110 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             await finalizeVerifiedPdf({
                 ...ctx,
                 metadata: { exportKind: "summary", rows: filteredSummaryRows.length },
+            });
+        } finally {
+            setPdfExporting("");
+        }
+    };
+
+    const handleExportMetricDialogPdf = async ({ metric, rows, columns, filters: dialogFilters }) => {
+        if (!metric || !rows?.length) return;
+        setPdfExporting("dialog");
+        try {
+            const safeTitle = String(metric.title || "Attendance Details").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+            const filename = `KMFRI_${safeTitle || "Attendance_Details"}_${Date.now()}.pdf`;
+            const ctx = await createVerifiedPdfContext({
+                type: "broader_statistics_dialog",
+                title: metric.title || "Attendance Details",
+                filename,
+                metadata: {
+                    exportKind: "analytics_dialog",
+                    dialogTitle: metric.title || "Attendance Details",
+                    rows: rows.length,
+                    dialogFilters,
+                },
+            });
+            const { doc, autoTable } = ctx;
+            const margin = { left: 8, right: 8 };
+            const availableWidth = ctx.pw - margin.left - margin.right;
+            const sectionStyles = {
+                styles: { fontSize: 6.6, cellPadding: 1.25, overflow: "linebreak", valign: "middle", lineColor: [226, 232, 240], lineWidth: 0.1 },
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: "bold", halign: "center" },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                bodyStyles: { textColor: [15, 23, 42] },
+                margin,
+                tableWidth: availableWidth,
+                rowPageBreak: "avoid",
+            };
+            const addDialogTitle = (title, startY) => {
+                autoTable(doc, {
+                    startY,
+                    head: [[title]],
+                    body: [],
+                    theme: "plain",
+                    styles: { fontSize: 9, fontStyle: "bold", textColor: [10, 61, 98], cellPadding: 0.8 },
+                    margin,
+                    tableWidth: availableWidth,
+                });
+                return doc.lastAutoTable.finalY + 1;
+            };
+            const dialogFilterRows = [
+                ["Scope", scopeLabel],
+                ["Main Date Range", `${formatDateLabel(effectiveFilters.startDate)} to ${formatDateLabel(effectiveFilters.endDate)}`],
+                ["Main Staff Type", staffFilters.find((item) => item.value === effectiveFilters.staffFilter)?.label || "All"],
+                ["Search", dialogFilters.search || "None"],
+                ["Dialog Staff Type", staffFilters.find((item) => item.value === dialogFilters.staffFilter)?.label || "All"],
+                ["Station", dialogFilters.station || "All"],
+                ["Department", dialogFilters.department || "All"],
+                ["Status", dialogFilters.status || "All"],
+                ["Issue", dialogFilters.issue || "All"],
+                ["Date", dialogFilters.date ? formatDateLabel(dialogFilters.date) : "All"],
+            ];
+            autoTable(doc, {
+                startY: addDialogTitle("Applied Filters", 45),
+                head: [["Filter", "Value"]],
+                body: dialogFilterRows,
+                ...sectionStyles,
+                styles: { ...sectionStyles.styles, fontSize: 7.1 },
+                columnStyles: {
+                    0: { cellWidth: 82, halign: "left", fontStyle: "bold" },
+                    1: { cellWidth: availableWidth - 82, halign: "left" },
+                },
+            });
+
+            const exportColumns = metric.variant === "heatmap"
+                ? [
+                    { key: metric.rowKey || "name", label: metric.rowLabel || "Area" },
+                    { key: "staff", label: "Staff" },
+                    ...HEATMAP_WEEKDAYS.map((day) => ({ key: day, label: day })),
+                ]
+                : columns;
+            const exportBody = rows.map((row) => exportColumns.map((column) => formatDialogExportValue(row, column)));
+            autoTable(doc, {
+                startY: addDialogTitle(metric.title || "Attendance Details", (doc.lastAutoTable?.finalY || 45) + 6),
+                head: [exportColumns.map((column) => column.label)],
+                body: exportBody,
+                ...sectionStyles,
+                columnStyles: metric.variant === "heatmap"
+                    ? {
+                        0: { cellWidth: 86, halign: "left", fontStyle: "bold" },
+                        1: { cellWidth: 25, halign: "right" },
+                        2: { cellWidth: 34, halign: "center" },
+                        3: { cellWidth: 34, halign: "center" },
+                        4: { cellWidth: 34, halign: "center" },
+                        5: { cellWidth: 34, halign: "center" },
+                        6: { cellWidth: 34, halign: "center" },
+                    }
+                    : buildPdfColumnStyles(exportColumns, availableWidth),
+            });
+
+            await finalizeVerifiedPdf({
+                ...ctx,
+                metadata: {
+                    exportKind: "analytics_dialog",
+                    dialogTitle: metric.title || "Attendance Details",
+                    rows: rows.length,
+                },
             });
         } finally {
             setPdfExporting("");
@@ -4752,14 +4738,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                 supervisorDepartment={supervisorDepartment}
                                 supervisorStation={isCeoHodScope ? (effectiveFilters.station || "All Stations") : supervisorStation}
                                 primaryMetricCards={hodPrimaryMetricCards}
-                                todayStatusRows={hodTodayStatusRows}
                                 chartData={chartData}
                                 attendanceDelta={attendanceDelta}
                                 punctualityDelta={punctualityDelta}
                                 hodTeamRows={hodTeamRows}
-                                attentionRows={hodAttentionRows}
                                 departmentHeatmapRows={hodDepartmentHeatmapRows}
-                                attendanceDistributionRows={hodAttendanceDistributionRows}
                                 spotlightCards={hodSpotlightCards}
                                 onMetricClick={openMetricDetails}
                             />
@@ -4989,7 +4972,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                 <OverviewMetricCard title="Early Departures" value={formatNumber(earlyDepartureCount)} subtitle="Selected period" icon={<TrendingDownRounded />} tone={theme.warning} theme={theme} />
                             </Grid>
                             <Grid item xs={6} sm={3}>
-                                <OverviewMetricCard title="Outside Duty" value={formatNumber(outsideClockingCount)} subtitle="Off-premise records" icon={<ShieldRounded />} tone={theme.secondary} theme={theme} />
+                                <OverviewMetricCard title="Duty" value={formatNumber(outsideClockingCount)} subtitle="Outside clocking records" icon={<ShieldRounded />} tone={theme.secondary} theme={theme} />
                             </Grid>
                         </Grid>
                     </SectionCard>
@@ -5310,7 +5293,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                             theme={theme}
                             items={[
                                 { label: "High bars need action", text: "Absence, missing records, late arrivals, and early departures should trigger HOD follow-up.", tone: theme.warning },
-                                { label: "Outside duty needs matching", text: "Off-premise records are acceptable when they match approved fieldwork or authorised outside clocking.", tone: theme.secondary },
+                                { label: "Duty needs matching", text: "Off-premise records are acceptable when they match approved fieldwork or authorised outside clocking.", tone: theme.secondary },
                             ]}
                         />
                     </SectionCard>
@@ -5537,6 +5520,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 metric={metricDialog}
                 theme={theme}
                 onClose={() => setMetricDialog(null)}
+                onExport={handleExportMetricDialogPdf}
+                exporting={pdfExporting === "dialog"}
             />
         </Box>
     );
