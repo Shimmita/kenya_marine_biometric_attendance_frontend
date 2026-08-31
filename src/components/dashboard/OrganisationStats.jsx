@@ -4004,11 +4004,15 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 },
             });
             const { doc, autoTable } = ctx;
+            const pdfMargins = { left: 8, right: 8 };
             const sectionStyles = {
-                styles: { fontSize: 7.4, cellPadding: 1.7, overflow: "linebreak", valign: "middle" },
+                styles: { fontSize: 7.2, cellPadding: 1.45, overflow: "linebreak", valign: "middle", lineColor: [226, 232, 240], lineWidth: 0.1 },
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, fontStyle: "bold", halign: "center" },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
-                margin: { left: 8, right: 8 },
+                bodyStyles: { textColor: [15, 23, 42] },
+                margin: pdfMargins,
+                tableWidth: ctx.pw - pdfMargins.left - pdfMargins.right,
+                rowPageBreak: "avoid",
             };
             const tableStartY = () => {
                 const nextY = (doc.lastAutoTable?.finalY || 39) + 6;
@@ -4018,7 +4022,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 }
                 return nextY;
             };
-            const addTable = ({ title, head, body, columnStyles = {}, startY }) => {
+            const addTable = ({ title, head, body, columnStyles = {}, startY, styles = {} }) => {
                 if (!body.length) return;
                 autoTable(doc, {
                     startY: startY ?? tableStartY(),
@@ -4026,13 +4030,15 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     body: [],
                     theme: "plain",
                     styles: { fontSize: 9, fontStyle: "bold", textColor: [10, 61, 98], cellPadding: 0.8 },
-                    margin: { left: 8, right: 8 },
+                    margin: pdfMargins,
+                    tableWidth: ctx.pw - pdfMargins.left - pdfMargins.right,
                 });
                 autoTable(doc, {
                     startY: doc.lastAutoTable.finalY + 1,
                     head,
                     body,
                     ...sectionStyles,
+                    styles: { ...sectionStyles.styles, ...styles },
                     columnStyles,
                 });
             };
@@ -4062,6 +4068,64 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 formatNumber(row.staff),
                 ...HEATMAP_WEEKDAYS.map((day) => formatPercent(row[day])),
             ]);
+            const twoColumnWideStyles = {
+                0: { cellWidth: 92, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 189, halign: "left" },
+            };
+            const twoColumnCountStyles = {
+                0: { cellWidth: 180, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 101, halign: "right", fontStyle: "bold" },
+            };
+            const overviewColumnStyles = {
+                0: { cellWidth: 82, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 54, halign: "center", fontStyle: "bold" },
+                2: { cellWidth: 145, halign: "left" },
+            };
+            const trendColumnStyles = {
+                0: { cellWidth: 64, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 45, halign: "right" },
+                2: { cellWidth: 45, halign: "right" },
+                3: { cellWidth: 45, halign: "right" },
+                4: { cellWidth: 82, halign: "center", fontStyle: "bold" },
+            };
+            const distributionColumnStyles = {
+                0: { cellWidth: 128, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 70, halign: "right" },
+                2: { cellWidth: 83, halign: "center", fontStyle: "bold" },
+            };
+            const comparisonColumnStyles = {
+                0: { cellWidth: 128, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 76, halign: "center" },
+                2: { cellWidth: 77, halign: "center" },
+            };
+            const teamColumnStyles = {
+                0: { cellWidth: 68, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 48, halign: "center" },
+                2: { cellWidth: 35, halign: "center" },
+                3: { cellWidth: 25, halign: "right" },
+                4: { cellWidth: 28, halign: "right" },
+                5: { cellWidth: 34, halign: "center" },
+                6: { cellWidth: 43, halign: "center" },
+            };
+            const performanceColumnStyles = {
+                0: { cellWidth: 60, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 24, halign: "right" },
+                2: { cellWidth: 34, halign: "center" },
+                3: { cellWidth: 39, halign: "center" },
+                4: { cellWidth: 32, halign: "center" },
+                5: { cellWidth: 28, halign: "center" },
+                6: { cellWidth: 26, halign: "right" },
+                7: { cellWidth: 38, halign: "center" },
+            };
+            const heatmapColumnStyles = {
+                0: { cellWidth: 86, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 25, halign: "right" },
+                2: { cellWidth: 34, halign: "center" },
+                3: { cellWidth: 34, halign: "center" },
+                4: { cellWidth: 34, halign: "center" },
+                5: { cellWidth: 34, halign: "center" },
+                6: { cellWidth: 34, halign: "center" },
+            };
 
             addTable({
                 title: "Applied Filters",
@@ -4077,14 +4141,16 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     ["Station", effectiveFilters.station || "All Stations"],
                     ["Department", effectiveFilters.department || "All Departments"],
                 ],
-                columnStyles: { 0: { cellWidth: 48 }, 1: { cellWidth: 210 } },
+                columnStyles: twoColumnWideStyles,
             });
-            addTable({
-                title: isSupervisorScope ? "Department Overview Metrics" : "Overall Attendance Overview",
-                head: [["Metric", "Value", "Detail"]],
-                body: metricRows,
-                columnStyles: { 0: { cellWidth: 72 }, 1: { cellWidth: 42, halign: "center" }, 2: { cellWidth: 142 } },
-            });
+            if (!isSupervisorScope) {
+                addTable({
+                    title: "Overall Attendance Overview",
+                    head: [["Metric", "Value", "Detail"]],
+                    body: metricRows,
+                    columnStyles: overviewColumnStyles,
+                });
+            }
             addTable({
                 title: isSupervisorScope ? "Department Attendance Trend" : "Attendance Rate Over Time",
                 head: [["Trend Date", "Present", "Absent", "Late", "Attendance Rate"]],
@@ -4095,7 +4161,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     formatNumber(item.late),
                     formatPercent(item.attendance),
                 ]),
-                columnStyles: { 0: { cellWidth: 42 }, 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "center" } },
+                columnStyles: trendColumnStyles,
             });
             addTable({
                 title: isSupervisorScope ? "Attendance Distribution" : "Workforce Status Today",
@@ -4105,14 +4171,14 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     formatNumber(row.value),
                     formatPercent(row.percent),
                 ]),
-                columnStyles: { 0: { cellWidth: 82 }, 1: { cellWidth: 42, halign: "right" }, 2: { cellWidth: 42, halign: "center" } },
+                columnStyles: distributionColumnStyles,
             });
             if (isSupervisorScope) {
                 addTable({
                     title: "Today's Status",
                     head: [["Status", "Count"]],
                     body: hodTodayStatusRows.map((row) => [row.label, formatNumber(row.value)]),
-                    columnStyles: { 0: { cellWidth: 82 }, 1: { cellWidth: 42, halign: "right" } },
+                    columnStyles: twoColumnCountStyles,
                 });
                 addTable({
                     title: "This Month vs Last Month",
@@ -4122,7 +4188,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                         ["Punctuality Rate", formatPercent(kpis?.punctualityRate), formatPercent(previousKpis?.punctualityRate)],
                         ["Average Hours", formatDuration(kpis?.averageWorkingHours || 0), formatDuration(previousKpis?.averageWorkingHours || 0)],
                     ],
-                    columnStyles: { 0: { cellWidth: 82 }, 1: { cellWidth: 42, halign: "center" }, 2: { cellWidth: 42, halign: "center" } },
+                    columnStyles: comparisonColumnStyles,
                 });
                 addTable({
                     title: "Team Attendance Overview",
@@ -4136,27 +4202,23 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                         formatDuration(row.averageHours),
                         row.status,
                     ]),
-                    columnStyles: { 0: { cellWidth: 58 }, 6: { cellWidth: 38 } },
-                });
-                addTable({
-                    title: "Attention Required",
-                    head: [["Signal"]],
-                    body: hodAttentionRows.map((row) => [row.label]),
-                    columnStyles: { 0: { cellWidth: 260 } },
+                    columnStyles: teamColumnStyles,
                 });
             } else {
                 addTable({
                     title: isStationScopedHr ? "Department Performance" : "Station / Centre Performance",
                     head: [[isStationScopedHr ? "Department" : "Station / Centre", "Staff", "Attendance", "Punctuality", "Absent", "Late %", "Leave Days", "Avg Hours"]],
                     body: performanceRows(visiblePerformanceRows),
-                    columnStyles: { 0: { cellWidth: 68 }, 1: { halign: "right" }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" } },
+                    columnStyles: performanceColumnStyles,
+                    styles: { fontSize: 6.9 },
                 });
                 if (!isStationScopedHr) {
                     addTable({
                         title: "Department Performance",
                         head: [["Department", "Staff", "Attendance", "Punctuality", "Absent", "Late %", "Leave Days", "Avg Hours"]],
                         body: performanceRows(configuredDepartmentPerformanceRows),
-                        columnStyles: { 0: { cellWidth: 76 }, 1: { halign: "right" }, 2: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" } },
+                        columnStyles: performanceColumnStyles,
+                        styles: { fontSize: 6.9 },
                     });
                 }
                 addTable({
@@ -4166,14 +4228,14 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                         row.label,
                         row.displayValue || formatNumber(row.value),
                     ]),
-                    columnStyles: { 0: { cellWidth: 92 }, 1: { cellWidth: 48, halign: "right" } },
+                    columnStyles: twoColumnCountStyles,
                 });
                 if (isStationScopedHr) {
                     addTable({
                         title: "Leave and Duty Overview",
                         head: [["Category", "Count"]],
                         body: leaveDutyRows.map((row) => [row.label, formatNumber(row.value)]),
-                        columnStyles: { 0: { cellWidth: 92 }, 1: { cellWidth: 48, halign: "right" } },
+                        columnStyles: twoColumnCountStyles,
                     });
                 }
             }
@@ -4181,14 +4243,14 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 title: isSupervisorScope ? "Department Heatmap" : "Department Heatmap",
                 head: [["Department", "Staff", ...HEATMAP_WEEKDAYS]],
                 body: heatmapRows(isSupervisorScope ? hodDepartmentHeatmapRows : departmentHeatmapRows, "department"),
-                columnStyles: { 0: { cellWidth: 76 }, 1: { halign: "right" } },
+                columnStyles: heatmapColumnStyles,
             });
             if (!isSupervisorScope && !isStationScopedHr) {
                 addTable({
                     title: "Station Heatmap",
                     head: [["Station", "Staff", ...HEATMAP_WEEKDAYS]],
                     body: heatmapRows(stationHeatmapRows, "station"),
-                    columnStyles: { 0: { cellWidth: 76 }, 1: { halign: "right" } },
+                    columnStyles: heatmapColumnStyles,
                 });
             }
 
