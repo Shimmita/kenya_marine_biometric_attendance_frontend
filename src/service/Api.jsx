@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearSessionStarted } from "./SessionTimeout.js";
 
 const DEFAULT_API_BASE_ROUTE = "/kmfri/attendance/api/v1";
 const DEFAULT_API_TIMEOUT_MS = 60000;
@@ -75,6 +76,18 @@ api.interceptors.response.use(
 
       if (window.location.pathname !== "/maintenance") {
         window.location.assign("/maintenance");
+      }
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      error.response?.data?.code === "SESSION_REPLACED"
+    ) {
+      clearSessionStarted();
+      window.localStorage.removeItem("persist:root");
+
+      if (window.location.pathname !== "/") {
+        window.location.assign("/");
       }
     }
 

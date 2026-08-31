@@ -8,6 +8,7 @@ import {
   clearSessionStarted,
   getSessionTimeRemaining,
   markSessionStarted,
+  setSessionTimeoutMs,
 } from "../../service/SessionTimeout";
 import coreDataDetails from "../CoreDataDetails";
 
@@ -63,6 +64,10 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
           throw new Error("please login");
         }
 
+        if (res.data.sessionTimeoutMs) {
+          setSessionTimeoutMs(res.data.sessionTimeoutMs);
+        }
+
         return true;
       } catch {
         clearClientSession();
@@ -73,6 +78,11 @@ const AuthCheck = ({ children, redirectIfAuth = false }) => {
     const scheduleLogout = () => {
       if (refreshTimeout) clearTimeout(refreshTimeout);
       refreshTimeout = window.setTimeout(async () => {
+        if (getSessionTimeRemaining() > 1000) {
+          scheduleLogout();
+          return;
+        }
+
         clearClientSession();
         try {
           await api.post("/user/signout");
