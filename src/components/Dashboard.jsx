@@ -11,6 +11,7 @@ import {
     Logout,
     PeopleRounded,
     PhoneLocked,
+    PrivacyTipRounded,
     QueryStats,
     SchoolRounded,
     SelfImprovementRounded,
@@ -33,9 +34,10 @@ import { useNavigate } from 'react-router-dom';
 import { resetClearCurrentUserRedux, updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchAllLostDevices } from '../service/DeviceService';
 import SuperadminAPI from '../service/SuperadminService';
-import { completeRequiredPasswordReset, updateUserProfile, userSignOut } from '../service/UserProfile';
+import { acceptDataPrivacyNotice, completeRequiredPasswordReset, updateUserProfile, userSignOut } from '../service/UserProfile';
 import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
+import DataPrivacyDialog from './DataPrivacyDialog';
 import DialogAlert from './DialogAlert';
 import ForcedPasswordResetDialog from './ForcedPasswordResetDialog';
 import GuideDialog from './GuideDialog';
@@ -121,6 +123,7 @@ const NAV_DISPLAY_LABELS = {
     'Lost Device': 'Lost Device Access',
     'Add Device': 'Register Device',
     'Help & Support': 'Help & Support',
+    'Data Privacy': 'Data Privacy',
 };
 
 const getNavDisplayLabel = (text = '') => NAV_DISPLAY_LABELS[text] || text;
@@ -213,6 +216,10 @@ const PAGE_META = {
     'Help & Support': {
         title: 'Help & Support',
         subtitle: 'Get support and share feedback about the platform.',
+    },
+    'Data Privacy': {
+        title: 'Data Privacy',
+        subtitle: 'Review how the platform uses and protects user data.',
     },
     'Manage Your Members': {
         title: 'Team Management',
@@ -614,6 +621,7 @@ const DrawerContent = React.memo(({ user, activeTab, pendingCount, onTabChange, 
         { text: 'Lost Device', icon: <PhoneLocked /> },
         { text: 'Add Device', icon: <AddCircle /> },
         { text: 'Help & Support', icon: <SupportAgentRounded /> },
+        { text: 'Data Privacy', icon: <PrivacyTipRounded /> },
     ], [platformConfigVersion]);
 
     /* Admin sees base admin items (no Orgs Stats / Leave Mgmt) */
@@ -893,6 +901,15 @@ const SuspenseFallback = (
     </Stack>
 );
 
+const PrivacyGateFallback = (
+    <Stack height="80vh" width="100%" justifyContent="center" alignItems="center" sx={{ textAlign: 'center', px: 2 }}>
+        <CircularProgress size={22} sx={{ color: colorPalette.aquaVibrant, mb: 2 }} />
+        <Typography sx={{ color: 'rgba(15,23,42,0.70)', fontWeight: 700 }}>
+            Review data privacy to continue.
+        </Typography>
+    </Stack>
+);
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -918,6 +935,9 @@ const EnhancedDashboard = () => {
     const [platformConfigVersion, setPlatformConfigVersion] = useState(0);
     const [a11yPrefs, setA11yPrefs] = useAccessibilityPrefs();
     const [guideOpen, setGuideOpen] = useState(false);
+    const [privacyOpen, setPrivacyOpen] = useState(false);
+    const [privacyAccepting, setPrivacyAccepting] = useState(false);
+    const hasAcceptedDataPrivacy = Boolean(user?.dataPrivacyAcceptedAt);
 
     const [tasks, setTasks] = useState([
         { id: 1, title: 'Water quality analysis - Station A', status: 'completed', time: '09:30 AM', date: '2024-02-04' },
@@ -949,12 +969,43 @@ const EnhancedDashboard = () => {
 
     /* Stable callbacks */
     const handleTabChange = useCallback((tab) => {
+        if (tab === 'Data Privacy') {
+            setPrivacyOpen(true);
+            setMobileOpen(false);
+            return;
+        }
+
         setActiveTab(tab);
         setMobileOpen(false);
     }, []);
 
     const handleLogout = useCallback(async () => {
         await userSignOut();
+        dispatch(resetClearCurrentUserRedux());
+        setLogoutDialogOpen(false);
+        navigate('/');
+    }, [dispatch, navigate]);
+
+    const handleAcceptDataPrivacy = useCallback(async () => {
+        setPrivacyAccepting(true);
+        try {
+            const updatedUser = await acceptDataPrivacyNotice();
+            dispatch(updateUserCurrentUserRedux(updatedUser));
+            setPrivacyOpen(false);
+        } catch (err) {
+            alert(err);
+        } finally {
+            setPrivacyAccepting(false);
+        }
+    }, [dispatch]);
+
+    const handleRejectDataPrivacy = useCallback(async () => {
+        setPrivacyOpen(false);
+        try {
+            await userSignOut();
+        } catch (err) {
+            console.warn('Data privacy rejection sign-out failed:', err);
+        }
         dispatch(resetClearCurrentUserRedux());
         setLogoutDialogOpen(false);
         navigate('/');
@@ -1004,6 +1055,12 @@ const EnhancedDashboard = () => {
     useEffect(() => {
         refreshPlatformConfig();
     }, [refreshPlatformConfig]);
+
+    useEffect(() => {
+        if (user && !hasAcceptedDataPrivacy) {
+            setPrivacyOpen(true);
+        }
+    }, [hasAcceptedDataPrivacy, user]);
 
     /* Live theme sync — triggered by ConfigPanel/CoreDataDetails after superadmin saves */
     useEffect(() => {
@@ -1069,6 +1126,7 @@ const EnhancedDashboard = () => {
             { text: 'Lost Device', icon: <PhoneLocked />, color: coreDataDetails.navPalette?.lost || '#fb923c' },
             { text: 'Add Device', icon: <AddCircle />, color: coreDataDetails.navPalette?.add || '#fbbf24' },
             { text: 'Help & Support', icon: <SupportAgentRounded />, color: coreDataDetails.navPalette?.help || '#22d3ee' },
+            { text: 'Data Privacy', icon: <PrivacyTipRounded />, color: coreDataDetails.navPalette?.privacy || '#34d399' },
         ];
         const roleMap = {
             /* Admin: no Orgs Stats / Leave Management */
@@ -1315,7 +1373,7 @@ const EnhancedDashboard = () => {
                       
 
                         <Suspense fallback={SuspenseFallback}>
-                            {renderContent()}
+                            {hasAcceptedDataPrivacy ? renderContent() : PrivacyGateFallback}
                         </Suspense>
                     </Motion.div>
                 </AnimatePresence>
@@ -1325,7 +1383,7 @@ const EnhancedDashboard = () => {
             {(user?.isAccountActive === false || user?.isOnLeave === true) && <DialogAlert />}
 
             <ForcedPasswordResetDialog
-                open={user?.isAccountActive !== false && user?.isPasswordReset === true}
+                open={hasAcceptedDataPrivacy && user?.isAccountActive !== false && user?.isPasswordReset === true}
                 user={user}
                 onSubmit={handleRequiredPasswordReset}
                 onSignOut={handleLogout}
@@ -1336,6 +1394,15 @@ const EnhancedDashboard = () => {
 
             {/* Guide Dialog */}
             <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
+
+            <DataPrivacyDialog
+                open={privacyOpen}
+                onClose={() => setPrivacyOpen(false)}
+                requireDecision={!hasAcceptedDataPrivacy}
+                accepting={privacyAccepting}
+                onAccept={handleAcceptDataPrivacy}
+                onReject={handleRejectDataPrivacy}
+            />
 
             {/* Logout confirmation */}
             <Dialog open={logoutDialogOpen} onClose={closeLogout}

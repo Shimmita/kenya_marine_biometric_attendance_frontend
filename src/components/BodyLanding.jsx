@@ -6,6 +6,7 @@ import {
     HelpOutlineRounded,
     Lock,
     MenuBookRounded,
+    PrivacyTipRounded,
     SendRounded,
     Visibility, VisibilityOff
 } from '@mui/icons-material';
@@ -35,6 +36,7 @@ import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
 import GmailIcon from './custom/Gmail';
+import DataPrivacyDialog from './DataPrivacyDialog';
 import GuideDialog from './GuideDialog';
 
 const { colorPalette } = coreDataDetails;
@@ -283,7 +285,6 @@ const HelpSupportDialog = ({ open, onClose, supportEmail, supportPhone }) => {
         </Dialog>
     );
 };
-
 
 /* ══ SIGN IN CARD ═══════════════════════════════════════════════════════════ */
 const SignInCard = ({ onBack, reducedMotion }) => {
@@ -737,6 +738,7 @@ const EnhancedLandingPage = () => {
     const [view, setView] = useState('landing');
     const [helpOpen, setHelpOpen] = useState(false);
     const [guideOpen, setGuideOpen] = useState(false);
+    const [privacyOpen, setPrivacyOpen] = useState(false);
     const [branding, setBranding] = useState(null);
     const [a11yPrefs, setA11yPrefs] = useAccessibilityPrefs();
 
@@ -955,6 +957,23 @@ const EnhancedLandingPage = () => {
                                 </Typography>
 
                                 <Stack direction="row" spacing={{ xs: 2, sm: 2.5 }} alignItems="center" flexWrap="wrap" justifyContent="center">
+                                    <Button size="small" onClick={() => setPrivacyOpen(true)} startIcon={<PrivacyTipRounded sx={{ fontSize: 15 }} />} sx={{
+                                        color: 'var(--kmfri-secondary, rgba(0,91,150,0.75))',
+                                        textTransform: 'none',
+                                        fontWeight: 600,
+                                        fontSize: '0.8rem',
+                                        p: 0,
+                                        minWidth: 'auto',
+                                        borderRadius: '8px',
+                                        px: 1,
+                                        py: 0.5,
+                                        '&:hover': {
+                                            color: 'var(--kmfri-secondary)',
+                                            bgcolor: 'var(--kmfri-secondary-soft, rgba(0,91,150,0.08))',
+                                        }
+                                    }}>
+                                        Data Privacy
+                                    </Button>
                                     <Button size="small" onClick={() => setGuideOpen(true)} startIcon={<MenuBookRounded sx={{ fontSize: 15 }} />} sx={{
                                         color: 'var(--kmfri-secondary, rgba(0,91,150,0.75))',
                                         textTransform: 'none',
@@ -1029,6 +1048,7 @@ const EnhancedLandingPage = () => {
                 supportEmail={branding?.supportEmail}
                 supportPhone={branding?.supportPhone}
             />
+            <DataPrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
             <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
         </Box>
     );

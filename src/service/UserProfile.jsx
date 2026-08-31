@@ -68,3 +68,13 @@ export const completeRequiredPasswordReset = async ({ newPassword, confirmPasswo
         throw err.response?.data?.message || "Password update failed";
     }
 };
+
+export const acceptDataPrivacyNotice = async () => {
+    try {
+        const res = await api.post("/user/privacy/accept");
+        return res.data.user;
+    } catch (err) {
+        console.log(err);
+        throw err.response?.data?.message || "Failed to accept data privacy notice";
+    }
+};
