@@ -27,7 +27,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { updateUserCurrentUserRedux } from '../../redux/CurrentUser';
@@ -215,7 +215,7 @@ const LostDeviceContent = () => {
         if (!toDate)         e.toDate    = 'Please select an end date.';
         if (fromDate && toDate) {
             if (toDate <= fromDate)                             e.toDate = 'End date must be after start date.';
-            else if (daysBetween(fromDate, toDate) > MAX_DAYS) e.toDate = `Maximum access window is ${MAX_DAYS} days.`;
+            else if (daysBetween(fromDate, toDate) > MAX_DAYS) e.toDate = `Maximum review window is ${MAX_DAYS} days.`;
         }
         if (!reason.trim()) e.reason = 'Please briefly describe how the device was lost.';
         return e;
@@ -254,7 +254,7 @@ const LostDeviceContent = () => {
             {/* ── Toast Alerts ── */}
             <AnimatePresence>
                 {submitted && (
-                    <motion.div key="success" initial={{ opacity: 0, y: -12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
+                    <Motion.div key="success" initial={{ opacity: 0, y: -12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
                         <Box sx={{ ...G.tinted(colorPalette.seafoamGreen), borderRadius: '16px', p: 2, mb: 3, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                             <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: `${colorPalette.seafoamGreen}18`, border: `1px solid ${colorPalette.seafoamGreen}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <CheckCircle sx={{ color: colorPalette.seafoamGreen, fontSize: 18 }} />
@@ -263,26 +263,26 @@ const LostDeviceContent = () => {
                                 Your lost-device request has been submitted. HR, your Hiring Manager, or Supervisor have been notified and will review within <strong>1–2 business days</strong>.
                             </Typography>
                         </Box>
-                    </motion.div>
+                    </Motion.div>
                 )}
                 {submitError && (
-                    <motion.div key="err" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <Motion.div key="err" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                         <Alert severity="error" onClose={() => setSubmitError('')}
                             sx={{ mb: 3, borderRadius: '14px', backdropFilter: 'blur(12px)', fontWeight: 600 }}>
                             {submitError}
                         </Alert>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
 
             {/* ── Info cards ── */}
             <InfoCard icon={<ReportProblem sx={{ fontSize: 18 }} />} accent={colorPalette.coralSunset}
                 title="What is this request for?"
-                body="If you have lost, misplaced, or had your registered clocking device stolen, use this form to formally notify your Admin, Hiring Manager, or Supervisor. Once approved, you will be permitted to clock in and out using any available device for the specified period. Access automatically expires on the end date you choose."
+                body="If you have lost, misplaced, or had your registered clocking device stolen, use this form to formally notify your Admin, Hiring Manager, or Supervisor. Once approved, the reported device is blocked from clocking and one active device slot becomes available for a replacement device."
             />
             <InfoCard icon={<InfoOutlined sx={{ fontSize: 18 }} />} accent={colorPalette.cyanFresh}
                 title="Important notes"
-                body={`• Approval is required before alternative-device clocking is activated.  • The maximum temporary access window is ${MAX_DAYS} days.  • You must re-register a permanent device before the access period ends to avoid disruption.  • Repeated lost-device requests may be flagged for review by HR.`}
+                body={`• Approval is required before the reported device is marked lost.  • The maximum review window is ${MAX_DAYS} days.  • After approval, enrol your replacement device from Device Management.  • Repeated lost-device requests may be flagged for review by HR.`}
             />
 
             {/* ── Divider ── */}
@@ -306,9 +306,9 @@ const LostDeviceContent = () => {
                     }
                     label={
                         <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.72 }}>
-                            I confirm that I have <strong>lost my registered clocking device</strong> and I hereby request temporary permission
-                            to clock in and out using an alternative device for the period specified below. I acknowledge that this access is
-                            conditional upon approval and will automatically expire on the end date I select.
+                            I confirm that I have <strong>lost my registered clocking device</strong> and I hereby request approval
+                            to block it from clocking for the period specified below. I acknowledge that this action is
+                            conditional upon approval and I may need to enrol a replacement device afterward.
                         </Typography>
                     }
                 />
@@ -356,7 +356,7 @@ const LostDeviceContent = () => {
                         const isSelected = selectedDevice?._id === dev._id;
                         return (
                             <Grid item xs={12} sm={6} md={4} key={dev._id}>
-                                <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
+                                <Motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
                                     <Box
                                         onClick={() => { setSelectedDevice(isSelected ? null : dev); setErrors(p => ({ ...p, device: undefined })); }}
                                         sx={{
@@ -397,7 +397,7 @@ const LostDeviceContent = () => {
                                             {isSelected && <CheckCircle sx={{ color: colorPalette.coralSunset, fontSize: 20, flexShrink: 0 }} />}
                                         </Stack>
                                     </Box>
-                                </motion.div>
+                                </Motion.div>
                             </Grid>
                         );
                     })}
@@ -409,59 +409,59 @@ const LostDeviceContent = () => {
             {/* ── Confirmation strip ── */}
             <AnimatePresence>
                 {selectedDevice && (
-                    <motion.div key="strip" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
+                    <Motion.div key="strip" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
                         <Box sx={{ ...G.tinted(colorPalette.coralSunset), borderRadius: '14px', p: 1.8, mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <WarningAmber sx={{ color: colorPalette.coralSunset, fontSize: 20, flexShrink: 0 }} />
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
                                 Reporting <strong style={{ color: colorPalette.coralSunset }}>{selectedDevice.device_name}</strong>
-                                {' '}({selectedDevice.device_os}{selectedDevice.device_browser ? ` · ${selectedDevice.device_browser}` : ''}) as lost. This device will be flagged pending approval.
+                                {' '}({selectedDevice.device_os}{selectedDevice.device_browser ? ` · ${selectedDevice.device_browser}` : ''}) as lost. This device will be blocked from clocking after approval.
                             </Typography>
                         </Box>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
 
             {/* ── Date pickers ── */}
             <Stack direction="row" alignItems="center" spacing={1} mb={1.8} flexWrap="wrap" gap={1}>
                 <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: colorPalette.oceanBlue }} />
-                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Temporary Access Period</Typography>
+                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Lost Device Review Period</Typography>
                 <AnimatePresence>
                     {fromDate && toDate && toDate > fromDate && (
-                        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                        <Motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
                             <Chip
-                                label={`${daysBetween(fromDate, toDate)} day${daysBetween(fromDate, toDate) !== 1 ? 's' : ''} of access`}
+                                label={`${daysBetween(fromDate, toDate)} day${daysBetween(fromDate, toDate) !== 1 ? 's' : ''} review period`}
                                 size="small"
                                 sx={{ fontWeight: 700, height: 22, fontSize: '0.7rem', borderRadius: '8px', bgcolor: `${durationColor()}16`, color: durationColor(), border: `1px solid ${durationColor()}36` }}
                             />
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </Stack>
 
             <Grid container spacing={2} mb={3}>
                 <Grid item xs={12} sm={6}>
-                    <Tooltip title="The date from which you need access to clock using another device" placement="top">
+                    <Tooltip title="The first date covered by this lost-device report" placement="top">
                         <TextField fullWidth label="Allow me to clock from" type="date"
                             value={fromDate}
                             onChange={e => { setFromDate(e.target.value); setErrors(p => ({ ...p, fromDate: undefined, toDate: undefined })); }}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ min: today() }}
                             error={!!errors.fromDate}
-                            helperText={errors.fromDate || 'First day of temporary access'}
+                            helperText={errors.fromDate || 'First day of the reported lost-device period'}
                             InputProps={{ startAdornment: <EventAvailable sx={{ color: colorPalette.oceanBlue, mr: 1, fontSize: 20 }} /> }}
                             sx={G.input}
                         />
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                    <Tooltip title={`Access will automatically expire after this date (max ${MAX_DAYS} days)`} placement="top">
+                    <Tooltip title={`The final date covered by this report (max ${MAX_DAYS} days)`} placement="top">
                         <TextField fullWidth label="Allow me to clock until" type="date"
                             value={toDate}
                             onChange={e => { setToDate(e.target.value); setErrors(p => ({ ...p, toDate: undefined })); }}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ min: fromDate || today() }}
                             error={!!errors.toDate}
-                            helperText={errors.toDate || `Access expires automatically (max ${MAX_DAYS} days)`}
+                            helperText={errors.toDate || `Review period end date (max ${MAX_DAYS} days)`}
                             InputProps={{ startAdornment: <EventAvailable sx={{ color: colorPalette.seafoamGreen, mr: 1, fontSize: 20 }} /> }}
                             sx={G.input}
                         />
@@ -549,7 +549,7 @@ const LostDeviceContent = () => {
                             const sc       = statusConfig[req.status] || statusConfig.pending;
                             const duration = daysBetween(req.startDate, req.endDate);
                             return (
-                                <motion.div key={req._id || req.id || i} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, ease: [0.4, 0, 0.2, 1] }}>
+                                <Motion.div key={req._id || req.id || i} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, ease: [0.4, 0, 0.2, 1] }}>
                                     <Box sx={{
                                         ...G.requestCard(req.status),
                                         borderRadius: '18px', p: 2.5,
@@ -564,11 +564,15 @@ const LostDeviceContent = () => {
                                                     </Typography>
                                                     <Chip icon={sc.icon} label={sc.label} size="small" color={sc.color} variant="outlined"
                                                         sx={{ fontWeight: 700, height: 22, fontSize: '0.7rem', borderRadius: '8px' }} />
-                                                    {req.responded && req.responded !== 'pending' && (
-                                                        <Chip label={`Responded: ${req.responded}`} size="small"
-                                                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'rgba(10,61,98,0.07)', color: colorPalette.deepNavy, borderRadius: '6px' }} />
-                                                    )}
-                                                </Stack>
+	                                                    {req.responded && req.responded !== 'pending' && (
+	                                                        <Chip label={`Responded: ${req.responded}`} size="small"
+	                                                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'rgba(10,61,98,0.07)', color: colorPalette.deepNavy, borderRadius: '6px' }} />
+	                                                    )}
+	                                                    {req.device && (
+	                                                        <Chip icon={<DevicesOther sx={{ fontSize: 13 }} />} label={`${req.device.device_name || 'Device'} · ${req.device.device_lost ? 'Lost' : 'Active'}`} size="small"
+	                                                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'rgba(10,61,98,0.07)', color: colorPalette.deepNavy, borderRadius: '6px' }} />
+	                                                    )}
+	                                                </Stack>
                                                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>{req.description}</Typography>
                                             </Box>
                                             <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, flexShrink: 0 }}>
@@ -586,7 +590,7 @@ const LostDeviceContent = () => {
                                             </Box>
                                         </Stack>
                                     </Box>
-                                </motion.div>
+                                </Motion.div>
                             );
                         })}
                     </Stack>

@@ -34,12 +34,13 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchBiometricStatus, registerFingerprint } from '../../service/Biometrics';
 import { fetchMyDevices, removeDevice } from '../../service/DeviceService';
 import { getDeviceFingerprint } from '../../service/Fingerprinting';
 import coreDataDetails from '../CoreDataDetails';
+import detectCurrentDevice from '../util/DeviceDetection';
 
 const { colorPalette } = coreDataDetails;
 
@@ -76,36 +77,7 @@ const G = {
 };
 
 /* ── constants ────────────────────────────────────────────────────────────── */
-const MAX_DEVICES = 2;
-
-/* ── device detection ────────────────────────────────────────────────────── */
-export const detectCurrentDevice = () => {
-    const ua = navigator.userAgent;
-    let os = 'Unknown OS', deviceName = 'This Device', deviceIcon = <Computer />;
-
-    if      (/Windows/.test(ua))     os = 'Windows';
-    else if (/Mac OS X/.test(ua))    os = 'macOS';
-    else if (/Android/.test(ua))     os = 'Android';
-    else if (/iPhone|iPad/.test(ua)) os = 'iOS';
-    else if (/Linux/.test(ua))       os = 'Linux';
-
-    const isMobile = /Android|iPhone|iPad/.test(ua);
-    if (isMobile) {
-        deviceName = /iPad/.test(ua) ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : 'Mobile Device';
-        deviceIcon = <PhoneAndroid />;
-    } else {
-        deviceName = /Mac OS X/.test(ua) ? 'MacBook' : /Windows/.test(ua) ? 'Windows PC' : 'Desktop / Laptop';
-        deviceIcon = <LaptopMac />;
-    }
-
-    let browser = 'Unknown Browser';
-    if      (/Edg\//.test(ua))     browser = 'Microsoft Edge';
-    else if (/Chrome\//.test(ua))  browser = 'Chrome';
-    else if (/Firefox\//.test(ua)) browser = 'Firefox';
-    else if (/Safari\//.test(ua))  browser = 'Safari';
-
-    return { deviceName, os, browser, deviceIcon };
-};
+const DEFAULT_MAX_DEVICES = 2;
 
 const osIconMap = {
     'Windows': <Computer  sx={{ fontSize: 17 }} />,
@@ -187,6 +159,7 @@ const AddDeviceContent = () => {
     const [alreadyEnrolled,       setAlreadyEnrolled]       = useState(false);
     const [currentDeviceReady,    setCurrentDeviceReady]    = useState(false);
     const [deviceHashFingerPrint, setDeviceHashFingerPrint] = useState();
+    const [maxDevices,            setMaxDevices]            = useState(DEFAULT_MAX_DEVICES);
     const [removeTarget,          setRemoveTarget]          = useState(null);
     const [removing,              setRemoving]              = useState(false);
     const [removeError,           setRemoveError]           = useState('');
@@ -205,6 +178,7 @@ const AddDeviceContent = () => {
             setDevices(Array.isArray(data) ? data : (data.devices ?? []));
             setDeviceHashFingerPrint(fp);
             setCurrentDeviceReady(Boolean(biometricStatus?.currentDeviceRegistered));
+            setMaxDevices(Number(biometricStatus?.maxDevices) || DEFAULT_MAX_DEVICES);
         } catch (err) {
             setFetchError(typeof err === 'string' ? err : 'Failed to load your devices.');
         } finally { setLoading(false); }
@@ -217,11 +191,21 @@ const AddDeviceContent = () => {
         };
     }, [loadDevices]);
 
-    const isCurrentEnrolled = currentDeviceReady || devices.some(d => d.device_fingerprint === deviceHashFingerPrint);
+    const activeDevices = useMemo(
+        () => devices.filter(device => !device.device_lost),
+        [devices]
+    );
+    const currentDeviceRecord = devices.find(d => d.device_fingerprint === deviceHashFingerPrint);
+    const currentDeviceLost = Boolean(currentDeviceRecord?.device_lost);
+    const isCurrentEnrolled = !currentDeviceLost && (currentDeviceReady || activeDevices.some(d => d.device_fingerprint === deviceHashFingerPrint));
 
     const handleEnroll = async () => {
         if (isCurrentEnrolled) { setAlreadyEnrolled(true); return; }
-        if (devices.length >= MAX_DEVICES) return;
+        if (currentDeviceLost) {
+            setEnrollError('This device is marked as lost and cannot be enrolled again. Please use your replacement device.');
+            return;
+        }
+        if (activeDevices.length >= maxDevices) return;
         setEnrolling(true); setEnrollError('');
         try {
             const fp = deviceHashFingerPrint || await getDeviceFingerprint();
@@ -261,8 +245,8 @@ const AddDeviceContent = () => {
         }
     };
 
-    const capacityPct   = (devices.length / MAX_DEVICES) * 100;
-    const capacityColor = devices.length >= MAX_DEVICES ? colorPalette.coralSunset : colorPalette.seafoamGreen;
+    const capacityPct   = Math.min((activeDevices.length / maxDevices) * 100, 100);
+    const capacityColor = activeDevices.length >= maxDevices ? colorPalette.coralSunset : colorPalette.seafoamGreen;
 
     /* ════════════════════════════════════════════════════════════════════ */
     return (
@@ -272,7 +256,7 @@ const AddDeviceContent = () => {
             {/* ── Toast Alerts ── */}
             <AnimatePresence>
                 {enrolled && (
-                    <motion.div key="ok" initial={{ opacity: 0, y: -12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}>
+                    <Motion.div key="ok" initial={{ opacity: 0, y: -12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}>
                         <Box sx={{ ...G.tinted(colorPalette.seafoamGreen), borderRadius: '16px', p: 2, mb: 3, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                             <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: `${colorPalette.seafoamGreen}18`, border: `1px solid ${colorPalette.seafoamGreen}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <CheckCircle sx={{ color: colorPalette.seafoamGreen, fontSize: 18 }} />
@@ -281,10 +265,10 @@ const AddDeviceContent = () => {
                                 Device enrolled successfully! You can now <strong>clock in and out</strong> from this device.
                             </Typography>
                         </Box>
-                    </motion.div>
+                    </Motion.div>
                 )}
                 {alreadyEnrolled && (
-                    <motion.div key="dup" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <Motion.div key="dup" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                         <Box sx={{ ...G.tinted(colorPalette.warmSand), borderRadius: '16px', p: 2, mb: 3, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                             <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: `${colorPalette.warmSand}18`, border: `1px solid ${colorPalette.warmSand}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <WarningAmber sx={{ color: colorPalette.warmSand, fontSize: 18 }} />
@@ -299,15 +283,15 @@ const AddDeviceContent = () => {
                                 Dismiss
                             </Button>
                         </Box>
-                    </motion.div>
+                    </Motion.div>
                 )}
                 {enrollError && (
-                    <motion.div key="enrolErr" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <Motion.div key="enrolErr" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                         <Alert severity="error" onClose={() => setEnrollError('')}
                             sx={{ mb: 3, borderRadius: '14px', backdropFilter: 'blur(12px)', fontWeight: 600 }}>
                             {enrollError}
                         </Alert>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
 
@@ -318,11 +302,11 @@ const AddDeviceContent = () => {
             />
             <InfoCard icon={<Shield sx={{ fontSize: 18 }} />} accent={colorPalette.cyanFresh}
                 title="Security & Eligibility"
-                body={`• Only devices not previously enrolled by any user may be added.  • Each device is fingerprinted using browser + OS metadata to prevent duplicate registrations.  • Ideal after acquiring a replacement device or adding a personal smartphone.  • You may have a maximum of ${MAX_DEVICES} enrolled devices at any time.`}
+                body={`• Only devices not previously enrolled by any user may be added.  • Each device is fingerprinted using browser + OS metadata to prevent duplicate registrations.  • Approved lost devices are blocked and no longer consume active slots.  • You may have a maximum of ${maxDevices} active enrolled devices at any time.`}
             />
             <InfoCard icon={<InfoOutlined sx={{ fontSize: 18 }} />} accent={colorPalette.warmSand}
                 title="Best Practice"
-                body="If you lost your primary device and obtained a replacement, enrol the new device here to permanently restore registered clocking. Combine this with a Lost Device request if you need temporary access while awaiting the replacement."
+                body="If you lost your primary device and obtained a replacement, submit a Lost Device request first. Once approved, enrol the replacement here to restore registered clocking."
             />
             <InfoCard icon={<ReportProblem sx={{ fontSize: 18 }} />} accent={colorPalette.coralSunset}
                 title="Enrolling a Lost Device's Replacement"
@@ -362,6 +346,10 @@ const AddDeviceContent = () => {
                                     <Chip label="Already enrolled" size="small" color="success" variant="outlined"
                                         sx={{ height: 20, fontSize: '0.64rem', fontWeight: 700, borderRadius: '8px' }} />
                                 )}
+                                {currentDeviceLost && (
+                                    <Chip label="Marked lost" size="small" color="error" variant="outlined"
+                                        sx={{ height: 20, fontSize: '0.64rem', fontWeight: 700, borderRadius: '8px' }} />
+                                )}
                             </Stack>
                             <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
                                 <Chip label={current.os} size="small"
@@ -379,7 +367,7 @@ const AddDeviceContent = () => {
                         variant="contained"
                         startIcon={enrolling ? null : <AddCircleOutline />}
                         onClick={handleEnroll}
-                        disabled={enrolling || isCurrentEnrolled || devices.length >= MAX_DEVICES}
+                        disabled={enrolling || isCurrentEnrolled || currentDeviceLost || activeDevices.length >= maxDevices}
                         sx={{
                             background: colorPalette.oceanGradient,
                             borderRadius: '14px', px: 3, py: 1.1,
@@ -393,17 +381,17 @@ const AddDeviceContent = () => {
                     >
                         {enrolling
                             ? <><CircularProgress size={15} color="inherit" sx={{ mr: 1 }} />Enrolling…</>
-                            : isCurrentEnrolled ? 'Already Enrolled' : 'Enrol This Device'
+                            : currentDeviceLost ? 'Marked Lost' : isCurrentEnrolled ? 'Already Enrolled' : 'Enrol This Device'
                         }
                     </Button>
                 </Stack>
 
                 {/* capacity warning */}
-                {devices.length >= MAX_DEVICES && (
+                {activeDevices.length >= maxDevices && (
                     <Box sx={{ ...G.tinted(colorPalette.cyanFresh), borderRadius: '12px', p: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <InfoOutlined sx={{ color: colorPalette.cyanFresh, fontSize: 18, flexShrink: 0 }} />
                         <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ fontSize: '0.82rem' }}>
-                            You have reached the maximum of <strong>{MAX_DEVICES}</strong> enrolled devices. Remove an existing device to add a new one.
+                            You have reached the maximum of <strong>{maxDevices}</strong> active enrolled devices. Approved lost devices are excluded from this limit.
                         </Typography>
                     </Box>
                 )}
@@ -416,8 +404,8 @@ const AddDeviceContent = () => {
                 </Box>
                 <Typography variant="h6" fontWeight={900} color={colorPalette.deepNavy}>My Enrolled Devices</Typography>
                 {!loading && (
-                    <Chip label={`${devices.length} / ${MAX_DEVICES}`} size="small"
-                        sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 800, fontSize: '0.72rem', borderRadius: '8px' }} />
+	                    <Chip label={`${activeDevices.length} / ${maxDevices} active`} size="small"
+	                        sx={{ bgcolor: `${colorPalette.oceanBlue}12`, color: colorPalette.oceanBlue, fontWeight: 800, fontSize: '0.72rem', borderRadius: '8px' }} />
                 )}
                 <Box sx={{ flex: 1 }} />
                 <Tooltip title="Refresh device list"><span>
@@ -433,20 +421,20 @@ const AddDeviceContent = () => {
             {/* ── Capacity bar ── */}
             {!loading && devices.length > 0 && (
                 <Box mb={2.5}>
-                    <Stack direction="row" justifyContent="space-between" mb={0.6}>
-                        <Typography variant="caption" color="text.secondary">Device slots used</Typography>
-                        <Typography variant="caption" fontWeight={800} sx={{ color: capacityColor }}>
-                            {devices.length} / {MAX_DEVICES}
-                        </Typography>
-                    </Stack>
+	                    <Stack direction="row" justifyContent="space-between" mb={0.6}>
+	                        <Typography variant="caption" color="text.secondary">Device slots used</Typography>
+	                        <Typography variant="caption" fontWeight={800} sx={{ color: capacityColor }}>
+	                            {activeDevices.length} / {maxDevices}
+	                        </Typography>
+	                    </Stack>
                     <Box sx={{ height: 7, borderRadius: 99, bgcolor: 'rgba(10,61,98,0.08)', overflow: 'hidden' }}>
-                        <motion.div
+                        <Motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${capacityPct}%` }}
                             transition={{ duration: 0.65, ease: 'easeOut' }}
                             style={{
                                 height: '100%', borderRadius: 99,
-                                background: devices.length >= MAX_DEVICES
+                                background: activeDevices.length >= maxDevices
                                     ? colorPalette.coralSunset
                                     : colorPalette.oceanGradient,
                             }}
@@ -487,7 +475,7 @@ const AddDeviceContent = () => {
                 <Grid container spacing={2}>
                     {devices.map((dev, i) => (
                         <Grid item xs={12} sm={6} key={dev._id || dev.id || i}>
-                            <motion.div
+                            <Motion.div
                                 initial={{ opacity: 0, y: 14 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.07, ease: [0.4, 0, 0.2, 1] }}
@@ -576,7 +564,7 @@ const AddDeviceContent = () => {
                                         </Typography>
                                     </Box>
                                 </Box>
-                            </motion.div>
+                            </Motion.div>
                         </Grid>
                     ))}
                 </Grid>

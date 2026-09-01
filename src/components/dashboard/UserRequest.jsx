@@ -9,7 +9,7 @@ import {
     Grid, InputAdornment, MenuItem, Select, Skeleton,
     Stack, TextField, Typography,
 } from '@mui/material';
-import { AnimatePresence, motion, useInView } from 'framer-motion';
+import { AnimatePresence, motion as Motion, useInView } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAllLostDevices, respondToLostDevice } from '../../service/DeviceService';
 import coreDataDetails from '../CoreDataDetails';
@@ -106,10 +106,10 @@ const Reveal = ({ children, delay = 0, y = 18 }) => {
     const ref    = useRef(null);
     const inView = useInView(ref, { once: true, margin: '-40px' });
     return (
-        <motion.div ref={ref} initial={{ opacity:0, y }} animate={inView ? { opacity:1, y:0 } : {}}
+        <Motion.div ref={ref} initial={{ opacity:0, y }} animate={inView ? { opacity:1, y:0 } : {}}
             transition={{ duration:0.50, delay, ease:[0.22,1,0.36,1] }}>
             {children}
-        </motion.div>
+        </Motion.div>
     );
 };
 
@@ -257,21 +257,21 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
             {/* ── Global alerts ── */}
             <AnimatePresence>
                 {respondSuccess && (
-                    <motion.div key="ok" initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}>
+                    <Motion.div key="ok" initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}>
                         <Alert icon={<CheckCircle/>} severity="success" onClose={() => setRespondSuccess('')}
                             sx={{ mb:2.5, borderRadius:'14px', fontWeight:700, backdropFilter:'blur(16px)', background:'rgba(220,252,231,0.90)', border:'1px solid rgba(74,222,128,0.40)', boxShadow:'0 4px 20px rgba(74,222,128,0.14)' }}>
                             {respondSuccess}
                         </Alert>
-                    </motion.div>
+                    </Motion.div>
                 )}
                 {fetchError && (
-                    <motion.div key="err" initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
+                    <Motion.div key="err" initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
                         <Alert severity="error" onClose={() => setFetchError('')}
                             action={<Button size="small" onClick={loadRequests} sx={{ fontWeight:700 }}>Retry</Button>}
                             sx={{ mb:2.5, borderRadius:'14px', fontWeight:600, backdropFilter:'blur(16px)' }}>
                             {fetchError}
                         </Alert>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
 
@@ -398,7 +398,7 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
                             const avColor   = avatarColor(req.user_email);
 
                             return (
-                                <motion.div key={req._id || i}
+                                <Motion.div key={req._id || i}
                                     initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
                                     transition={{ delay:i * 0.045, ease:[0.22,1,0.36,1] }}>
                                     <Box sx={{
@@ -485,17 +485,25 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
                                             </Box>
 
                                             {/* ── Date chips ── */}
-                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={isPending ? 2.5 : 1.2}>
-                                                {[
-                                                    { lbl:`From: ${fmtDate(req.startDate)}`, bg:`${colorPalette.oceanBlue}10`,     col:colorPalette.oceanBlue,     bd:`${colorPalette.oceanBlue}28`     },
-                                                    { lbl:`Until: ${fmtDate(req.endDate)}`,  bg:`${colorPalette.seafoamGreen}12`,  col:colorPalette.seafoamGreen,  bd:`${colorPalette.seafoamGreen}28`  },
-                                                ].map(({ lbl, bg, col, bd }) => (
-                                                    <Box key={lbl} sx={{ display:'inline-flex', alignItems:'center', gap:0.5, px:1.2, py:0.4, borderRadius:'9px', bgcolor:bg, border:`1px solid ${bd}` }}>
-                                                        <PersonOutline sx={{ fontSize:12, color:col }}/>
-                                                        <Typography variant="caption" fontWeight={700} sx={{ color:col, fontSize:'0.7rem' }}>{lbl}</Typography>
-                                                    </Box>
-                                                ))}
-                                            </Stack>
+	                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={isPending ? 2.5 : 1.2}>
+	                                                {[
+	                                                    { lbl:`From: ${fmtDate(req.startDate)}`, bg:`${colorPalette.oceanBlue}10`,     col:colorPalette.oceanBlue,     bd:`${colorPalette.oceanBlue}28`     },
+	                                                    { lbl:`Until: ${fmtDate(req.endDate)}`,  bg:`${colorPalette.seafoamGreen}12`,  col:colorPalette.seafoamGreen,  bd:`${colorPalette.seafoamGreen}28`  },
+	                                                ].map(({ lbl, bg, col, bd }) => (
+	                                                    <Box key={lbl} sx={{ display:'inline-flex', alignItems:'center', gap:0.5, px:1.2, py:0.4, borderRadius:'9px', bgcolor:bg, border:`1px solid ${bd}` }}>
+	                                                        <PersonOutline sx={{ fontSize:12, color:col }}/>
+	                                                        <Typography variant="caption" fontWeight={700} sx={{ color:col, fontSize:'0.7rem' }}>{lbl}</Typography>
+	                                                    </Box>
+	                                                ))}
+	                                                {req.device && (
+	                                                    <Box sx={{ display:'inline-flex', alignItems:'center', gap:0.5, px:1.2, py:0.4, borderRadius:'9px', bgcolor:`${colorPalette.deepNavy}08`, border:`1px solid ${colorPalette.deepNavy}16` }}>
+	                                                        <DevicesOther sx={{ fontSize:12, color:colorPalette.deepNavy }}/>
+	                                                        <Typography variant="caption" fontWeight={700} sx={{ color:colorPalette.deepNavy, fontSize:'0.7rem' }}>
+	                                                            {req.device.device_name || 'Device'} {req.device.device_lost ? '· Lost' : '· Active'}
+	                                                        </Typography>
+	                                                    </Box>
+	                                                )}
+	                                            </Stack>
 
                                             {/* ── Action buttons ── */}
                                             {isPending && (
@@ -531,15 +539,15 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
                                                 <Box sx={{ display:'inline-flex', alignItems:'center', gap:0.7, px:1.4, py:0.55, borderRadius:'10px', bgcolor:sc.bg, border:`1px solid ${sc.border}`, mt:0.5 }}>
                                                     <Typography sx={{ fontSize:'0.78rem', lineHeight:1 }}>{isGranted ? '✓' : '✗'}</Typography>
                                                     <Typography variant="caption" fontWeight={700} sx={{ color:sc.textColor, fontSize:'0.7rem' }}>
-                                                        {isGranted
-                                                            ? 'Approved — employee has temporary multi-device access.'
-                                                            : 'Rejected — employee was notified of this decision.'}
+	                                                        {isGranted
+	                                                            ? 'Approved — reported device is blocked and one active slot is available for replacement enrolment.'
+	                                                            : 'Rejected — employee was notified of this decision.'}
                                                     </Typography>
                                                 </Box>
                                             )}
                                         </Box>
                                     </Box>
-                                </motion.div>
+                                </Motion.div>
                             );
                         })}
                     </AnimatePresence>
@@ -576,10 +584,12 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
                                 You are about to <strong>approve</strong> the lost-device request from{' '}
                                 <strong style={{ color:colorPalette.deepNavy }}>{dialogTarget?.request?.user_email}</strong>.
                                 <br/><br/>
-                                This grants temporary clocking access from{' '}
+                                This will mark the reported device as lost, block it from biometric clocking, and free one active device slot.
+                                <br/><br/>
+                                The request covers{' '}
                                 <strong>{fmtDate(dialogTarget?.request?.startDate)}</strong> to{' '}
                                 <strong>{fmtDate(dialogTarget?.request?.endDate)}</strong>{' '}
-                                ({daysBetween(dialogTarget?.request?.startDate, dialogTarget?.request?.endDate)} days).
+                                ({daysBetween(dialogTarget?.request?.startDate, dialogTarget?.request?.endDate)} days).{' '}
                                 The employee will be notified immediately.
                             </>
                         ) : (
@@ -587,7 +597,7 @@ const UserRequestsContent = ({ onCountChange, readOnly = false }) => {
                                 You are about to <strong>reject</strong> the lost-device request from{' '}
                                 <strong style={{ color:colorPalette.deepNavy }}>{dialogTarget?.request?.user_email}</strong>.
                                 <br/><br/>
-                                The employee will <strong>not</strong> receive temporary multi-device access and will be notified of this decision.
+                                The reported device will remain active, and the employee will be notified of this decision.
                             </>
                         )}
                     </DialogContentText>

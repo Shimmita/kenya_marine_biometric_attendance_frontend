@@ -28,7 +28,7 @@ import { formatDate, formatTime, getLocalDateInputValue } from '../util/DateTime
 import { calculateDistanceMeters } from '../util/DistanceMeasure';
 import reverseGeocode from '../util/GeoLocationPlace';
 import LiveClock from '../util/LiveClock';
-import { detectCurrentDevice } from './AddDevice';
+import detectCurrentDevice from '../util/DeviceDetection';
 
 const { AvailableStations, colorPalette } = coreDataDetails;
 const GEOFENCE_RADIUS_METERS = 500;
