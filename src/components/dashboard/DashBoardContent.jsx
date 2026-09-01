@@ -577,6 +577,21 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
     const clockStepIndex = !canProceedWithLocation ? 0 : !biometricRegistered ? 1 : 2;
 
+    const normalizeOutsideLocationName = (value) => {
+        const locationName = String(value || '').trim();
+        const genericLabels = new Set([
+            'off premise',
+            'off-premise',
+            'outside premise',
+            'outside premises',
+            'unknown',
+        ]);
+
+        return genericLabels.has(locationName.toLowerCase().replace(/\s+/g, ' '))
+            ? ''
+            : locationName;
+    };
+
 
 
     const handleUserLocationLable = () => {
@@ -679,10 +694,15 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
                         latitude: locationForClock.latitude,
                         longitude: locationForClock.longitude,
                     });
-                    outsideLocation = geo?.data || null;
+                    outsideLocation = normalizeOutsideLocationName(geo?.data);
                 }
             } catch (e) {
                 console.warn('Reverse geocode failed:', e);
+            }
+
+            if (isOutsidePremiseClocking && !outsideLocation) {
+                notify('Outside clocking place could not be resolved. Please refresh your location and try again.', 'error');
+                return;
             }
 
             const expectedAction = isClockedIn && isToClockOut ? "clock_out" : "clock_in";

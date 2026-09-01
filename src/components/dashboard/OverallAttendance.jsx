@@ -1853,11 +1853,15 @@ const RecordsTab = ({ stationList, allDeptNames, user, platformOptions }) => {
     };
 
     const formatLocationLabel = (rec, isEntry) => {
-        const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
+        const primaryLocationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
         const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
+        const outsideFallback = withinPremise === false ? rec.outsideLocation : '';
+        const primaryIsInside = /^IN[-\s]?PREMISE$/i.test(String(primaryLocationName || '').trim());
+        const locationName = String((withinPremise === false && primaryIsInside ? outsideFallback : primaryLocationName) || outsideFallback || '').trim();
+        const genericLocation = /^(OFF[-\s]?PREMISE|OUTSIDE\s+PREMISES?|UNKNOWN)$/i.test(locationName);
         const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
         if (withinPremise === true) return 'In Premise';
-        if (!locationName) return withinPremise === false ? 'Off Premise' : status;
+        if (!locationName || genericLocation) return withinPremise === false ? 'Off Premise' : status;
         const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
         const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
         if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
@@ -2164,18 +2168,6 @@ const SummaryTab = ({ stationList, allDeptNames, user, platformOptions }) => {
             .trim()
             .toLowerCase()
             .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
-    };
-
-    const formatLocationLabel = (rec, isEntry) => {
-        const locationName = isEntry ? rec.clockInLocationName : rec.clockOutLocationName;
-        const withinPremise = isEntry ? rec.clockInWithinPremise : rec.clockOutWithinPremise;
-        const status = (rec?.clockedOutside || rec?.clockedOutSide || locationName) ? 'Off Premise' : 'In Premise';
-        if (withinPremise === true) return 'In Premise';
-        if (!locationName) return withinPremise === false ? 'Off Premise' : status;
-        const parts = String(locationName).split('|').map((part) => part.trim()).filter(Boolean);
-        const filtered = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
-        if (filtered.length === 0) return withinPremise === false ? 'Off Premise' : status;
-        return filtered.join(' | ');
     };
 
     const loadSummary = useCallback(async () => {

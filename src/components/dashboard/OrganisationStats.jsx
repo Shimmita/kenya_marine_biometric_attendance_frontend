@@ -268,12 +268,14 @@ const formatDuration = (hours) => {
 const formatLocationLabel = (record, isEntry) => {
     const primaryLocationName = isEntry ? record.clockInLocationName : record.clockOutLocationName;
     const withinPremise = isEntry ? record.clockInWithinPremise : record.clockOutWithinPremise;
-    const outsideFallback = (withinPremise === false || isEntry) ? record.outsideLocation : "";
-    const locationName = primaryLocationName || outsideFallback || "";
+    const outsideFallback = withinPremise === false ? record.outsideLocation : "";
+    const primaryIsInside = /^IN[-\s]?PREMISE$/i.test(String(primaryLocationName || "").trim());
+    const locationName = String((withinPremise === false && primaryIsInside ? outsideFallback : primaryLocationName) || outsideFallback || "").trim();
+    const genericLocation = /^(OFF[-\s]?PREMISE|OUTSIDE\s+PREMISES?|UNKNOWN)$/i.test(locationName);
     const offPremise = withinPremise === false || record?.clockedOutside || record?.clockedOutSide || locationName;
 
     if (withinPremise === true) return "In Premise";
-    if (!locationName) return withinPremise === false || offPremise ? "Off Premise" : "In Premise";
+    if (!locationName || genericLocation) return withinPremise === false || offPremise ? "Off Premise" : "In Premise";
 
     const parts = String(locationName).split("|").map((part) => part.trim()).filter(Boolean);
     const cleanParts = parts.filter((part) => !/^(UNKNOWN\s+SUB[-\s]?COUNTY|UNKNOWN\s+WARD)$/i.test(part));
