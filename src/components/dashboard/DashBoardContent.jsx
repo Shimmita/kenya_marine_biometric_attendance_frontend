@@ -440,16 +440,17 @@ const DashboardContent = ({ userLocation, setUserLocation, isWithinGeofence, set
 
     // 2. Logic to determine if user is allowed to proceed
     const isDateAuthorized = useCallback(() => {
-        if (!user?.canClockOutside || !user?.outsideClockingDetails) return false;
+        if (!user?.canClockOutside) return false;
 
         const today = new Date();
-        const start = getLocalDayBoundary(user.outsideClockingDetails.startDate, 'start');
-        const end = getLocalDayBoundary(user.outsideClockingDetails.endDate, 'end');
+        const details = user?.outsideClockingDetails || {};
+        const start = details.startDate ? getLocalDayBoundary(details.startDate, 'start') : null;
+        const end = details.endDate ? getLocalDayBoundary(details.endDate, 'end') : null;
 
-        if (!start || !end) return false;
+        if (start && today < start) return false;
+        if (end && today > end) return false;
 
-        // Ensure today is within the allowed window
-        return today >= start && today <= end;
+        return true;
     }, [user?.canClockOutside, user?.outsideClockingDetails]);
 
     const outsideClockingAuthorized = isDateAuthorized();
