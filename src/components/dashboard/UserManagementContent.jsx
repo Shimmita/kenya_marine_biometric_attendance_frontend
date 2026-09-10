@@ -260,9 +260,9 @@ export const UserGroupTabs = ({ value, onChange, users = [] }) => {
                                     </Box>
                                     <Typography
                                         component="span"
+                                        color={selected ? "#FFFFFF" : themeVars.primary}
                                         sx={{
                                             minWidth: 0,
-                                            color: "whitesmoke",
                                             fontSize: "inherit",
                                             fontWeight: "inherit",
                                             lineHeight: 1,
@@ -767,7 +767,7 @@ const UserManagementContent = ({ readOnly = false }) => {
 
     const filteredUsers = useMemo(() => {
         const search = deferredSearchTerm.toLowerCase();
-        return groupedUsers.filter((user) => {
+        return groupedUsers.sort((a, b) => a.employeeId.localeCompare(b.employeeId)).filter((user) => {
             const matchesSearch =
                 String(user.name || "").toLowerCase().includes(search) ||
                 String(user.email || "").toLowerCase().includes(search) ||
