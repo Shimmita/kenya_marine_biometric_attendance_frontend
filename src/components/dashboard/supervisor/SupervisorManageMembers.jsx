@@ -29,6 +29,7 @@ import UserDetailsDialog from "../../util/UserDetailsDialog";
 import UserTable from "../../util/UserTable";
 import {
     FilterBar,
+    UserGroupTabs,
     UserManagementHeader,
     UserManagementShell,
     UserSummaryCards,
@@ -112,6 +113,12 @@ const RANK_ACCENT = {
 
 const { ROLE_OPTIONS } = coreDataDetails;
 
+const getUserGroupValue = (user) => {
+    const role = String(user?.role || "").trim().toLowerCase();
+    if (role === "intern") return "intern";
+    if (role === "attachee") return "attachee";
+    return "employee";
+};
 
 /* ─────────────────────────────────────────────
    ROOT COMPONENT
@@ -126,6 +133,7 @@ const UserManagementContent = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [rankFilter, setRankFilter] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
+    const [activeUserGroup, setActiveUserGroup] = useState("employee");
     const [statusFilter, setStatusFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [stationFilter, setStationFilter] = useState("");
@@ -161,9 +169,22 @@ const UserManagementContent = () => {
 
 
 
+    const groupedUsers = useMemo(
+        () => users.filter((user) => getUserGroupValue(user) === activeUserGroup),
+        [users, activeUserGroup]
+    );
+
+    const idColumnLabel = activeUserGroup === "employee" ? "Staff No" : "ID No";
+
+    const handleUserGroupChange = (nextGroup) => {
+        setActiveUserGroup(nextGroup);
+        setRoleFilter("");
+        setPage(0);
+    };
+
     const filteredUsers = useMemo(() => {
         const search = searchTerm.toLowerCase();
-        return users.filter((user) => {
+        return groupedUsers.filter((user) => {
             const matchesSearch = !search ||
                 String(user.name || "").toLowerCase().includes(search) ||
                 String(user.email || "").toLowerCase().includes(search) ||
@@ -173,15 +194,14 @@ const UserManagementContent = () => {
 
             return (
                 matchesSearch &&
-                (!roleFilter || user.role === roleFilter) &&
                 (statusFilter === ""
                     ? true
                     : statusFilter === "active"
                         ? user.isAccountActive
-                        : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
+                    : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
-    }, [users, searchTerm, roleFilter, statusFilter]);
+    }, [groupedUsers, searchTerm, statusFilter]);
 
     const handlePageChange = (event, newPage) => setPage(newPage);
     const handleRowsPerPageChange = (event) => {
@@ -193,6 +213,7 @@ const UserManagementContent = () => {
         setSearchTerm("");
         setRankFilter("");
         setRoleFilter("");
+        setActiveUserGroup("employee");
         setStatusFilter("");
         setDepartmentFilter("");
         setStationFilter("");
@@ -232,6 +253,7 @@ const UserManagementContent = () => {
                     onAction={clearAllFilters}
                 />
                 <UserSummaryCards users={users} />
+                <UserGroupTabs value={activeUserGroup} onChange={handleUserGroupChange} users={users} />
                 {/* Filter Bar */}
                 <motion.div style={{ willChange: 'transform, opacity' }} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
                     <FilterBar
@@ -241,11 +263,11 @@ const UserManagementContent = () => {
                         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
                         departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter}
                         stationFilter={stationFilter} setStationFilter={setStationFilter}
-                        totalCount={users.length}
+                        totalCount={groupedUsers.length}
                         filteredCount={filteredUsers.length}
                         isMobile={isMobile}
                         showRankFilter={false}
-                        showRoleFilter
+                        showRoleFilter={false}
                         showDepartmentFilter={false}
                         showStationFilter={false}
                     />
@@ -273,6 +295,7 @@ const UserManagementContent = () => {
                         setDialogOpen(true);
                     }}
                     showRoleColumn
+                    idColumnLabel={idColumnLabel}
                 />
 
                 <UserDetailsDialog

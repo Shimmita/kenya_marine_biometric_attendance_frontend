@@ -12,12 +12,15 @@ import {
     Button,
     Card,
     CardContent,
+    Chip,
     CircularProgress,
     FormControl,
     InputAdornment,
     MenuItem,
     Select,
     Stack,
+    Tab,
+    Tabs,
     TextField,
     Typography,
     useMediaQuery,
@@ -133,6 +136,165 @@ const normalizeStationName = (value = "") =>
 
 
 
+
+const USER_GROUP_TABS = [
+    { value: "employee", label: "Staff", idColumnLabel: "Staff No", icon: BadgeRounded },
+    { value: "intern", label: "Interns", idColumnLabel: "ID No", icon: SchoolRounded },
+    { value: "attachee", label: "Attaches", idColumnLabel: "ID No", icon: GroupsRounded },
+];
+
+const normalizeUserRole = (role = "") => String(role || "").trim().toLowerCase();
+
+const getUserGroupValue = (user) => {
+    const role = normalizeUserRole(user?.role);
+    if (role === "intern") return "intern";
+    if (role === "attachee") return "attachee";
+    return "employee";
+};
+
+const getUserGroupMeta = (value) =>
+    USER_GROUP_TABS.find((tab) => tab.value === value) || USER_GROUP_TABS[0];
+
+export const UserGroupTabs = ({ value, onChange, users = [] }) => {
+    const themeVars = {
+        primary: "var(--kmfri-primary, #0A3D62)",
+        secondary: "var(--kmfri-secondary, #005B96)",
+        gradient: "var(--kmfri-gradient, linear-gradient(135deg, #0A3D62 0%, #005B96 58%, #48C9B0 100%))",
+        primarySoft: "var(--kmfri-primary-soft, rgba(10, 61, 98, 0.10))",
+        secondarySoft: "var(--kmfri-secondary-soft, rgba(0, 91, 150, 0.14))",
+        accentSoft: "var(--kmfri-accent-soft, rgba(72, 201, 176, 0.18))",
+    };
+    const counts = useMemo(() => {
+        const next = USER_GROUP_TABS.reduce((acc, tab) => ({ ...acc, [tab.value]: 0 }), {});
+        users.forEach((user) => {
+            const group = getUserGroupValue(user);
+            next[group] = (next[group] || 0) + 1;
+        });
+        return next;
+    }, [users]);
+
+    return (
+        <Box
+            sx={{
+                p: 0.8,
+                borderRadius: "8px",
+                bgcolor: "rgba(255,255,255,0.88)",
+                border: "1px solid var(--kmfri-secondary-soft, rgba(0,91,150,0.14))",
+                boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+                position: "relative",
+                overflow: "hidden",
+                "&:before": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                    background: "linear-gradient(90deg, var(--kmfri-primary-soft, rgba(10,61,98,0.10)), transparent 46%, var(--kmfri-accent-soft, rgba(72,201,176,0.18)))",
+                    opacity: 0.55,
+                },
+            }}
+        >
+            <Tabs
+                value={value}
+                onChange={(_, nextValue) => onChange(nextValue)}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    minHeight: 44,
+                    "& .MuiTabs-indicator": { height: 0 },
+                    "& .MuiTabs-flexContainer": {
+                        gap: 0.7,
+                    },
+                    "& .MuiTab-root": {
+                        minHeight: 48,
+                        flex: { md: 1 },
+                        borderRadius: "8px",
+                        px: { xs: 1.3, sm: 1.8 },
+                        color: C.muted,
+                        border: "1px solid transparent",
+                        bgcolor: "rgba(255,255,255,0.72)",
+                        textTransform: "none",
+                        fontSize: "0.86rem",
+                        fontWeight: 900,
+                        transition: "background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease",
+                        "&:hover": {
+                            color: themeVars.secondary,
+                            bgcolor: "rgba(255,255,255,0.94)",
+                            borderColor: themeVars.secondarySoft,
+                        },
+                    },
+                    "& .MuiTab-root.Mui-selected": {
+                        color: "#FFFFFF",
+                        bgcolor: themeVars.secondary,
+                        background: themeVars.gradient,
+                        borderColor: "rgba(255,255,255,0.22)",
+                        boxShadow: "0 12px 26px var(--kmfri-secondary-soft, rgba(0,91,150,0.24))",
+                    },
+                }}
+            >
+                {USER_GROUP_TABS.map((tab) => {
+                    const selected = value === tab.value;
+                    const TabIcon = tab.icon;
+                    return (
+                        <Tab
+                            key={tab.value}
+                            value={tab.value}
+                            label={
+                                <Stack direction="row" spacing={1.1} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <Box
+                                        sx={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: "8px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            flexShrink: 0,
+                                            bgcolor: selected ? "rgba(255,255,255,0.18)" : themeVars.primarySoft,
+                                            color: selected ? "#FFFFFF" : themeVars.primary,
+                                        }}
+                                    >
+                                        <TabIcon sx={{ fontSize: 17 }} />
+                                    </Box>
+                                    <Typography
+                                        component="span"
+                                        sx={{
+                                            minWidth: 0,
+                                            color: "whitesmoke",
+                                            fontSize: "inherit",
+                                            fontWeight: "inherit",
+                                            lineHeight: 1,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {tab.label}
+                                    </Typography>
+                                    <Chip
+                                        size="small"
+                                        label={counts[tab.value] || 0}
+                                        sx={{
+                                            height: 22,
+                                            minWidth: 30,
+                                            borderRadius: "8px",
+                                            bgcolor: selected ? "rgba(255,255,255,0.22)" : themeVars.accentSoft,
+                                            color: selected ? "#FFFFFF" : themeVars.secondary,
+                                            fontSize: 11,
+                                            fontWeight: 900,
+                                            border: selected ? "1px solid rgba(255,255,255,0.26)" : `1px solid ${themeVars.secondarySoft}`,
+                                            "& .MuiChip-label": { px: 0.9 },
+                                        }}
+                                    />
+                                </Stack>
+                            }
+                        />
+                    );
+                })}
+            </Tabs>
+        </Box>
+    );
+};
 
 export const FilterBar = ({
     searchTerm, setSearchTerm,
@@ -503,6 +665,7 @@ const UserManagementContent = ({ readOnly = false }) => {
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const [rankFilter, setRankFilter] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
+    const [activeUserGroup, setActiveUserGroup] = useState("employee");
     const [statusFilter, setStatusFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [stationFilter, setStationFilter] = useState("");
@@ -589,9 +752,22 @@ const UserManagementContent = ({ readOnly = false }) => {
 
 
 
+    const groupedUsers = useMemo(
+        () => users.filter((user) => getUserGroupValue(user) === activeUserGroup),
+        [users, activeUserGroup]
+    );
+
+    const activeGroupMeta = getUserGroupMeta(activeUserGroup);
+
+    const handleUserGroupChange = (nextGroup) => {
+        setActiveUserGroup(nextGroup);
+        setRoleFilter("");
+        setPage(0);
+    };
+
     const filteredUsers = useMemo(() => {
         const search = deferredSearchTerm.toLowerCase();
-        return users.filter((user) => {
+        return groupedUsers.filter((user) => {
             const matchesSearch =
                 String(user.name || "").toLowerCase().includes(search) ||
                 String(user.email || "").toLowerCase().includes(search) ||
@@ -605,7 +781,6 @@ const UserManagementContent = ({ readOnly = false }) => {
             return (
                 matchesSearch &&
                 (!showRankControls || !rankFilter || user.rank === rankFilter) &&
-                (!showRoleControls || !roleFilter || user.role === roleFilter) &&
                 (!showDepartmentFilter || !departmentFilter || user.department === departmentFilter) &&
                 (!showStationFilter || !stationFilter || user.station === stationFilter) &&
                 (statusFilter === ""
@@ -615,7 +790,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                         : statusFilter === "clockoutside" ? user.canClockOutside : !user.isAccountActive)
             );
         });
-    }, [users, deferredSearchTerm, rankFilter, roleFilter, statusFilter, departmentFilter, stationFilter, showDepartmentFilter, showRankControls, showRoleControls, showStationFilter]);
+    }, [groupedUsers, deferredSearchTerm, rankFilter, statusFilter, departmentFilter, stationFilter, showDepartmentFilter, showRankControls, showRoleControls, showStationFilter]);
 
     const handleToggleActive = async (id) => {
         try {
@@ -823,6 +998,7 @@ const UserManagementContent = ({ readOnly = false }) => {
         setSearchTerm("");
         setRankFilter("");
         setRoleFilter("");
+        setActiveUserGroup("employee");
         setStatusFilter("");
         setDepartmentFilter("");
         setStationFilter("");
@@ -858,6 +1034,7 @@ const UserManagementContent = ({ readOnly = false }) => {
             <Stack spacing={2}>
                 <UserManagementHeader onAction={clearAllFilters} />
                 <UserSummaryCards users={users} />
+                <UserGroupTabs value={activeUserGroup} onChange={handleUserGroupChange} users={users} />
                 {/* Filter Bar */}
                 <Motion.div style={{ willChange: 'transform, opacity' }}
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -869,13 +1046,13 @@ const UserManagementContent = ({ readOnly = false }) => {
                         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
                         departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter}
                         stationFilter={stationFilter} setStationFilter={setStationFilter}
-                        totalCount={users.length}
+                        totalCount={groupedUsers.length}
                         filteredCount={filteredUsers.length}
                         isMobile={isMobile}
                         isStationScopedHr={isStationScopedHr}
                         currentStation={currentUser?.station || ""}
                         showRankFilter={showRankControls}
-                        showRoleFilter={showRoleControls}
+                        showRoleFilter={false}
                         showDepartmentFilter={showDepartmentFilter}
                         showStationFilter={showStationFilter}
                     />
@@ -914,6 +1091,7 @@ const UserManagementContent = ({ readOnly = false }) => {
 
                     }}
                     showRoleColumn={showRoleControls}
+                    idColumnLabel={activeGroupMeta.idColumnLabel}
 
                 />
 

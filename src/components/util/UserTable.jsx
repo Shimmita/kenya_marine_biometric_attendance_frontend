@@ -54,6 +54,7 @@ export default function UserTable({
     onRowsPerPageChange,
     onViewUser,
     showRoleColumn = true,
+    idColumnLabel = "Staff No",
 }) {
     const pageCount = Math.max(1, Math.ceil(users.length / rowsPerPage));
     const safePage = Math.min(page, pageCount - 1);
@@ -63,7 +64,7 @@ export default function UserTable({
     );
     const columns = React.useMemo(
         () => [
-            ["Staff No", "10%"],
+            [idColumnLabel, "10%"],
             ["Name", showRoleColumn ? "24%" : "30%"],
             ...(showRoleColumn ? [["Role", "12%"]] : []),
             ["Department", showRoleColumn ? "21%" : "24%"],
@@ -71,7 +72,7 @@ export default function UserTable({
             ["Status", "10%"],
             ["Actions", 92],
         ],
-        [showRoleColumn]
+        [idColumnLabel, showRoleColumn]
     );
 
     return (
