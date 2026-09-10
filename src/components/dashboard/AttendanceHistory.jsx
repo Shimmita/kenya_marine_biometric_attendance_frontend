@@ -1,12 +1,12 @@
 import {
     AccessTimeRounded, ClearRounded, Download,
-    History, LocationOnRounded, ManageSearchRounded, Refresh,
+    History, ManageSearchRounded, Refresh,
     SearchRounded, TaskAltRounded, TipsAndUpdatesRounded, VerifiedRounded,
     WarningAmberRounded, WorkHistoryRounded
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Chip, CircularProgress, Divider, Grid, InputAdornment,
-    MenuItem, Skeleton, Snackbar, Stack, Table, TableBody,
+    Skeleton, Snackbar, Stack, Table, TableBody,
     TableCell, TableContainer, TableHead, TablePagination, TableRow,
     TextField, Typography,
 } from '@mui/material';
@@ -14,10 +14,6 @@ import { motion as Motion, useInView } from 'framer-motion';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import {
-    Area, AreaChart, Bar, BarChart, CartesianGrid,
-    ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis
-} from 'recharts';
 import KMFRILogo from "../../images/kmfri_logo.png";
 import { trackClientAuditEvent } from '../../service/AuditorService.jsx';
 import { fetchAttendanceStats, fetchClockingHistory } from '../../service/ClockingService';
@@ -100,189 +96,6 @@ const Reveal = ({ children, delay = 0, y = 22 }) => {
     );
 };
 
-/* ══ GLASS TOOLTIP FOR RECHARTS ════════════════════════════════════════════ */
-const GlassTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-        <Box sx={{ background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', border: '1px solid rgba(10,61,98,0.12)', borderRadius: '14px', px: 2, py: 1.5, boxShadow: '0 10px 36px rgba(10,61,98,0.16)', minWidth: 130 }}>
-            {label && <Typography variant="caption" fontWeight={800} color={colorPalette.deepNavy} sx={{ display: 'block', mb: 0.6 }}>{label}</Typography>}
-            {payload.map((p, i) => (
-                <Stack key={i} direction="row" alignItems="center" spacing={1} sx={{ mt: 0.3 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: p.color || p.fill, flexShrink: 0 }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{p.name || p.dataKey}:</Typography>
-                    <Typography variant="caption" fontWeight={900} color={colorPalette.deepNavy}>{p.value}{p.unit || ''}</Typography>
-                </Stack>
-            ))}
-        </Box>
-    );
-};
-
-const SectionLabel = ({ children, accent, chip }) => (
-    <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-        <Box sx={{ width: 4, height: 18, borderRadius: 2, bgcolor: accent }} />
-        <Typography variant="subtitle1" fontWeight={800} color={colorPalette.deepNavy}>{children}</Typography>
-        {chip && <Chip label={chip} size="small" sx={{ bgcolor: `${accent}14`, color: accent, fontWeight: 700, fontSize: '0.7rem', borderRadius: '8px' }} />}
-    </Stack>
-);
-
-/* ══ CHART SECTION ═════════════════════════════════════════════════════════ */
-const ChartSection = ({ history }) => {
-    /* ── Hours bar: last 14 days ── */
-    const hoursData = useMemo(() =>
-        [...history].slice(0, 14).reverse().map(r => ({
-            date: r.date?.slice(0, 5) || '',
-            hours: Number((Number(r.durationHours) || 0).toFixed(1)),
-            target: 9,
-        }))
-        , [history]);
-
-    /* ── Weekly timing: Early vs Late count ── */
-    const timingData = useMemo(() => {
-        const map = {};
-        history.forEach(r => {
-            if (!r.rawDate) return;
-            const d = r.rawDate;
-            const wk = `${d.toLocaleString('default', { month: 'short' })} W${Math.ceil(d.getDate() / 7)}`;
-            if (!map[wk]) map[wk] = { week: wk, Early: 0, Late: 0 };
-            map[wk][r.timing === 'Late' ? 'Late' : 'Early']++;
-        });
-        return Object.values(map).slice(-8).reverse();
-    }, [history]);
-
-    /* ── Monthly hours bar (group by month) ── */
-    const monthlyHoursData = useMemo(() => {
-        const map = {};
-        history.forEach(r => {
-            if (!r.rawDate) return;
-            const key = r.rawDate.toLocaleString('default', { month: 'short', year: '2-digit' });
-            if (!map[key]) map[key] = { month: key, hours: 0, days: 0 };
-            map[key].hours += Number(r.durationHours) || 0;
-            map[key].days++;
-        });
-        return Object.values(map).slice(-6).reverse().map(m => ({ ...m, hours: parseFloat(m.hours.toFixed(1)) }));
-    }, [history]);
-
-
-    return (
-        <Box mb={3} sx={{ position: 'relative', zIndex: 1 }}>
-            <Reveal>
-                <SectionLabel accent={colorPalette.cyanFresh} chip="Interactive charts">Visual Insights</SectionLabel>
-            </Reveal>
-            <Grid container spacing={2.5}>
-
-                {/* ── Bar: Daily Hours (last 14 days) ── */}
-                <Grid item xs={12} xl={6}>
-                    <Reveal delay={0.07}>
-                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1} mb={0.5}>
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                    <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.oceanBlue }} />
-                                    <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Daily Hours Logged</Typography>
-                                    <Chip label="Last 14 days" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: `${colorPalette.oceanBlue}10`, color: colorPalette.oceanBlue, borderRadius: '6px' }} />
-                                </Stack>
-                                <Stack direction="row" spacing={2}>
-                                    {[{ c: 'url(#hoursGrad)', l: 'Actual' }, { c: 'rgba(10,61,98,0.12)', l: '9h target' }].map(({ c, l }) => (
-                                        <Stack key={l} direction="row" alignItems="center" spacing={0.5}>
-                                            <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: c.includes('url') ? colorPalette.aquaVibrant : c }} />
-                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{l}</Typography>
-                                        </Stack>
-                                    ))}
-                                </Stack>
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Hours worked per day vs 9-hour target</Typography>
-                            <ResponsiveContainer width="100%" height={195}>
-                                <BarChart data={hoursData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }} barCategoryGap="28%" barGap={2}>
-                                    <defs>
-                                        <linearGradient id="hoursGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={colorPalette.aquaVibrant} stopOpacity={0.95} />
-                                            <stop offset="100%" stopColor={colorPalette.oceanBlue} stopOpacity={0.65} />
-                                        </linearGradient>
-                                        <linearGradient id="targetGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="rgba(10,61,98,0.15)" stopOpacity={1} />
-                                            <stop offset="100%" stopColor="rgba(10,61,98,0.04)" stopOpacity={1} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 13]} />
-                                    <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)', radius: [4, 4, 0, 0] }} />
-                                    <Bar dataKey="target" fill="url(#targetGrad)" radius={[5, 5, 0, 0]} name="Target (9h)" animationDuration={600} />
-                                    <Bar dataKey="hours" fill="url(#hoursGrad)" radius={[7, 7, 0, 0]} name="Hours" animationDuration={900} animationBegin={200} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Box>
-                    </Reveal>
-                </Grid>
-
-                {/* ── Stacked Area: Punctuality trend ── */}
-                <Grid item xs={12} md={6} xl={3}>
-                    <Reveal delay={0.12}>
-                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 } }}>
-                            <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                                <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: colorPalette.seafoamGreen }} />
-                                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Punctuality Trend</Typography>
-                                <Chip label="Early vs Late" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: `${colorPalette.seafoamGreen}12`, color: colorPalette.seafoamGreen, borderRadius: '6px' }} />
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Weekly breakdown of on-time vs late arrivals</Typography>
-                            <ResponsiveContainer width="100%" height={185}>
-                                <AreaChart data={timingData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="earlyFill" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={colorPalette.seafoamGreen} stopOpacity={0.45} />
-                                            <stop offset="95%" stopColor={colorPalette.seafoamGreen} stopOpacity={0.02} />
-                                        </linearGradient>
-                                        <linearGradient id="lateFill" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={colorPalette.coralSunset} stopOpacity={0.40} />
-                                            <stop offset="95%" stopColor={colorPalette.coralSunset} stopOpacity={0.02} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" vertical={false} />
-                                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                    <RTooltip content={<GlassTooltip />} />
-                                    <Area type="monotone" dataKey="Early" stroke={colorPalette.seafoamGreen} strokeWidth={2.5} fill="url(#earlyFill)" name="Early" dot={{ r: 4, fill: colorPalette.seafoamGreen, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 2, stroke: 'white' }} animationDuration={900} animationBegin={300} />
-                                    <Area type="monotone" dataKey="Late" stroke={colorPalette.coralSunset} strokeWidth={2.5} fill="url(#lateFill)" name="Late" dot={{ r: 4, fill: colorPalette.coralSunset, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 2, stroke: 'white' }} animationDuration={900} animationBegin={450} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </Box>
-                    </Reveal>
-                </Grid>
-
-                {/* ── Bar: Monthly total hours ── */}
-                <Grid item xs={12} md={6} xl={3}>
-                    <Reveal delay={0.17}>
-                        <Box sx={{ ...G.card, borderRadius: '8px', p: { xs: 2, md: 2.4 }, height: '100%' }}>
-                            <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                                <Box sx={{ width: 4, height: 16, borderRadius: 2, bgcolor: '#f59e0b' }} />
-                                <Typography variant="subtitle2" fontWeight={800} color={colorPalette.deepNavy}>Monthly Hours</Typography>
-                                <Chip label="6 months" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: '#f59e0b14', color: '#d97706', borderRadius: '6px' }} />
-                            </Stack>
-                            <Typography variant="caption" color="text.disabled" display="block" mb={1.5}>Total hours logged per month</Typography>
-                            <ResponsiveContainer width="100%" height={185}>
-                                <BarChart data={monthlyHoursData} layout="vertical" margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="monthlyGrad" x1="0" y1="0" x2="1" y2="0">
-                                            <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.8} />
-                                            <stop offset="100%" stopColor={colorPalette.coralSunset} stopOpacity={0.7} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,61,98,0.06)" horizontal={false} />
-                                    <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                    <YAxis type="category" dataKey="month" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} axisLine={false} tickLine={false} width={52} />
-                                    <RTooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(10,61,98,0.04)' }} />
-                                    <Bar dataKey="hours" fill="url(#monthlyGrad)" radius={[0, 8, 8, 0]} name="Total Hours" animationDuration={900} animationBegin={200}
-                                        label={{ position: 'right', fontSize: 9, fill: '#94a3b8', fontWeight: 700, formatter: v => `${v}h` }} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Box>
-                    </Reveal>
-                </Grid>
-
-            </Grid>
-        </Box>
-    );
-};
-
 const getDateDaysAgoInput = (days) => {
     const date = new Date();
     date.setDate(date.getDate() - days);
@@ -353,22 +166,6 @@ const RecommendationPanel = ({ recommendation, filteredCount }) => (
     </Box>
 );
 
-const getTimingChipSx = (timing) => ({
-    height: 24,
-    borderRadius: '8px',
-    fontWeight: 800,
-    bgcolor: timing === 'Late' ? '#fee2e2' : '#dcfce7',
-    color: timing === 'Late' ? '#991b1b' : '#166534',
-});
-
-const getPremiseChipSx = (premise) => ({
-    height: 24,
-    borderRadius: '8px',
-    fontWeight: 800,
-    bgcolor: premise === 'Off Premise' ? '#fee2e2' : '#ccfbf1',
-    color: premise === 'Off Premise' ? '#991b1b' : '#0f766e',
-});
-
 const RecordMobileCard = ({ row }) => (
     <Box sx={{ ...G.subtleCard, borderRadius: '8px', p: 1.7 }}>
         <Stack spacing={1.5}>
@@ -381,10 +178,6 @@ const RecordMobileCard = ({ row }) => (
                         Personal attendance record
                     </Typography>
                 </Box>
-                <Stack direction="row" spacing={0.6} flexWrap="wrap" justifyContent="flex-end">
-                    <Chip size="small" label={row.timing} sx={getTimingChipSx(row.timing)} />
-                    <Chip size="small" icon={<LocationOnRounded sx={{ fontSize: '0.88rem !important' }} />} label={row.premise} sx={getPremiseChipSx(row.premise)} />
-                </Stack>
             </Stack>
 
             <Box
@@ -438,11 +231,8 @@ export default function AttendanceHistoryContent() {
     const [historyLoading, setHistoryLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
-    const [filterTiming, setFilterTiming] = useState('All');
     const [filterStartDate, setFilterStartDate] = useState(getDateDaysAgoInput(30));
     const [filterEndDate, setFilterEndDate] = useState(getLocalDateInputValue());
-    const [filterPremise, setFilterPremise] = useState('All');
-    const [filterClockOut, setFilterClockOut] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -483,7 +273,7 @@ export default function AttendanceHistoryContent() {
                     timing: rec.isLate ? 'Late' : 'Early',
                     premise,
                     clockOutState: rec.missedClockOut ? "System Closed" : rawClockOut ? "Completed" : "Open",
-                    searchable: [formatDate(createdDate), formatTime(rawClockIn), formatTime(rawClockOut), inLocation, outLocation, whyOut, premise].join(" ").toLowerCase(),
+                    searchable: [formatDate(createdDate), formatTime(rawClockIn), formatTime(rawClockOut), inLocation, outLocation, whyOut].join(" ").toLowerCase(),
                 };
             }));
         } catch {
@@ -506,31 +296,22 @@ export default function AttendanceHistoryContent() {
     const filtersForExport = useMemo(() => ({
         startDate: filterStartDate || "all",
         endDate: filterEndDate || "all",
-        timing: filterTiming,
-        premise: filterPremise,
-        clockOut: filterClockOut,
         search: searchTerm || "none",
-    }), [filterStartDate, filterEndDate, filterTiming, filterPremise, filterClockOut, searchTerm]);
+    }), [filterStartDate, filterEndDate, searchTerm]);
 
     const filteredRows = useMemo(() => rawHistory.filter(row => {
         if (!row?.rawDate) return false;
         if (filterStartDate && row.dateKey < filterStartDate) return false;
         if (filterEndDate && row.dateKey > filterEndDate) return false;
-        if (filterTiming !== 'All' && row.timing !== filterTiming) return false;
-        if (filterPremise !== 'All' && row.premise !== filterPremise) return false;
-        if (filterClockOut !== 'All' && row.clockOutState !== filterClockOut) return false;
         if (searchTerm.trim() && !row.searchable.includes(searchTerm.trim().toLowerCase())) return false;
         return true;
-    }), [rawHistory, filterStartDate, filterEndDate, filterTiming, filterPremise, filterClockOut, searchTerm]);
+    }), [rawHistory, filterStartDate, filterEndDate, searchTerm]);
 
     const activeFilterChips = useMemo(() => ([
         filterStartDate ? `From ${filterStartDate}` : null,
         filterEndDate ? `To ${filterEndDate}` : null,
-        filterTiming !== 'All' ? `Timing: ${filterTiming}` : null,
-        filterPremise !== 'All' ? `Premise: ${filterPremise}` : null,
-        filterClockOut !== 'All' ? `Clock-out: ${filterClockOut}` : null,
         searchTerm.trim() ? `Search: ${searchTerm.trim()}` : null,
-    ].filter(Boolean)), [filterClockOut, filterEndDate, filterPremise, filterStartDate, filterTiming, searchTerm]);
+    ].filter(Boolean)), [filterEndDate, filterStartDate, searchTerm]);
 
     const personalMetrics = useMemo(() => {
         const source = filteredRows;
@@ -627,11 +408,8 @@ export default function AttendanceHistoryContent() {
     ), [filteredRows, page, rowsPerPage]);
 
     const resetFilters = () => {
-        setFilterTiming('All');
         setFilterStartDate(getDateDaysAgoInput(30));
         setFilterEndDate(getLocalDateInputValue());
-        setFilterPremise('All');
-        setFilterClockOut('All');
         setSearchTerm('');
         setPage(0);
     };
@@ -774,7 +552,7 @@ export default function AttendanceHistoryContent() {
             );
 
             doc.text(
-                `FILTERS: TIMING ${filterTiming.toUpperCase()} | PREMISE ${filterPremise.toUpperCase()} | CLOCK-OUT ${filterClockOut.toUpperCase()}`,
+                `FILTERS: SEARCH ${(searchTerm.trim() || "NONE").toUpperCase()} | ROWS ${filteredRows.length}`,
                 pw / 2,
                 34,
                 { align: "center" }
@@ -800,8 +578,6 @@ export default function AttendanceHistoryContent() {
                     ["Total Hours", `${personalMetrics.totalHours}h`, "Completed clocking records"],
                     ["Average Hours", `${personalMetrics.averageHours}h`, "Per matching record"],
                     ["Completion Rate", `${personalMetrics.completionRate}%`, "Records with a closed clock-out"],
-                    ["Late Arrivals", personalMetrics.lateRows, "Matching late records"],
-                    ["Off-Premise Records", personalMetrics.offPremiseRows, "Clocking activity outside premise"],
                     ["Records Needing Review", personalMetrics.attentionRows, "Open or system-closed rows"],
                 ],
                 theme: "striped",
@@ -818,8 +594,6 @@ export default function AttendanceHistoryContent() {
                         "DATE",
                         "CLOCK IN",
                         "CLOCK OUT",
-                        "TIMING",
-                        "PREMISE",
                         "IN LOCATION",
                         "OUT LOCATION",
                         "WHY OUT",
@@ -830,8 +604,6 @@ export default function AttendanceHistoryContent() {
                     normalizeExportValue(r.date),
                     normalizeExportValue(r.clockIn),
                     normalizeExportValue(r.clockOut),
-                    normalizeExportTextValue(r.timing),
-                    normalizeExportTextValue(r.premise),
                     normalizeExportTextValue(r.inLocation),
                     normalizeExportTextValue(r.outLocation),
                     normalizeExportTextValue(r.whyOut),
@@ -859,9 +631,9 @@ export default function AttendanceHistoryContent() {
                 },
                 columnStyles: {
                     0: { cellWidth: 9 },
-                    6: { cellWidth: 42 },
-                    7: { cellWidth: 42 },
-                    8: { cellWidth: 34 },
+                    4: { cellWidth: 64 },
+                    5: { cellWidth: 64 },
+                    6: { cellWidth: 46 },
                 },
             });
 
@@ -1009,7 +781,7 @@ export default function AttendanceHistoryContent() {
                             gridTemplateColumns: {
                                 xs: '1fr',
                                 sm: 'repeat(2, minmax(0, 1fr))',
-                                lg: 'minmax(260px, 1.4fr) repeat(5, minmax(150px, 1fr))',
+                                lg: 'minmax(260px, 1.4fr) repeat(2, minmax(150px, 1fr))',
                             },
                             gap: 1.5,
                         }}
@@ -1018,15 +790,6 @@ export default function AttendanceHistoryContent() {
                             InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment> }} />
                         <TextField fullWidth size="small" type="date" label="From" value={filterStartDate} onChange={e => { setFilterStartDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
                         <TextField fullWidth size="small" type="date" label="To" value={filterEndDate} onChange={e => { setFilterEndDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={G.input} />
-                        {[
-                            { label: 'Timing', val: filterTiming, set: setFilterTiming, items: ['All', 'Early', 'Late'] },
-                            { label: 'Premise', val: filterPremise, set: setFilterPremise, items: ['All', 'In Premise', 'Off Premise'] },
-                            // { label: 'Clock-out', val: filterClockOut, set: setFilterClockOut, items: ['All', 'Completed', 'System Closed', 'Open'] },
-                        ].map(({ label, val, set, items }) => (
-                            <TextField key={label} select fullWidth size="small" label={label} value={val} onChange={e => { set(e.target.value); setPage(0); }} sx={G.input}>
-                                {items.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-                            </TextField>
-                        ))}
                     </Box>
                     {activeFilterChips.length > 0 && (
                         <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
@@ -1069,11 +832,6 @@ export default function AttendanceHistoryContent() {
                 <RecommendationPanel recommendation={attendanceRecommendation} filteredCount={filteredRows.length} />
             </Reveal>
 
-            {/* CHARTS */}
-            {!historyLoading && filteredRows.length > 0 && <ChartSection history={filteredRows} />}
-
-
-
             {/* Records Table */}
             <Reveal>
                 <Box sx={{ ...G.card, borderRadius: '8px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
@@ -1097,26 +855,24 @@ export default function AttendanceHistoryContent() {
                     </Box>
 
                     <TableContainer sx={{ display: { xs: 'none', md: 'block' }, maxHeight: 620, overflowX: 'auto' }}>
-                        <Table stickyHeader size="small" sx={{ minWidth: 960 }}>
+                        <Table stickyHeader size="small" sx={{ minWidth: 760 }}>
                             <TableHead>
                                 <TableRow sx={{ background: 'rgba(10,61,98,0.04)' }}>
-                                    {['Date', 'Clock In', 'Clock Out', 'Timing', 'Premise', 'In Location', 'Out Location', 'Why Out'].map(h => (
+                                    {['Date', 'Clock In', 'Clock Out', 'In Location', 'Out Location', 'Why Out'].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 900, fontSize: '0.72rem', color: colorPalette.deepNavy, letterSpacing: 0.6, py: 1.4, borderBottom: '1px solid rgba(10,61,98,0.08)', whiteSpace: 'nowrap', bgcolor: '#f8fbfd' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {historyLoading
-                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 8 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
+                                    ? Array.from({ length: 6 }).map((_, i) => <TableRow key={i}>{Array.from({ length: 6 }).map((__, j) => <TableCell key={j} sx={{ borderBottom: '1px solid rgba(10,61,98,0.05)' }}><Skeleton sx={{ borderRadius: '8px' }} /></TableCell>)}</TableRow>)
                                     : paginatedRows.length === 0
-                                        ? <TableRow><TableCell colSpan={8} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ManageSearchRounded sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records match the selected filters</Typography><Button size="small" onClick={resetFilters} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
+                                        ? <TableRow><TableCell colSpan={6} align="center" sx={{ py: 7, border: 0 }}><Stack alignItems="center" spacing={1.5}><Box sx={{ width: 68, height: 68, borderRadius: '8px', bgcolor: 'rgba(10,61,98,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ManageSearchRounded sx={{ fontSize: 36, color: 'rgba(10,61,98,0.25)' }} /></Box><Typography variant="body2" color="text.disabled" fontWeight={600}>No records match the selected filters</Typography><Button size="small" onClick={resetFilters} sx={{ textTransform: 'none', color: colorPalette.oceanBlue, fontWeight: 800, borderRadius: '8px', bgcolor: `${colorPalette.oceanBlue}08`, px: 2 }}>Clear filters</Button></Stack></TableCell></TableRow>
                                         : paginatedRows.map((row, idx) => (
                                             <Motion.tr key={idx} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.025, duration: 0.25, ease: 'easeOut' }} style={{ display: 'table-row' }}>
                                                 <TableCell sx={{ ...G.tableCell, fontWeight: 800, color: colorPalette.deepNavy, whiteSpace: 'nowrap' }}>{row.date}</TableCell>
                                                 <TableCell sx={{ ...G.tableCell, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.clockIn}</TableCell>
                                                 <TableCell sx={{ ...G.tableCell, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.clockOut}</TableCell>
-                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'nowrap' }}><Chip size="small" label={row.timing} sx={getTimingChipSx(row.timing)} /></TableCell>
-                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'nowrap' }}><Chip size="small" icon={<LocationOnRounded sx={{ fontSize: '0.88rem !important' }} />} label={row.premise} sx={getPremiseChipSx(row.premise)} /></TableCell>
                                                 <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.inLocation}</Typography></TableCell>
                                                 <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.outLocation}</Typography></TableCell>
                                                 <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 300 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{row.whyOut || '—'}</Typography></TableCell>
