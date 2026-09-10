@@ -1,5 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import axios from "axios";
-import { clearSessionStarted } from "./SessionTimeout.js";
+import {
+  clearSessionStarted,
+  SESSION_ACTIVITY_HEADER,
+  SESSION_ACTIVITY_HEADER_VALUE,
+  wasSessionActiveRecently,
+} from "./SessionTimeout.js";
 
 const DEFAULT_API_BASE_ROUTE = "/kmfri/attendance/api/v1";
 const DEFAULT_API_TIMEOUT_MS = 60000;
@@ -54,6 +60,23 @@ const api = axios.create({
   ),
 });
 
+const clearPersistedClientSession = () => {
+  clearSessionStarted();
+
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("persist:root");
+  }
+};
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined" && wasSessionActiveRecently()) {
+    config.headers = config.headers || {};
+    config.headers[SESSION_ACTIVITY_HEADER] = SESSION_ACTIVITY_HEADER_VALUE;
+  }
+
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -81,10 +104,9 @@ api.interceptors.response.use(
 
     if (
       typeof window !== "undefined" &&
-      error.response?.data?.code === "SESSION_REPLACED"
+      ["SESSION_REPLACED", "SESSION_TIMEOUT"].includes(error.response?.data?.code)
     ) {
-      clearSessionStarted();
-      window.localStorage.removeItem("persist:root");
+      clearPersistedClientSession();
 
       if (window.location.pathname !== "/") {
         window.location.assign("/");

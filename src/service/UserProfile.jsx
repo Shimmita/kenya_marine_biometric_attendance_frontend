@@ -20,6 +20,7 @@ export const userSignOut = async () => {
     try {
         await api.post("/user/signout");
         clearSessionStarted();
+        window.localStorage.removeItem("persist:root");
 
     } catch (err) {
         console.log(err)

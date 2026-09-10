@@ -199,7 +199,7 @@ const defaultMasterSettings = {
   requirePasswordResetOnFirstLogin: true,
   maxDevicesPerUser: 2,
   biometricVerificationWindowMinutes: 5,
-  sessionTimeoutMinutes: 1440,
+  sessionTimeoutMinutes: 20,
   enableAuditLogging: true,
 };
 
@@ -1363,7 +1363,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                   <TextField
                     label="Session Timeout"
                     type="number"
-                    value={config.masterSettings?.sessionTimeoutMinutes ?? 1440}
+                    value={config.masterSettings?.sessionTimeoutMinutes ?? 20}
                     onChange={(e) => updateSectionField('masterSettings', 'sessionTimeoutMinutes', Number(e.target.value))}
                     InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
                     fullWidth
