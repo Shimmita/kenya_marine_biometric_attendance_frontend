@@ -1955,6 +1955,16 @@ const ReferenceStatsGrid = ({ theme, referenceMetrics }) => (
     </Box>
 );
 
+const attendanceRecordColumns = [
+    { key: "employee", label: "Employee", width: 220 },
+    { key: "date", label: "Date", width: 120 },
+    { key: "clockIn", label: "Clock In", width: 95 },
+    { key: "clockOut", label: "Clock Out", width: 95 },
+    { key: "inLocation", label: "In Location", width: 225 },
+    { key: "outLocation", label: "Out Location", width: 225 },
+    { key: "department", label: "Department", width: 190 },
+];
+
 const AttendanceRecords = ({
     theme,
     scopeLabel,
@@ -2033,41 +2043,48 @@ const AttendanceRecords = ({
                 {referenceLoading && <CircularProgress size={16} sx={{ color: theme.secondary }} />}
             </Stack>
             <TableContainer sx={{ maxHeight: 430 }}>
-                <Table size="small" stickyHeader>
+                <Table size="small" stickyHeader sx={{ minWidth: 1170, tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0 }}>
                     <TableHead>
                         <TableRow>
-                            {["Employee", "Date", "Clock In", "Clock Out", "Timing", "In Location", "Out Location", "Department"].map((heading) => (
-                                <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }}>
-                                    {heading}
+                            {attendanceRecordColumns.map((column) => (
+                                <TableCell
+                                    key={column.key}
+                                    sx={{
+                                        width: column.width,
+                                        fontWeight: 900,
+                                        bgcolor: "#fff",
+                                        whiteSpace: "nowrap",
+                                        borderRight: `1px solid ${theme.border}`,
+                                        borderBottom: `1px solid ${theme.border}`,
+                                    }}
+                                >
+                                    {column.label}
                                 </TableCell>
                             ))}
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {paginatedRecords.map((row) => (
-                            <TableRow key={row.id}>
-                                <TableCell sx={{ minWidth: 180 }}>
+                            <TableRow key={row.id} hover>
+                                <TableCell sx={{ width: 220, borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>
                                     <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }}>{row.name}</Typography>
-                                    <Typography sx={{ fontSize: 10, color: theme.muted }}>{row.employeeId}</Typography>
+                                    <Typography sx={{ fontSize: 10, color: theme.muted, overflowWrap: "anywhere" }}>{row.employeeId}</Typography>
                                 </TableCell>
-                                <TableCell sx={{ whiteSpace: "nowrap" }}>{row.date}</TableCell>
-                                <TableCell>{row.clockIn}</TableCell>
-                                <TableCell>{row.clockOut}</TableCell>
-                                <TableCell>
-                                    <Chip size="small" label={row.timing} sx={{ height: 22, borderRadius: "8px", fontWeight: 800, bgcolor: row.timing === "Late" ? `${theme.warning}18` : `${theme.success}16`, color: row.timing === "Late" ? "#B45309" : theme.success }} />
-                                </TableCell>
-                                <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                <TableCell sx={{ width: 120, whiteSpace: "nowrap", borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>{row.date}</TableCell>
+                                <TableCell sx={{ width: 95, whiteSpace: "nowrap", borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>{row.clockIn}</TableCell>
+                                <TableCell sx={{ width: 95, whiteSpace: "nowrap", borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>{row.clockOut}</TableCell>
+                                <TableCell sx={{ width: 225, borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>
                                     <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.inLocation}</Typography>
                                 </TableCell>
-                                <TableCell sx={{ minWidth: 180, maxWidth: 260 }}>
+                                <TableCell sx={{ width: 225, borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>
                                     <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
                                 </TableCell>
-                                <TableCell sx={{ minWidth: 170 }}>{row.department}</TableCell>
+                                <TableCell sx={{ width: 190, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top", overflowWrap: "anywhere" }}>{row.department}</TableCell>
                             </TableRow>
                         ))}
                         {!paginatedRecords.length && (
                             <TableRow>
-                                <TableCell colSpan={8}>
+                                <TableCell colSpan={attendanceRecordColumns.length}>
                                     <EmptyState label={referenceLoading ? "Loading attendance records..." : "No attendance records match the selected scope."} theme={theme} />
                                 </TableCell>
                             </TableRow>
@@ -2090,7 +2107,7 @@ const AttendanceRecords = ({
         </Box>
 
         <InsightNote theme={theme} tone={referenceMetrics.openSessions ? theme.warning : theme.secondary}>
-            Records prove the underlying attendance events behind the analytics, including timing, clock-out state, and location reference.
+            Records prove the underlying attendance events behind the analytics, including clock-out state and location reference.
         </InsightNote>
     </SectionCard>
 );
@@ -3126,7 +3143,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "date", label: "Date", minWidth: 115 },
             { key: "clockIn", label: "Clock In", minWidth: 90 },
             { key: "clockOut", label: "Clock Out", minWidth: 90 },
-            { key: "timing", label: "Timing", minWidth: 95 },
             { key: "inLocation", label: "In Location", minWidth: 190 },
             { key: "outLocation", label: "Out Location", minWidth: 190 },
         ],
@@ -4153,7 +4169,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "Timing", "In Location", "Out Location", "Department"]],
+                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "In Location", "Out Location", "Department"]],
                 body: filteredRecords.map((row, index) => [
                     index + 1,
                     row.employeeId,
@@ -4161,27 +4177,25 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     row.date,
                     row.clockIn,
                     row.clockOut,
-                    row.timing,
                     row.inLocation,
                     row.outLocation,
                     row.department,
                 ]),
-                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
-                styles: { fontSize: 6.4, cellPadding: 1.2, halign: "center", overflow: "linebreak", valign: "middle" },
+                headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center", lineWidth: 0.15, lineColor: [148, 163, 184] },
+                styles: { fontSize: 6.5, cellPadding: 1.25, halign: "center", overflow: "linebreak", valign: "middle", lineWidth: 0.12, lineColor: [203, 213, 225] },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
                 margin: { left: 6, right: 6 },
                 tableWidth: ctx.pw - 12,
                 columnStyles: {
                     0: { cellWidth: 9 },
                     1: { cellWidth: 22 },
-                    2: { cellWidth: 34, halign: "left", fontStyle: "bold" },
+                    2: { cellWidth: 36, halign: "left", fontStyle: "bold" },
                     3: { cellWidth: 22 },
                     4: { cellWidth: 18 },
                     5: { cellWidth: 18 },
-                    6: { cellWidth: 18 },
-                    7: { cellWidth: 48, halign: "left" },
-                    8: { cellWidth: 48, halign: "left" },
-                    9: { cellWidth: 48, halign: "left" },
+                    6: { cellWidth: 55, halign: "left" },
+                    7: { cellWidth: 55, halign: "left" },
+                    8: { cellWidth: 50, halign: "left" },
                 },
             });
 
