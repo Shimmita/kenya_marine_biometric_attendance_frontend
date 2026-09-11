@@ -24,6 +24,7 @@ import {
   SettingsBackupRestoreRounded,
   SettingsRounded,
   ShieldRounded,
+  TabletMacRounded,
   Tune,
   UploadFileRounded,
   Visibility,
@@ -59,6 +60,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getClockingPoints, updateClockingPoint } from '../../service/ClockingPointService';
 import SuperadminAPI from '../../service/SuperadminService';
 import { applyPlatformConfigToCoreData } from '../CoreDataDetails';
 import SuperAdminDashBoardTab from './SuperAdminDashBoard';
@@ -80,6 +82,7 @@ const normalizeStation = (station = {}) => {
     lng: Number(station.lng || 0),
     radiusMeters: Number(station.radiusMeters || 500),
     active: station.active !== false,
+    allowClockingPoint: station.allowClockingPoint === true,
   };
 };
 
@@ -92,7 +95,7 @@ const normalizeMasterSettings = (value = {}) => {
   return settings;
 };
 
-const blankStation = { name: '', lat: '', lng: '', radiusMeters: 500, active: true };
+const blankStation = { name: '', lat: '', lng: '', radiusMeters: 500, active: true, allowClockingPoint: false };
 const blankTheme = {
   name: '',
   primaryColor: '#0A3D62',
@@ -187,6 +190,14 @@ const defaultAttendancePolicy = {
   markAbsenteesAutomatically: true,
   allowClockOutsideStation: true,
   requireBiometricVerification: true,
+};
+
+const defaultClockingPoint = {
+  otpLength: 4,
+  otpExpirySeconds: 30,
+  otpMaxAttempts: 3,
+  otpResendSeconds: 30,
+  otpMaxResends: 2,
 };
 
 const defaultMasterSettings = {
@@ -319,6 +330,7 @@ const platformConfigBackupKeys = [
   'notificationReminders',
   'geofence',
   'attendancePolicy',
+  'clockingPoint',
   'departments',
   'stations',
   'dropdowns',
@@ -532,6 +544,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
   const [manualOpen, setManualOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [clockingPoints, setClockingPoints] = useState([]);
   const [maintenanceDraft, setMaintenanceDraft] = useState({
     startAt: toDateTimeLocalValue(new Date()),
     endAt: addHoursLocalValue(2),
@@ -558,6 +571,10 @@ const ConfigPanel = ({ onConfigLoaded }) => {
       attendancePolicy: {
         ...defaultAttendancePolicy,
         ...(data?.attendancePolicy || {}),
+      },
+      clockingPoint: {
+        ...defaultClockingPoint,
+        ...(data?.clockingPoint || {}),
       },
       notificationReminders: {
         ...defaultNotificationReminders,
@@ -590,7 +607,19 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     }
   }, [applyLoadedConfig]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadClockingPoints = useCallback(async () => {
+    try {
+      const data = await getClockingPoints();
+      setClockingPoints(data || []);
+    } catch (err) {
+      console.warn('Clocking Point list unavailable', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    loadClockingPoints();
+  }, [load, loadClockingPoints]);
 
   const savePatch = async (payload, message = 'Configuration saved') => {
     try {
@@ -741,9 +770,30 @@ const ConfigPanel = ({ onConfigLoaded }) => {
     const stations = [...(config.stations || [])];
     stations[index] = {
       ...stations[index],
-      [field]: field === 'name' ? value : field === 'active' ? value : Number(value),
+      [field]: ['name'].includes(field)
+        ? value
+        : ['active', 'allowClockingPoint'].includes(field)
+          ? value
+          : Number(value),
     };
     setConfig({ ...config, stations });
+  };
+
+  const handleClockingPointAction = async (id, action, pointName = '') => {
+    try {
+      setError('');
+      setIsLoading(true);
+      const payload = action === 'rename'
+        ? { action, name: window.prompt('Clocking Point name', pointName) || pointName }
+        : { action };
+      await updateClockingPoint(id, payload);
+      await loadClockingPoints();
+      setStatus('Clocking Point updated.');
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Clocking Point update failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddDropdownValue = () => {
@@ -859,7 +909,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
   };
 
   const handleRestoreMaintenance = async () => {
-    if (!window.confirm('Disable maintenance mode and notify users that services have been restored?')) return;
+    if (!window.confirm('Restore service access now? Users will receive a service restored notification.')) return;
 
     await savePatch(
       {
@@ -871,7 +921,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
           maintenanceMessage: '',
         },
       },
-      'Maintenance mode disabled and users have been notified.'
+      'Service has been restored and users have been notified.'
     );
   };
 
@@ -1291,7 +1341,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                         </Stack>
                         <Typography variant="body2" color="text.secondary">
                           {maintenanceState.enabled
-                            ? (config.masterSettings?.maintenanceMessage || 'Users will be redirected while the active maintenance window is running.')
+                            ? (config.masterSettings?.maintenanceMessage || 'Only superadmins can access the system while the active maintenance window is running.')
                             : 'Schedule a controlled service window and notify all users automatically.'}
                         </Typography>
                       </Box>
@@ -1424,15 +1474,22 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                 <Stack spacing={2} separator={<Divider />}>
                   {stations.map((station, index) => (
                     <Grid container spacing={2} key={`${station.name}-${index}`} alignItems="center">
-                      <Grid item xs={12} sm={6} md={3}><TextField label="Station Area Name" value={station.name} onChange={(e) => updateStation(index, 'name', e.target.value)} fullWidth /></Grid>
-                      <Grid item xs={6} sm={3} md={2}><TextField label="Lat Coord" type="number" value={station.lat} onChange={(e) => updateStation(index, 'lat', e.target.value)} fullWidth /></Grid>
-                      <Grid item xs={6} sm={3} md={2}><TextField label="Lng Coord" type="number" value={station.lng} onChange={(e) => updateStation(index, 'lng', e.target.value)} fullWidth /></Grid>
-                      <Grid item xs={12} sm={6} md={2}><TextField label="Boundary Perimeter" type="number" value={station.radiusMeters} onChange={(e) => updateStation(index, 'radiusMeters', e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} fullWidth /></Grid>
-                      <Grid item xs={8} sm={4} md={2}>
+                      <Grid item xs={12} sm={6} md={2.5}><TextField label="Station Area Name" value={station.name} onChange={(e) => updateStation(index, 'name', e.target.value)} fullWidth /></Grid>
+                      <Grid item xs={6} sm={3} md={1.5}><TextField label="Lat Coord" type="number" value={station.lat} onChange={(e) => updateStation(index, 'lat', e.target.value)} fullWidth /></Grid>
+                      <Grid item xs={6} sm={3} md={1.5}><TextField label="Lng Coord" type="number" value={station.lng} onChange={(e) => updateStation(index, 'lng', e.target.value)} fullWidth /></Grid>
+                      <Grid item xs={12} sm={6} md={1.7}><TextField label="Boundary Perimeter" type="number" value={station.radiusMeters} onChange={(e) => updateStation(index, 'radiusMeters', e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }} fullWidth /></Grid>
+                      <Grid item xs={12} sm={4} md={1.6}>
                         <ToggleTile
                           checked={station.active}
                           onChange={(e) => updateStation(index, 'active', e.target.checked)}
                           label="Active"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={2.2}>
+                        <ToggleTile
+                          checked={station.allowClockingPoint === true}
+                          onChange={(e) => updateStation(index, 'allowClockingPoint', e.target.checked)}
+                          label="Allow Clocking Point"
                         />
                       </Grid>
                       <Grid item xs={4} sm={2} md={1} textAlign="right">
@@ -1450,6 +1507,56 @@ const ConfigPanel = ({ onConfigLoaded }) => {
               <Button disabled={isLoading} startIcon={<Save />} variant="contained" onClick={() => savePatch({ stations: config.stations }, 'Facility location roster metrics updated.')} sx={{ borderRadius: 2 }}>Save Changes</Button>
               <Button disabled={isLoading} startIcon={<RestartAlt />} color="warning" variant="outlined" onClick={() => resetConfig('stations')} sx={{ borderRadius: 2 }}>Reset Station Changes</Button>
             </Stack>
+
+            <Paper elevation={0} sx={cardSx}>
+              <SectionHeading icon={<TabletMacRounded />} title="Clocking Point Devices" description="Manage KMFRI-owned tablets enrolled for shared-device attendance." />
+              {clockingPoints.length === 0 ? (
+                <EmptyState
+                  icon={<TabletMacRounded />}
+                  title="No Clocking Points Enrolled"
+                  description="Use the Clocking Point enrollment route on an approved tablet."
+                />
+              ) : (
+                <Stack spacing={1.5}>
+                  {clockingPoints.map((point) => {
+                    const revoked = Boolean(point.revokedAt);
+                    const statusLabel = revoked ? 'Revoked' : point.isActive ? 'Active' : 'Disabled';
+                    return (
+                      <Box
+                        key={point.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: '1px solid rgba(148,163,184,0.24)',
+                          bgcolor: '#ffffff',
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr 0.7fr 1fr auto' },
+                          gap: 1.5,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Box>
+                          <Typography sx={{ fontWeight: 900 }}>{point.name}</Typography>
+                          <Typography sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 700 }}>Enrolled by {point.enrolledBy?.name || 'Unknown'}</Typography>
+                        </Box>
+                        <Typography sx={{ fontWeight: 800 }}>{point.station}</Typography>
+                        <Chip label={statusLabel} color={revoked ? 'error' : point.isActive ? 'success' : 'warning'} size="small" sx={{ borderRadius: 1, fontWeight: 900 }} />
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                          Last seen {point.lastSeenAt ? new Date(point.lastSeenAt).toLocaleString('en-KE') : 'Never'}
+                        </Typography>
+                        <Stack direction="row" spacing={0.8} justifyContent="flex-end">
+                          <Button size="small" disabled={isLoading || revoked} onClick={() => handleClockingPointAction(point.id, point.isActive ? 'disable' : 'enable')}>
+                            {point.isActive ? 'Disable' : 'Enable'}
+                          </Button>
+                          <Button size="small" disabled={isLoading || revoked} onClick={() => handleClockingPointAction(point.id, 'rename', point.name)}>Rename</Button>
+                          <Button size="small" color="error" disabled={isLoading || revoked} onClick={() => handleClockingPointAction(point.id, 'revoke')}>Revoke</Button>
+                        </Stack>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Paper>
           </Stack>
         )}
 
@@ -1631,6 +1738,73 @@ const ConfigPanel = ({ onConfigLoaded }) => {
             </Paper>
 
             <Paper elevation={0} sx={cardSx}>
+              <SectionHeading
+                icon={<TabletMacRounded />}
+                title="Clocking Point OTP Settings"
+                description="Control OTP strength, lifetime, retry limits, and resend behaviour."
+              />
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="OTP Digits"
+                    type="number"
+                    value={config.clockingPoint?.otpLength ?? 4}
+                    onChange={(e) => updateSectionField('clockingPoint', 'otpLength', Number(e.target.value))}
+                    inputProps={{ min: 4, max: 8 }}
+                    helperText="Number of digits sent by SMS."
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="OTP Expiry"
+                    type="number"
+                    value={config.clockingPoint?.otpExpirySeconds ?? 30}
+                    onChange={(e) => updateSectionField('clockingPoint', 'otpExpirySeconds', Number(e.target.value))}
+                    inputProps={{ min: 15, max: 300 }}
+                    InputProps={{ endAdornment: <InputAdornment position="end">sec</InputAdornment> }}
+                    helperText="How long a code remains valid."
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Max Attempts"
+                    type="number"
+                    value={config.clockingPoint?.otpMaxAttempts ?? 3}
+                    onChange={(e) => updateSectionField('clockingPoint', 'otpMaxAttempts', Number(e.target.value))}
+                    inputProps={{ min: 1, max: 10 }}
+                    helperText="Wrong entries allowed per code."
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Resend Wait"
+                    type="number"
+                    value={config.clockingPoint?.otpResendSeconds ?? 30}
+                    onChange={(e) => updateSectionField('clockingPoint', 'otpResendSeconds', Number(e.target.value))}
+                    inputProps={{ min: 10, max: 300 }}
+                    InputProps={{ endAdornment: <InputAdornment position="end">sec</InputAdornment> }}
+                    helperText="Wait time before another SMS."
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Max Resends"
+                    type="number"
+                    value={config.clockingPoint?.otpMaxResends ?? 2}
+                    onChange={(e) => updateSectionField('clockingPoint', 'otpMaxResends', Number(e.target.value))}
+                    inputProps={{ min: 0, max: 10 }}
+                    helperText="Extra codes allowed per attempt."
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper elevation={0} sx={cardSx}>
               <SectionHeading icon={<NotificationsActiveRounded />} title="Notification Timing & Channels" description="Set reminder thresholds and the channels used for platform communication." />
               <Grid container spacing={2.5}>
                 <Grid item xs={12} sm={6} md={4}>
@@ -1719,6 +1893,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                 onClick={() => savePatch(
                   {
                     attendancePolicy: config.attendancePolicy,
+                    clockingPoint: config.clockingPoint,
                     geofence: config.geofence,
                     notificationReminders: config.notificationReminders
                   },
@@ -1737,6 +1912,16 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                 sx={{ borderRadius: 2 }}
               >
                 Reset Attendance Policy
+              </Button>
+              <Button
+                disabled={isLoading}
+                startIcon={<RestartAlt />}
+                color="warning"
+                variant="outlined"
+                onClick={() => resetConfig('clockingPoint')}
+                sx={{ borderRadius: 2 }}
+              >
+                Reset Clocking Point
               </Button>
               <Button
                 disabled={isLoading}
@@ -1884,7 +2069,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
           <DialogContent dividers>
             <Stack spacing={2.5}>
               <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                During the active window, regular users will be redirected to the maintenance page. Superadmin access remains available for recovery and control.
+                During the active window, every non-superadmin user is redirected to the maintenance page. Superadmins keep access for recovery and restoration.
               </Alert>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
@@ -1915,7 +2100,7 @@ const ConfigPanel = ({ onConfigLoaded }) => {
                 value={maintenanceDraft.message}
                 onChange={(e) => setMaintenanceDraft((prev) => ({ ...prev, message: e.target.value }))}
                 placeholder="Example: KMFRI Attendance is undergoing scheduled service maintenance. Please be patient while the ICT team completes the work."
-                helperText="This message appears on the maintenance page and is sent to users with the configured maintenance template."
+                helperText="This message appears on the maintenance page and is sent with the configured maintenance template."
                 fullWidth
               />
             </Stack>

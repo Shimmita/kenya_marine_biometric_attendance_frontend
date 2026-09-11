@@ -42,7 +42,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateUserCurrentUserRedux } from "../../redux/CurrentUser";
-import { revokeClockOutsideStatus, updateClockOutsideStatus } from "../../service/UserManagement";
+import { revokeClockOutsideStatus, updateClockOutsideStatus, updateClockingPointAccess } from "../../service/UserManagement";
 import { getUserProfile } from "../../service/UserProfile";
 import coreDataDetails from "../CoreDataDetails";
 import { getLocalDateInputValue } from "./DateTimeFormater";
@@ -384,6 +384,7 @@ export default function UserDetailsDialog({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [clockOutside, setClockOutside] = useState("no");
+    const [clockingPointAccess, setClockingPointAccess] = useState("no");
     const [formData, setFormData] = useState({
         startDate: "",
         endDate: "",
@@ -406,6 +407,7 @@ export default function UserDetailsDialog({
     const canManageLeaveStatus = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageAssignments = ["hr", "supervisor", "superadmin"].includes(currentUserRank);
     const canManageClockOutside = ["admin", "hr", "supervisor", "superadmin"].includes(currentUserRank);
+    const canManageClockingPointAccess = ["admin", "hr", "superadmin"].includes(currentUserRank);
     const canManageRole = ["hr", "superadmin"].includes(currentUserRank);
     const canManageRank = currentUserRank === "superadmin";
     const showRoleManagement = ["hr", "superadmin"].includes(currentUserRank) && !hideRoleRankManagement;
@@ -419,6 +421,7 @@ export default function UserDetailsDialog({
         if (!open || !user) return;
         setTab(0);
         setClockOutside(user.canClockOutside ? "yes" : "no");
+        setClockingPointAccess(user.clockingpointActive ? "yes" : "no");
         setFormData({
             startDate: normalizeDateInput(user.outsideClockingDetails?.startDate),
             endDate: normalizeDateInput(user.outsideClockingDetails?.endDate),
@@ -430,6 +433,7 @@ export default function UserDetailsDialog({
     useEffect(() => {
         if (!user) return;
         setClockOutside(user.canClockOutside ? "yes" : "no");
+        setClockingPointAccess(user.clockingpointActive ? "yes" : "no");
         setFormData((previous) => ({
             startDate: normalizeDateInput(user.outsideClockingDetails?.startDate) || previous.startDate,
             endDate: normalizeDateInput(user.outsideClockingDetails?.endDate) || previous.endDate,
@@ -437,6 +441,7 @@ export default function UserDetailsDialog({
         }));
     }, [
         user?.canClockOutside,
+        user?.clockingpointActive,
         user?.outsideClockingDetails?.startDate,
         user?.outsideClockingDetails?.endDate,
         user?.outsideClockingDetails?.reason
@@ -521,6 +526,23 @@ export default function UserDetailsDialog({
             await refreshSignedInUser();
         } catch (err) {
             setError(normalizeError(err, "Failed to update clock-outside access."));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleClockingPointAccessChange = async (event) => {
+        const nextValue = event.target.value;
+        setError("");
+
+        try {
+            setIsLoading(true);
+            await updateClockingPointAccess(user._id, nextValue === "yes");
+            setClockingPointAccess(nextValue);
+            await refreshSignedInUser();
+        } catch (err) {
+            setClockingPointAccess(user.clockingpointActive ? "yes" : "no");
+            setError(normalizeError(err, "Failed to update Clocking Point Access."));
         } finally {
             setIsLoading(false);
         }
@@ -1014,6 +1036,39 @@ export default function UserDetailsDialog({
                                     </Stack>
                                 </Box>
                             )}
+                        </Section>
+
+                        <Section
+                            icon={<BadgeRounded fontSize="small" />}
+                            title="Clocking Point Access"
+                            description="Allows this user to use an approved Clocking Point when station-wide access is disabled."
+                        >
+                            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "280px 1fr" }, gap: 2, alignItems: "start" }}>
+                                <FieldBlock
+                                    label="Permission"
+                                    helper={!canManageClockingPointAccess ? "Your current access cannot update Clocking Point Access." : "This does not affect normal smartphone clocking."}
+                                    disabled={disabledBase || !canManageClockingPointAccess}
+                                >
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={clockingPointAccess}
+                                            onChange={handleClockingPointAccessChange}
+                                            disabled={disabledBase || !canManageClockingPointAccess}
+                                            sx={selectSx}
+                                            MenuProps={menuProps}
+                                        >
+                                            <MenuItem value="no">No</MenuItem>
+                                            <MenuItem value="yes">Yes</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </FieldBlock>
+
+                                <DetailItem
+                                    label="Current Status"
+                                    value={clockingPointAccess === "yes" ? "Allowed as individual exception" : "Station policy applies"}
+                                    icon={<BadgeRounded fontSize="small" />}
+                                />
+                            </Box>
                         </Section>
                     </Stack>
                 )}

@@ -141,6 +141,18 @@ export const revokeClockOutsideStatus = async (userId) => {
     }
 };
 
+export const updateClockingPointAccess = async (userId, clockingpointActive) => {
+    try {
+        const res = await api.put(`/admin/user/${userId}/update-clocking-point-access`, {
+            clockingpointActive
+        });
+        return res.data;
+    } catch (err) {
+        console.error("Error updating Clocking Point access:", err);
+        throw err.response?.data?.message || "Failed to update Clocking Point access";
+    }
+};
+
 
 export const revokeOnLeaveStatus = async (userId) => {
     try {

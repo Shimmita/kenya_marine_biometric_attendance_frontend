@@ -24,7 +24,7 @@ import {
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { updateUserCurrentDeviceRedux } from '../redux/CurrentDevice';
 import { updateUserCurrentUserRedux } from '../redux/CurrentUser';
 import { fetchMyDevices } from '../service/DeviceService';
@@ -287,13 +287,13 @@ const HelpSupportDialog = ({ open, onClose, supportEmail, supportPhone }) => {
 };
 
 /* ══ SIGN IN CARD ═══════════════════════════════════════════════════════════ */
-const SignInCard = ({ onBack, reducedMotion }) => {
+const SignInCard = ({ onBack, reducedMotion, superadminAccess = false }) => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [processing, setProcessing] = useState(false);
-    const [currentView, setCurrentView] = useState('role-select'); // 'role-select', 'signin', 'reset'
-    const [selectedRole, setSelectedRole] = useState(null); // 'staff' or 'intern'
+    const [currentView, setCurrentView] = useState(superadminAccess ? 'signin' : 'role-select'); // 'role-select', 'signin', 'reset'
+    const [selectedRole, setSelectedRole] = useState(superadminAccess ? 'staff' : null); // 'staff' or 'intern'
     const [resetPasswordEmail, setResetPasswordEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -735,7 +735,9 @@ const SignInCard = ({ onBack, reducedMotion }) => {
 /* ══ LANDING PAGE ═══════════════════════════════════════════════════════════ */
 const EnhancedLandingPage = () => {
     const navigate = useNavigate();
-    const [view, setView] = useState('landing');
+    const location = useLocation();
+    const superadminAccess = new URLSearchParams(location.search).get('superadmin') === '1';
+    const [view, setView] = useState(superadminAccess ? 'signin' : 'landing');
     const [helpOpen, setHelpOpen] = useState(false);
     const [guideOpen, setGuideOpen] = useState(false);
     const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -752,16 +754,21 @@ const EnhancedLandingPage = () => {
         let isMounted = true;
         const loadConfig = async () => {
             try {
-                const [maintenance, cfg] = await Promise.all([
-                    getMaintenanceStatus(),
-                    getPlatformConfig(),
-                ]);
+                const maintenance = await getMaintenanceStatus();
 
-                if (maintenance?.active) {
+                if (maintenance?.active && !superadminAccess) {
                     window.sessionStorage.setItem('kmfri_maintenance_status', JSON.stringify(maintenance));
                     navigate('/maintenance', { replace: true });
                     return;
                 }
+
+                if (maintenance?.active && superadminAccess) {
+                    setView('signin');
+                    if (maintenance.branding) setBranding(maintenance.branding);
+                    return;
+                }
+
+                const cfg = await getPlatformConfig();
 
                 if (isMounted && cfg) {
                     applyPlatformConfigToCoreData(cfg);
@@ -791,7 +798,7 @@ const EnhancedLandingPage = () => {
             window.removeEventListener('kmfri_platform_config_updated', handleConfigUpdate);
             window.removeEventListener('storage', handleConfigUpdate);
         };
-    }, [navigate]);
+    }, [navigate, superadminAccess]);
 
     const highContrastOverrides = a11yPrefs.highContrast
         ? {
@@ -1034,7 +1041,7 @@ const EnhancedLandingPage = () => {
                     }}>
                         <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
                             {view === 'signin'
-                                ? <SignInCard key="signin" onBack={() => setView('landing')} reducedMotion={a11yPrefs.reducedMotion} />
+                                ? <SignInCard key="signin" onBack={() => setView('landing')} reducedMotion={a11yPrefs.reducedMotion} superadminAccess={superadminAccess} />
                                 : <RegisterStepper key="signup" onBack={() => setView('landing')} onSwitchToSignin={() => setView('signin')} />
                             }
                         </Container>

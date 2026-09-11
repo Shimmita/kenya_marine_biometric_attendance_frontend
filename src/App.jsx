@@ -9,6 +9,8 @@ const AuthCheck = lazy(() => import("./components/auth/AuthCheck"));
 const MaintenanceModePage = lazy(() => import("./components/MaintenanceModePage"));
 const ResetPasswordPage = lazy(() => import("./components/ResetPasswordPage"));
 const VerifyDocument = lazy(() => import("./components/VerifyDocument"));
+const ClockingPoint = lazy(() => import("./components/ClockingPoint"));
+const ClockingPointEnroll = lazy(() => import("./components/ClockingPointEnroll"));
 
 const RouteFallback = () => (
   <div className="app-route-fallback" role="status" aria-live="polite">
@@ -92,6 +94,14 @@ function App() {
             <Route
               path="/maintenance"
               element={<MaintenanceModePage />}
+            />
+            <Route
+              path="/kmfri/attendance/clocking-point"
+              element={<ClockingPoint />}
+            />
+            <Route
+              path="/kmfri/attendance/clocking-point/enroll"
+              element={<ClockingPointEnroll />}
             />
           </Routes>
         </Suspense>
