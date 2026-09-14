@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import { loginStaff } from "./auth/Login";
 import kmfriLogo from "../images/kmfri_logo.png";
 import clockingImage from "../images/clocking_image_1.png";
+import ClockingPointChrome from "./ClockingPointChrome";
 import {
   enrollClockingPoint,
   getClockingPointEnrollmentOptions,
@@ -84,143 +85,145 @@ export default function ClockingPointEnroll() {
   const isSignedIn = Boolean(options?.officer);
 
   return (
-    <Box sx={pageSx}>
-      <Box sx={frameSx}>
-        <Box sx={visualPanelSx}>
-          <Box sx={visualImageSx} />
-          <Box sx={visualOverlaySx} />
-          <Stack spacing={2.2} sx={{ position: "relative", zIndex: 1, height: "100%" }}>
-            <Stack direction="row" spacing={1.4} alignItems="center">
-              <Box sx={logoWrapSx}>
-                <img src={kmfriLogo} alt="KMFRI" style={{ width: 48, height: 48, objectFit: "contain" }} />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: 13, fontWeight: 950, color: "rgba(255,255,255,0.72)" }}>KMFRI</Typography>
-                <Typography sx={{ fontSize: 18, fontWeight: 950, color: "#fff" }}>Clocking Point</Typography>
-              </Box>
-            </Stack>
-
-            <Box sx={{ mt: "auto" }}>
-              <Typography sx={{ fontSize: { xs: 34, md: 46 }, lineHeight: 1.04, fontWeight: 950, color: "#fff" }}>
-                {isSignedIn ? "Enroll trusted device" : "Secure enrollment"}
-              </Typography>
-              <Typography sx={{ mt: 1.2, fontSize: 15, lineHeight: 1.55, fontWeight: 800, color: "rgba(255,255,255,0.78)" }}>
-                {isSignedIn
-                  ? "Bind this browser profile to an approved station and physical Clocking Point."
-                  : "Authorised KMFRI officers sign in before registering a shared device."}
-              </Typography>
-            </Box>
-
-            <Box sx={statusCardSx}>
-              <Stack direction="row" spacing={1.1} alignItems="center">
-                {isSignedIn ? <DevicesRounded /> : <SecurityRounded />}
-                <Typography sx={{ fontWeight: 950 }}>{isSignedIn ? "Device Setup" : "Officer Access"}</Typography>
-              </Stack>
-              <Typography sx={{ mt: 0.8, fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.74)" }}>
-                {isSignedIn ? "FingerprintJS identity will be hashed on the server." : "Use your existing staff credentials."}
-              </Typography>
-            </Box>
-          </Stack>
-        </Box>
-
-        <Paper elevation={0} sx={panelSx}>
-          <Stack spacing={2.5}>
-            <Stack spacing={0.7}>
-              <Typography sx={eyebrowSx}>{isSignedIn ? "Enrollment" : "Sign In"}</Typography>
-              <Typography sx={headlineSx}>
-                {isSignedIn ? "Enroll Clocking Point" : "Clocking Point Enrollment"}
-              </Typography>
-              <Typography sx={bodyTextSx}>
-                {isSignedIn ? "Choose the official station and name this physical location." : "Only authorised officers can enroll KMFRI-owned devices."}
-              </Typography>
-            </Stack>
-
-            {error && <Alert severity="error" sx={alertSx}>{error}</Alert>}
-            {success && <Alert severity="success" icon={<CheckCircleRounded />} sx={alertSx}>{success}</Alert>}
-
-            {!isSignedIn ? (
-              <Stack spacing={2}>
-                <TextField
-                  label="Staff Number"
-                  value={loginForm.staffNumber}
-                  onChange={(event) => setLoginForm((previous) => ({ ...previous, staffNumber: event.target.value }))}
-                  fullWidth
-                  sx={fieldSx}
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
-                  fullWidth
-                  sx={fieldSx}
-                />
-                <Button
-                  variant="contained"
-                  startIcon={busy ? <CircularProgress color="inherit" size={18} /> : <LoginRounded />}
-                  onClick={handleSignIn}
-                  disabled={busy || !loginForm.staffNumber || !loginForm.password}
-                  sx={primaryButtonSx}
-                >
-                  Sign In
-                </Button>
-              </Stack>
-            ) : (
-              <Stack spacing={2}>
-                <TextField
-                  select
-                  label="Clocking Station"
-                  value={form.station}
-                  onChange={(event) => setForm((previous) => ({ ...previous, station: event.target.value }))}
-                  fullWidth
-                  sx={fieldSx}
-                >
-                  {(options.stations || []).map((station) => (
-                    <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Clocking Point Name"
-                  value={form.name}
-                  onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
-                  placeholder="Main Entrance"
-                  fullWidth
-                  sx={fieldSx}
-                />
-                <Box sx={officerCardSx}>
-                  <Stack direction="row" spacing={1.3} alignItems="center">
-                    <Box sx={officerIconSx}><PersonRounded /></Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 12, fontWeight: 950, color: "#64748B" }}>Enrolling Officer</Typography>
-                      <Typography sx={{ fontWeight: 950, color: "#102033" }}>{options.officer.name}</Typography>
-                      <Typography sx={{ fontWeight: 850, color: "#64748B", textTransform: "capitalize" }}>{options.officer.rank}</Typography>
-                    </Box>
-                  </Stack>
+    <ClockingPointChrome>
+      <Box sx={pageSx}>
+        <Box sx={frameSx}>
+          <Box sx={visualPanelSx}>
+            <Box sx={visualImageSx} />
+            <Box sx={visualOverlaySx} />
+            <Stack spacing={2.2} sx={{ position: "relative", zIndex: 1, height: "100%" }}>
+              <Stack direction="row" spacing={1.4} alignItems="center">
+                <Box sx={logoWrapSx}>
+                  <img src={kmfriLogo} alt="KMFRI" style={{ width: 48, height: 48, objectFit: "contain" }} />
                 </Box>
-                <Button
-                  variant="contained"
-                  startIcon={busy ? <CircularProgress color="inherit" size={18} /> : <AddLocationAltRounded />}
-                  onClick={handleEnroll}
-                  disabled={busy || !form.station || !form.name.trim()}
-                  sx={primaryButtonSx}
-                >
-                  Enroll Clocking Point
-                </Button>
+                <Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 950, color: "rgba(255,255,255,0.72)" }}>KMFRI</Typography>
+                  <Typography sx={{ fontSize: 18, fontWeight: 950, color: "#fff" }}>Clocking Point</Typography>
+                </Box>
               </Stack>
-            )}
 
-            {isSignedIn && (
-              <Box sx={stationHintSx}>
-                <LocationOnRounded sx={{ fontSize: 20 }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 850 }}>
-                  {form.station || "Select station"}
+              <Box sx={{ mt: "auto" }}>
+                <Typography sx={{ fontSize: { xs: 34, md: 46 }, lineHeight: 1.04, fontWeight: 950, color: "#fff" }}>
+                  {isSignedIn ? "Enroll trusted device" : "Secure enrollment"}
+                </Typography>
+                <Typography sx={{ mt: 1.2, fontSize: 15, lineHeight: 1.55, fontWeight: 800, color: "rgba(255,255,255,0.78)" }}>
+                  {isSignedIn
+                    ? "Bind this browser profile to an approved station and physical Clocking Point."
+                    : "Authorised KMFRI officers sign in before registering a shared device."}
                 </Typography>
               </Box>
-            )}
-          </Stack>
-        </Paper>
+
+              <Box sx={statusCardSx}>
+                <Stack direction="row" spacing={1.1} alignItems="center">
+                  {isSignedIn ? <DevicesRounded /> : <SecurityRounded />}
+                  <Typography sx={{ fontWeight: 950 }}>{isSignedIn ? "Device Setup" : "Officer Access"}</Typography>
+                </Stack>
+                <Typography sx={{ mt: 0.8, fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.74)" }}>
+                  {isSignedIn ? "FingerprintJS identity will be hashed on the server." : "Use your existing staff credentials."}
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+
+          <Paper elevation={0} sx={panelSx}>
+            <Stack spacing={2.5}>
+              <Stack spacing={0.7}>
+                <Typography sx={eyebrowSx}>{isSignedIn ? "Enrollment" : "Sign In"}</Typography>
+                <Typography sx={headlineSx}>
+                  {isSignedIn ? "Enroll Clocking Point" : "Clocking Point Enrollment"}
+                </Typography>
+                <Typography sx={bodyTextSx}>
+                  {isSignedIn ? "Choose the official station and name this physical location." : "Only authorised officers can enroll KMFRI-owned devices."}
+                </Typography>
+              </Stack>
+
+              {error && <Alert severity="error" sx={alertSx}>{error}</Alert>}
+              {success && <Alert severity="success" icon={<CheckCircleRounded />} sx={alertSx}>{success}</Alert>}
+
+              {!isSignedIn ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Staff Number"
+                    value={loginForm.staffNumber}
+                    onChange={(event) => setLoginForm((previous) => ({ ...previous, staffNumber: event.target.value }))}
+                    fullWidth
+                    sx={fieldSx}
+                  />
+                  <TextField
+                    label="Password"
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
+                    fullWidth
+                    sx={fieldSx}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={busy ? <CircularProgress color="inherit" size={18} /> : <LoginRounded />}
+                    onClick={handleSignIn}
+                    disabled={busy || !loginForm.staffNumber || !loginForm.password}
+                    sx={primaryButtonSx}
+                  >
+                    Sign In
+                  </Button>
+                </Stack>
+              ) : (
+                <Stack spacing={2}>
+                  <TextField
+                    select
+                    label="Clocking Station"
+                    value={form.station}
+                    onChange={(event) => setForm((previous) => ({ ...previous, station: event.target.value }))}
+                    fullWidth
+                    sx={fieldSx}
+                  >
+                    {(options.stations || []).map((station) => (
+                      <MenuItem key={station.name} value={station.name}>{station.name}</MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="Clocking Point Name"
+                    value={form.name}
+                    onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+                    placeholder="Main Entrance"
+                    fullWidth
+                    sx={fieldSx}
+                  />
+                  <Box sx={officerCardSx}>
+                    <Stack direction="row" spacing={1.3} alignItems="center">
+                      <Box sx={officerIconSx}><PersonRounded /></Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 950, color: "#64748B" }}>Enrolling Officer</Typography>
+                        <Typography sx={{ fontWeight: 950, color: "#102033" }}>{options.officer.name}</Typography>
+                        <Typography sx={{ fontWeight: 850, color: "#64748B", textTransform: "capitalize" }}>{options.officer.rank}</Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    startIcon={busy ? <CircularProgress color="inherit" size={18} /> : <AddLocationAltRounded />}
+                    onClick={handleEnroll}
+                    disabled={busy || !form.station || !form.name.trim()}
+                    sx={primaryButtonSx}
+                  >
+                    Enroll Clocking Point
+                  </Button>
+                </Stack>
+              )}
+
+              {isSignedIn && (
+                <Box sx={stationHintSx}>
+                  <LocationOnRounded sx={{ fontSize: 20 }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 850 }}>
+                    {form.station || "Select station"}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Paper>
+        </Box>
       </Box>
-    </Box>
+    </ClockingPointChrome>
   );
 }
 
@@ -229,7 +232,8 @@ const pageSx = {
   display: "grid",
   placeItems: "center",
   px: { xs: 1.5, sm: 2.5 },
-  py: { xs: 2, sm: 3 },
+  pt: { xs: 10.5, sm: 12, lg: 12.5 },
+  pb: { xs: 2, sm: 3 },
   bgcolor: "#ECF4F7",
   backgroundImage:
     "linear-gradient(135deg, rgba(10,61,98,0.08) 0%, rgba(72,201,176,0.12) 44%, rgba(255,255,255,0.86) 100%)",
@@ -238,7 +242,7 @@ const pageSx = {
 const frameSx = {
   width: "100%",
   maxWidth: 1040,
-  minHeight: { xs: "calc(100svh - 32px)", md: 640 },
+  minHeight: { xs: "calc(100svh - 96px)", sm: "calc(100svh - 112px)", md: 640 },
   display: "grid",
   gridTemplateColumns: { xs: "1fr", md: "0.92fr 1fr" },
   gap: { xs: 1.5, md: 2 },

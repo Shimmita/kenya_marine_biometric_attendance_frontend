@@ -32,6 +32,7 @@ import { requestPasswordReset } from '../service/ResetPasswordService';
 import { markSessionStarted } from '../service/SessionTimeout';
 import { getMaintenanceStatus, getPlatformConfig } from '../service/SuperadminService';
 import ClockingImage from "./../images/clocking_image_1.png";
+import ClockingImage2 from "./../images/clocking_2.png";
 import AppNavbar, { useAccessibilityPrefs } from './AppNavbar';
 import { loginStaff, loginUser } from './auth/Login';
 import coreDataDetails, { applyPlatformConfigToCoreData } from './CoreDataDetails';
@@ -41,6 +42,11 @@ import GuideDialog from './GuideDialog';
 
 const { colorPalette } = coreDataDetails;
 const MotionDiv = motion.div;
+
+const landingHeroSlides = [
+    { src: ClockingImage, alt: 'KMFRI Attendance clocking overview' },
+    { src: ClockingImage2, alt: 'KMFRI Attendance clocking dashboard' },
+];
 
 
 /* ══ GLASS DESIGN TOKENS (WHITENING BODY & COOL NAVBAR) ═════════════════════ */
@@ -743,10 +749,42 @@ const EnhancedLandingPage = () => {
     const [privacyOpen, setPrivacyOpen] = useState(false);
     const [branding, setBranding] = useState(null);
     const [a11yPrefs, setA11yPrefs] = useAccessibilityPrefs();
+    const [activeHeroSlide, setActiveHeroSlide] = useState(0);
+    const [heroTouchStart, setHeroTouchStart] = useState(null);
 
     useEffect(() => {
         document.title = view === 'landing' ? 'KMFRI Attendance System' : 'Sign In | KMFRI Attendance';
     }, [view]);
+
+    useEffect(() => {
+        if (view !== 'landing' || a11yPrefs.reducedMotion) return undefined;
+
+        const timer = window.setInterval(() => {
+            setActiveHeroSlide((current) => (current + 1) % landingHeroSlides.length);
+        }, 4600);
+
+        return () => window.clearInterval(timer);
+    }, [a11yPrefs.reducedMotion, view]);
+
+    const showPreviousHeroSlide = () => {
+        setActiveHeroSlide((current) => (current - 1 + landingHeroSlides.length) % landingHeroSlides.length);
+    };
+
+    const showNextHeroSlide = () => {
+        setActiveHeroSlide((current) => (current + 1) % landingHeroSlides.length);
+    };
+
+    const handleHeroTouchEnd = (event) => {
+        if (heroTouchStart === null) return;
+        const distance = event.changedTouches[0].clientX - heroTouchStart;
+        setHeroTouchStart(null);
+        if (Math.abs(distance) < 40) return;
+        if (distance > 0) {
+            showPreviousHeroSlide();
+        } else {
+            showNextHeroSlide();
+        }
+    };
 
     // Pull live branding/theme from the PlatformConfig singleton so superadmin
     // changes (colors, org name, support contacts, active theme) reflect here immediately.
@@ -913,14 +951,86 @@ const EnhancedLandingPage = () => {
                                     >
                                         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
                                             <Box
-                                                component="img"
-                                                src={ClockingImage}
-                                                alt="KMFRI Attendance"
-                                                loading="eager"
-                                                fetchPriority="high"
-                                                decoding="async"
-                                                sx={{ display: 'block', width: "100%", height: 'auto', mx: 'auto', maxWidth: { xs: '100%', sm: 430, md: 500 }, maxHeight: { xs: '34dvh', sm: '36dvh', md: 'min(52dvh, 440px)' }, borderRadius: { xs: 2.5, sm: 3, md: 4 }, ...G.surfaceStrong, objectFit: "contain", transition: ".4s", "&:hover": { transform: a11yPrefs.reducedMotion ? 'none' : "translateY(-8px) scale(1.02)" } }}
-                                            />
+                                                sx={{
+                                                    position: 'relative',
+                                                    width: "100%",
+                                                    mx: 'auto',
+                                                    maxWidth: { xs: '100%', sm: 430, md: 500 },
+                                                    aspectRatio: '3 / 2',
+                                                    maxHeight: { xs: '34dvh', sm: '36dvh', md: 'min(52dvh, 440px)' },
+                                                    borderRadius: { xs: 2.5, sm: 3, md: 4 },
+                                                    overflow: 'hidden',
+                                                    ...G.surfaceStrong,
+                                                    transition: a11yPrefs.reducedMotion ? 'none' : 'transform .4s ease, box-shadow .4s ease',
+                                                    "&:hover": { transform: a11yPrefs.reducedMotion ? 'none' : "translateY(-8px) scale(1.02)" },
+                                                    '&::after': {
+                                                        content: '""',
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        pointerEvents: 'none',
+                                                        background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 36%, rgba(10,61,98,0.08) 100%)',
+                                                    },
+                                                }}
+                                                onTouchStart={(event) => setHeroTouchStart(event.touches[0].clientX)}
+                                                onTouchEnd={handleHeroTouchEnd}
+                                            >
+                                                {landingHeroSlides.map((slide, index) => (
+                                                    <Box
+                                                        key={slide.src}
+                                                        component="img"
+                                                        src={slide.src}
+                                                        alt={slide.alt}
+                                                        loading="eager"
+                                                        fetchPriority={index === 0 ? 'high' : 'low'}
+                                                        decoding="async"
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            inset: 0,
+                                                            display: 'block',
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover',
+                                                            objectPosition: 'center',
+                                                            transform: `translateX(${(index - activeHeroSlide) * 100}%)`,
+                                                            transition: a11yPrefs.reducedMotion ? 'none' : 'transform 720ms cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        }}
+                                                    />
+                                                ))}
+
+                                                <Stack
+                                                    direction="row"
+                                                    spacing={0.75}
+                                                    aria-hidden="true"
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        left: '50%',
+                                                        bottom: { xs: 10, sm: 12 },
+                                                        transform: 'translateX(-50%)',
+                                                        zIndex: 1,
+                                                        px: 1,
+                                                        py: 0.75,
+                                                        borderRadius: 999,
+                                                        background: 'rgba(255,255,255,0.78)',
+                                                        border: '1px solid rgba(10,61,98,0.12)',
+                                                        boxShadow: '0 8px 22px rgba(10,61,98,0.12)',
+                                                        backdropFilter: 'blur(12px)',
+                                                        WebkitBackdropFilter: 'blur(12px)',
+                                                    }}
+                                                >
+                                                    {landingHeroSlides.map((slide, index) => (
+                                                        <Box
+                                                            key={`${slide.src}-dot`}
+                                                            sx={{
+                                                                width: index === activeHeroSlide ? 18 : 7,
+                                                                height: 7,
+                                                                borderRadius: 999,
+                                                                background: index === activeHeroSlide ? 'var(--kmfri-secondary, #005B96)' : 'rgba(10,61,98,0.25)',
+                                                                transition: a11yPrefs.reducedMotion ? 'none' : 'all 260ms ease',
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </Stack>
+                                            </Box>
                                         </Box>
                                     </MotionDiv>
                                 </Box>
@@ -1014,7 +1124,7 @@ const EnhancedLandingPage = () => {
 
                                         }
                                     }}>
-                                        Technical Support
+                                    Help
                                     </Button>
 
                                 </Stack>

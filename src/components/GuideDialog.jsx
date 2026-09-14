@@ -157,7 +157,16 @@ const GUIDE_STEPS = [
    COMPONENT
 ───────────────────────────────────────────── */
 
-function GuideDialog({ open, onClose }) {
+function GuideDialog({
+    open,
+    onClose,
+    steps,
+    title = 'KMFRI System Guide',
+    subtitle = 'Quick guide to attendance, security and account access',
+    sidebarTitle = 'Getting started',
+    sidebarDescription = 'Select any step to review its instructions.',
+    guideIcon: GuideIcon = SecurityRounded,
+}) {
     const [activeStep, setActiveStep] = useState(0);
 
     const theme = useTheme();
@@ -166,8 +175,9 @@ function GuideDialog({ open, onClose }) {
         theme.breakpoints.down('sm')
     );
 
-    const totalSteps = GUIDE_STEPS.length;
-    const currentStep = GUIDE_STEPS[activeStep];
+    const guideSteps = steps?.length ? steps : GUIDE_STEPS;
+    const totalSteps = guideSteps.length;
+    const currentStep = guideSteps[activeStep] || guideSteps[0];
 
     const CurrentIcon =
         currentStep?.icon || HelpOutlineRounded;
@@ -184,7 +194,7 @@ function GuideDialog({ open, onClose }) {
         if (open) {
             setActiveStep(0);
         }
-    }, [open]);
+    }, [open, guideSteps]);
 
 
     const handleNext = () => {
@@ -375,7 +385,7 @@ function GuideDialog({ open, onClose }) {
                                     'inset 0 1px 0 rgba(255,255,255,0.10)',
                             }}
                         >
-                            <SecurityRounded
+                            <GuideIcon
                                 sx={{
                                     fontSize: {
                                         xs: 22,
@@ -407,7 +417,7 @@ function GuideDialog({ open, onClose }) {
                                         '-0.015em',
                                 }}
                             >
-                                KMFRI System Guide
+                                {title}
                             </Typography>
 
 
@@ -426,8 +436,7 @@ function GuideDialog({ open, onClose }) {
                                     lineHeight: 1.4,
                                 }}
                             >
-                                Quick guide to attendance,
-                                security and account access
+                                {subtitle}
                             </Typography>
 
                         </Box>
@@ -628,7 +637,7 @@ function GuideDialog({ open, onClose }) {
                                         '0.08em',
                                 }}
                             >
-                                Getting started
+                                {sidebarTitle}
                             </Typography>
 
 
@@ -645,8 +654,7 @@ function GuideDialog({ open, onClose }) {
                                     lineHeight: 1.45,
                                 }}
                             >
-                                Select any step to review
-                                its instructions.
+                                {sidebarDescription}
                             </Typography>
 
                         </Box>
@@ -677,7 +685,7 @@ function GuideDialog({ open, onClose }) {
 
                             <Stack spacing={0.65}>
 
-                                {GUIDE_STEPS.map(
+                                {guideSteps.map(
                                     (step, index) => {
 
                                         const StepIcon =
@@ -947,7 +955,7 @@ function GuideDialog({ open, onClose }) {
                                 }}
                             >
 
-                                {GUIDE_STEPS.map(
+                                {guideSteps.map(
                                     (step, index) => {
 
                                         const isActive =
@@ -1538,7 +1546,7 @@ function GuideDialog({ open, onClose }) {
                                     }}
                                 >
 
-                                    {GUIDE_STEPS.map(
+                                    {guideSteps.map(
                                         (step, index) => (
                                             <Box
                                                 key={

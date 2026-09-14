@@ -22,8 +22,8 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import kmfriLogo from "../images/kmfri_logo.png";
 import clockingImage from "../images/clocking_image_1.png";
+import ClockingPointChrome from "./ClockingPointChrome";
 import {
   getClockingPointStatus,
   requestClockingPointOtp,
@@ -35,6 +35,12 @@ const accountTypes = [
   { value: "staff", label: "STAFF", caption: "Staff Number", icon: <BadgeRounded /> },
   { value: "intern", label: "INTERN", caption: "ID Number", icon: <SchoolRounded /> },
   { value: "attachee", label: "ATTACHEE", caption: "ID Number", icon: <GroupsRounded /> },
+];
+
+const workflowSteps = [
+  { value: 1, label: "Account" },
+  { value: 2, label: "Identifier" },
+  { value: 3, label: "OTP" },
 ];
 
 const formatClockTime = (date = new Date()) =>
@@ -89,6 +95,8 @@ export default function ClockingPoint() {
   const progressValue = employee.challenge?.expiresInSeconds
     ? Math.max(0, Math.min(100, (expiresIn / employee.challenge.expiresInSeconds) * 100))
     : 0;
+  const activeStep = employee.challenge ? 3 : employee.accountType ? 2 : 1;
+  const isOtpStep = Boolean(employee.challenge);
 
   const clearEmployeeState = useCallback(() => {
     setEmployee(initialEmployeeState);
@@ -197,7 +205,7 @@ export default function ClockingPoint() {
           <Stack spacing={2.2} alignItems="center" justifyContent="center" sx={{ minHeight: 360 }}>
             <CircularProgress size={42} thickness={4.5} />
             <Typography sx={eyebrowSx}>KMFRI CLOCKING POINT</Typography>
-            <Typography sx={headlineSx}>Preparing device</Typography>
+            <Typography sx={headlineSx(false)}>Preparing device</Typography>
           </Stack>
         </MainPanel>
       </Shell>
@@ -217,7 +225,7 @@ export default function ClockingPoint() {
               <Typography sx={eyebrowSx}>CLOCKING POINT UNAVAILABLE</Typography>
               <Typography sx={errorHeadlineSx}>Device not enrolled</Typography>
             </Box>
-            <Typography sx={bodyTextSx}>{error}</Typography>
+            <Typography sx={bodyTextSx(false)}>{error}</Typography>
             <Button variant="contained" onClick={() => navigate("/")} sx={singleButtonSx}>OK</Button>
           </Stack>
         </MainPanel>
@@ -236,7 +244,7 @@ export default function ClockingPoint() {
             </Box>
             <Box>
               <Typography sx={eyebrowSx}>ATTENDANCE RECORDED</Typography>
-              <Typography sx={{ ...headlineSx, fontSize: { xs: 38, sm: 52 } }}>
+              <Typography sx={{ ...headlineSx(false), fontSize: { xs: 38, sm: 52 } }}>
                 {employee.success.action === "clock_out" ? "CLOCKED OUT" : "CLOCKED IN"}
               </Typography>
             </Box>
@@ -248,8 +256,8 @@ export default function ClockingPoint() {
               <Typography sx={{ fontWeight: 950 }}>{employee.success.time}</Typography>
             </Box>
             <Stack spacing={0.4} alignItems="center">
-              <Typography sx={bodyTextSx}>{employee.success.station}</Typography>
-              <Typography sx={{ ...bodyTextSx, color: "#0A3D62" }}>{employee.success.pointName}</Typography>
+              <Typography sx={bodyTextSx(false)}>{employee.success.station}</Typography>
+              <Typography sx={{ ...bodyTextSx(false), color: "#0A3D62" }}>{employee.success.pointName}</Typography>
             </Stack>
           </Stack>
         </MainPanel>
@@ -261,104 +269,169 @@ export default function ClockingPoint() {
     <Shell>
       <StatusPanel clockingPoint={clockingPoint} now={now} tone="ready" />
       <MainPanel>
-        <Stack spacing={{ xs: 2.2, sm: 3 }} sx={{ width: "100%" }}>
-          <Stack spacing={1.2}>
-            <Typography sx={eyebrowSx}>KMFRI CLOCKING POINT</Typography>
-            <Typography sx={headlineSx}>
-              {employee.challenge
-                ? `Verify ${getActionLabel(employee.challenge.action)}`
-                : employee.accountType
-                  ? identifierLabel
-                  : "Select account type"}
-            </Typography>
-            <Typography sx={bodyTextSx}>
-              {employee.challenge
-                ? `Code sent to your registered phone ending in ${employee.challenge.phoneMasked}`
-                : employee.accountType
-                  ? selectedAccount?.caption
-                  : "Use the option that matches your KMFRI account."}
-            </Typography>
-          </Stack>
+        <Box sx={mainContentCardSx(isOtpStep)}>
+          <Stack spacing={isOtpStep ? { xs: 1.6, sm: 2 } : { xs: 2.3, sm: 3 }} sx={{ width: "100%" }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={isOtpStep ? 1.4 : 2} alignItems={{ xs: "stretch", md: "flex-start" }} justifyContent="space-between">
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={eyebrowSx}>KMFRI CLOCKING POINT</Typography>
+                <Typography sx={headlineSx(isOtpStep)}>
+                  {employee.challenge
+                    ? `Verify ${getActionLabel(employee.challenge.action)}`
+                    : employee.accountType
+                      ? identifierLabel
+                      : "Select account"}
+                </Typography>
+                <Typography sx={bodyTextSx(isOtpStep)}>
+                  {employee.challenge
+                    ? `Code sent to your registered phone ending in ${employee.challenge.phoneMasked}`
+                    : employee.accountType
+                      ? `Enter the ${selectedAccount?.caption?.toLowerCase()} linked to this account.`
+                      : "Choose the account category before OTP verification."}
+                </Typography>
+              </Box>
 
-          {error && (
-            <Alert
-              severity="warning"
-              sx={{
-                borderRadius: "8px",
-                border: "1px solid rgba(217,119,6,0.24)",
-                fontWeight: 800,
-              }}
-            >
-              {error}
-            </Alert>
-          )}
-
-          {!employee.accountType && (
-            <Box sx={accountGridSx}>
-              {accountTypes.map((type) => (
-                <Button
-                  key={type.value}
-                  variant="outlined"
-                  onClick={() => setEmployee((previous) => ({ ...previous, accountType: type.value }))}
-                  sx={accountButtonSx}
-                >
-                  <Box sx={accountIconSx}>{type.icon}</Box>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: { xs: 22, md: 25 }, fontWeight: 950 }}>{type.label}</Typography>
-                    <Typography sx={{ fontSize: 13, fontWeight: 850, color: "#64748B" }}>{type.caption}</Typography>
-                  </Box>
-                </Button>
-              ))}
-            </Box>
-          )}
-
-          {employee.accountType && !employee.challenge && (
-            <Stack spacing={2.4} sx={{ width: "100%", maxWidth: 560 }}>
-              <Button startIcon={<KeyboardArrowLeftRounded />} onClick={clearEmployeeState} sx={backButtonSx}>
-                Back
-              </Button>
-              <TextField
-                autoFocus
-                label={identifierLabel}
-                value={employee.identifier}
-                onChange={(event) => setEmployee((previous) => ({ ...previous, identifier: event.target.value }))}
-                fullWidth
-                inputProps={{ inputMode: employee.accountType === "staff" ? "text" : "numeric" }}
-                sx={inputSx}
-              />
-              <Button
-                variant="contained"
-                disabled={busy || !employee.identifier.trim()}
-                onClick={() => requestOtp(false)}
-                sx={primaryButtonSx}
-              >
-                {busy ? <CircularProgress color="inherit" size={24} /> : "Continue"}
-              </Button>
+              <Box sx={stepStripSx} aria-label="Clocking point progress">
+                {workflowSteps.map((step) => {
+                  const isActive = activeStep === step.value;
+                  const isComplete = activeStep > step.value;
+                  return (
+                    <Box key={step.value} sx={stepItemSx(isActive, isComplete)}>
+                      <Box sx={stepDotSx(isActive, isComplete)}>
+                        {isComplete ? <CheckCircleRounded sx={{ fontSize: 16 }} /> : step.value}
+                      </Box>
+                      <Typography sx={stepLabelSx(isActive)}>{step.label}</Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
             </Stack>
-          )}
 
-          {employee.challenge && (
-            <Stack spacing={2.4} sx={{ width: "100%", maxWidth: 600 }}>
-              <Box sx={otpPanelSx}>
-                <Stack spacing={1.4} alignItems="center">
-                  <PhoneIphoneRounded sx={{ color: "#005B96", fontSize: 36 }} />
+            {error && (
+              <Alert
+                severity="warning"
+                sx={{
+                  borderRadius: "8px",
+                  border: "1px solid rgba(217,119,6,0.24)",
+                  fontWeight: 800,
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+
+            {!employee.accountType && (
+              <Stack spacing={{ xs: 1.4, sm: 1.7 }}>
+                <Box sx={accountGridSx}>
+                  {accountTypes.map((type) => (
+                    <Button
+                      key={type.value}
+                      variant="outlined"
+                      onClick={() => setEmployee((previous) => ({ ...previous, accountType: type.value }))}
+                      sx={accountButtonSx}
+                    >
+                      <Box className="account-icon" sx={accountIconSx}>{type.icon}</Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={accountLabelSx}>{type.label}</Typography>
+                        <Typography sx={accountCaptionSx}>{type.caption}</Typography>
+                      </Box>
+                      <Box className="account-action" sx={accountArrowSx}>Continue</Box>
+                    </Button>
+                  ))}
+                </Box>
+
+                <Box sx={visionStatementSx}>
+                  <Box sx={visionAccentSx} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography mt={3} sx={visionLabelSx}>KMFRI Vision</Typography>
+                    <Typography sx={visionTextSx}>
+                      A World Class Centre of Excellence in Innovative Research for Sustainable Blue Economy and Fisheries Development.
+                    </Typography>
+                  </Box>
+                </Box>
+              </Stack>
+            )}
+
+            {employee.accountType && !employee.challenge && (
+              <Box sx={formPanelSx}>
+                <Stack spacing={2.2}>
+                  <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="space-between">
+                    <Box sx={selectedAccountSx}>
+                      <Box sx={selectedAccountIconSx}>{selectedAccount?.icon}</Box>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontWeight: 950, color: "#64748B" }}>Selected Account</Typography>
+                        <Typography sx={{ fontSize: 17, fontWeight: 950, color: "#102033" }}>{selectedAccount?.label}</Typography>
+                      </Box>
+                    </Box>
+                    <Button startIcon={<KeyboardArrowLeftRounded />} onClick={clearEmployeeState} sx={backButtonSx}>
+                      Back
+                    </Button>
+                  </Stack>
+
                   <TextField
                     autoFocus
+                    label={identifierLabel}
+                    type="password"
+                    value={employee.identifier}
+                    onChange={(event) => setEmployee((previous) => ({ ...previous, identifier: event.target.value }))}
+                    fullWidth
+                    inputProps={{
+                      inputMode: employee.accountType === "staff" ? "text" : "numeric",
+                      autoComplete: "off",
+                    }}
+                    sx={inputSx}
+                  />
+                  <Button
+                    variant="contained"
+                    disabled={busy || !employee.identifier.trim()}
+                    onClick={() => requestOtp(false)}
+                    sx={primaryButtonSx}
+                  >
+                    {busy ? <CircularProgress color="inherit" size={24} /> : "Send OTP"}
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+
+            {employee.challenge && (
+              <Box sx={otpShellSx}>
+                <Stack spacing={{ xs: 1.4, sm: 1.7 }} alignItems="center">
+                  <Box sx={otpIconSx}>
+                    <PhoneIphoneRounded sx={{ fontSize: 28 }} />
+                  </Box>
+                  <Box sx={{ textAlign: "center" }}>
+                    <Typography sx={{ fontSize: 12, fontWeight: 950, color: "#64748B", textTransform: "uppercase" }}>
+                      One-time code
+                    </Typography>
+                    <Typography sx={otpUserNameSx}>
+                      {employee.userName || "Registered user"}
+                    </Typography>
+                  </Box>
+                  <TextField
+                    autoFocus
+                    type="password"
                     value={otpDigits}
                     onChange={(event) => setEmployee((previous) => ({ ...previous, otp: event.target.value }))}
                     inputProps={{
                       inputMode: "numeric",
                       maxLength: 8,
+                      autoComplete: "one-time-code",
                       style: {
                         textAlign: "center",
-                        letterSpacing: 10,
-                        fontSize: 32,
+                        letterSpacing: 7,
+                        fontSize: 28,
                         fontWeight: 950,
                       },
                     }}
                     sx={otpInputSx}
                   />
-                  <Box sx={{ width: "100%", maxWidth: 360 }}>
+
+                  <Box sx={timerPanelSx}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                      <Typography sx={{ fontSize: 12, fontWeight: 950, color: "#64748B" }}>Code timer</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 950, color: expiresIn <= 5 ? "#DC2626" : "#005B96" }}>
+                        {expiresIn > 0 ? formatMinuteSeconds(expiresIn) : "CODE EXPIRED"}
+                      </Typography>
+                    </Stack>
                     <LinearProgress
                       variant="determinate"
                       value={progressValue}
@@ -372,36 +445,35 @@ export default function ClockingPoint() {
                         },
                       }}
                     />
-                    <Typography sx={{ mt: 1, fontWeight: 950, color: expiresIn <= 5 ? "#DC2626" : "#005B96" }}>
-                      {expiresIn > 0 ? formatMinuteSeconds(expiresIn) : "CODE EXPIRED"}
-                    </Typography>
                   </Box>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: "100%" }}>
+                    <Button variant="outlined" onClick={clearEmployeeState} sx={rowSecondaryButtonSx}>Cancel</Button>
+                    <Button variant="contained" disabled={busy || expiresIn <= 0 || !otpDigits} onClick={verifyOtp} sx={rowPrimaryButtonSx}>
+                      {busy ? <CircularProgress color="inherit" size={24} /> : "Verify Attendance"}
+                    </Button>
+                  </Stack>
+                  {expiresIn <= 0 && (
+                    <Button disabled={busy} onClick={() => requestOtp(true)} sx={{ alignSelf: "center", fontWeight: 950 }}>
+                      Resend Code
+                    </Button>
+                  )}
                 </Stack>
               </Box>
-
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <Button variant="outlined" onClick={clearEmployeeState} sx={rowSecondaryButtonSx}>Cancel</Button>
-                <Button variant="contained" disabled={busy || expiresIn <= 0 || !otpDigits} onClick={verifyOtp} sx={rowPrimaryButtonSx}>
-                  {busy ? <CircularProgress color="inherit" size={24} /> : "Verify"}
-                </Button>
-              </Stack>
-              {expiresIn <= 0 && (
-                <Button disabled={busy} onClick={() => requestOtp(true)} sx={{ alignSelf: "center", fontWeight: 950 }}>
-                  Resend Code
-                </Button>
-              )}
-            </Stack>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        </Box>
       </MainPanel>
     </Shell>
   );
 }
 
 const Shell = ({ children }) => (
-  <Box sx={shellSx}>
-    <Box sx={appFrameSx}>{children}</Box>
-  </Box>
+  <ClockingPointChrome>
+    <Box sx={shellSx}>
+      <Box sx={appFrameSx}>{children}</Box>
+    </Box>
+  </ClockingPointChrome>
 );
 
 const MainPanel = ({ children }) => (
@@ -410,56 +482,97 @@ const MainPanel = ({ children }) => (
   </Box>
 );
 
-const StatusPanel = ({ clockingPoint, now, tone }) => (
-  <Box component="aside" sx={statusPanelSx}>
-    <Box sx={statusPhotoSx} />
-    <Box sx={statusOverlaySx} />
-    <Stack spacing={2.6} sx={{ position: "relative", zIndex: 1, height: "100%" }}>
-      <Stack direction="row" spacing={1.4} alignItems="center">
-        <Box sx={logoWrapSx}>
-          <img src={kmfriLogo} alt="KMFRI" style={{ width: 48, height: 48, objectFit: "contain" }} />
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 950, color: "rgba(255,255,255,0.72)" }}>KMFRI</Typography>
-          <Typography sx={{ fontSize: 18, fontWeight: 950, color: "#fff" }}>Attendance</Typography>
-        </Box>
-      </Stack>
+const getTerminalStatus = (tone) => {
+  if (tone === "blocked") {
+    return {
+      label: "Terminal offline",
+      caption: "Enrollment is required before this device can record attendance.",
+      icon: WarningAmberRounded,
+    };
+  }
+  if (tone === "loading") {
+    return {
+      label: "Checking terminal",
+      caption: "Validating the registered clocking point.",
+      icon: ShieldRounded,
+    };
+  }
+  if (tone === "success") {
+    return {
+      label: "Attendance recorded",
+      caption: "Ready for the next user after the confirmation clears.",
+      icon: CheckCircleRounded,
+    };
+  }
+  return {
+    label: "Terminal ready",
+    caption: "OTP attendance verification is active.",
+    icon: ShieldRounded,
+  };
+};
 
-      <Box sx={{ mt: "auto" }}>
-        <Typography sx={{ fontSize: { xs: 42, md: 56 }, lineHeight: 1, fontWeight: 950, color: "#fff" }}>
-          {formatClockTime(now)}
-        </Typography>
-        <Typography sx={{ mt: 1, fontSize: 14, fontWeight: 850, color: "rgba(255,255,255,0.78)" }}>
-          {formatDateLabel(now)}
-        </Typography>
-      </Box>
+const StatusPanel = ({ clockingPoint, now, tone }) => {
+  const terminalStatus = getTerminalStatus(tone);
+  const StatusIcon = terminalStatus.icon;
 
-      <Box sx={stationBlockSx}>
-        <Stack direction="row" spacing={1.1} alignItems="center">
-          {tone === "blocked" ? <WarningAmberRounded /> : tone === "success" ? <CheckCircleRounded /> : <ShieldRounded />}
-          <Typography sx={{ fontWeight: 950 }}>
-            {tone === "blocked" ? "Not Ready" : tone === "loading" ? "Checking Device" : "Ready"}
-          </Typography>
-        </Stack>
-        <Stack spacing={0.8} sx={{ mt: 1.4 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <LocationOnRounded sx={{ fontSize: 20, color: "rgba(255,255,255,0.78)" }} />
-            <Typography sx={{ fontSize: 15, fontWeight: 900, color: "#fff" }}>
-              {clockingPoint?.station || "Clocking Point"}
-            </Typography>
+  return (
+    <Box component="aside" sx={statusPanelSx}>
+      <Box sx={statusPhotoSx} />
+      <Box sx={statusOverlaySx} />
+      <Stack spacing={2.2} sx={{ position: "relative", zIndex: 1, height: "100%" }}>
+        <Box>
+          <Typography sx={terminalTitleSx}>Clocking Point</Typography>
+          <Typography sx={terminalSubtitleSx}>Fast attendance capture for station users.</Typography>
+        </Box>
+
+        <Box sx={timeCardSx}>
+          <Typography sx={timeTextSx}>{formatClockTime(now)}</Typography>
+          <Typography sx={dateTextSx}>{formatDateLabel(now)}</Typography>
+        </Box>
+
+        <Box sx={terminalStatusSx}>
+          <Stack direction="row" spacing={1.1} alignItems="center">
+            <Box sx={statusIconSx}>
+              <StatusIcon sx={{ fontSize: 20 }} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: 15, fontWeight: 950, color: "#fff" }}>
+                {terminalStatus.label}
+              </Typography>
+              <Typography sx={{ mt: 0.25, fontSize: 12.5, fontWeight: 750, color: "rgba(255,255,255,0.70)" }}>
+                {terminalStatus.caption}
+              </Typography>
+            </Box>
           </Stack>
-          <Typography sx={{ pl: 3.8, fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.74)" }}>
-            {clockingPoint?.name || "Device verification"}
-          </Typography>
+        </Box>
+
+        <Stack spacing={1.1} sx={{ mt: "auto" }}>
+          <Box sx={terminalInfoCardSx}>
+            <LocationOnRounded sx={{ fontSize: 20, color: "rgba(255,255,255,0.82)" }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={infoLabelSx}>Station</Typography>
+              <Typography sx={infoValueSx}>{clockingPoint?.station || "Not assigned"}</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={terminalInfoCardSx}>
+            <ShieldRounded sx={{ fontSize: 20, color: "rgba(255,255,255,0.82)" }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={infoLabelSx}>Terminal</Typography>
+              <Typography sx={infoValueSx}>{clockingPoint?.name || "Device verification"}</Typography>
+            </Box>
+          </Box>
+
         </Stack>
-      </Box>
-    </Stack>
-  </Box>
-);
+      </Stack>
+    </Box>
+  );
+};
 
 const shellSx = {
   minHeight: "100svh",
   p: { xs: 1.4, sm: 2.2, lg: 3 },
+  pt: { xs: 10.5, sm: 12, lg: 12.5 },
   bgcolor: "#ECF4F7",
   backgroundImage:
     "linear-gradient(135deg, rgba(10,61,98,0.08) 0%, rgba(72,201,176,0.12) 44%, rgba(255,255,255,0.86) 100%)",
@@ -468,7 +581,7 @@ const shellSx = {
 
 const appFrameSx = {
   width: "100%",
-  minHeight: { xs: "calc(100svh - 22px)", sm: "calc(100svh - 36px)", lg: "calc(100svh - 48px)" },
+  minHeight: { xs: "calc(100svh - 96px)", sm: "calc(100svh - 112px)", lg: "calc(100svh - 124px)" },
   display: "grid",
   gridTemplateColumns: { xs: "1fr", lg: "360px minmax(0, 1fr)" },
   gap: { xs: 1.4, sm: 2 },
@@ -478,7 +591,7 @@ const statusPanelSx = {
   position: "relative",
   overflow: "hidden",
   borderRadius: "8px",
-  minHeight: { xs: 210, lg: "auto" },
+  minHeight: { xs: 430, sm: 390, lg: "auto" },
   p: { xs: 2, sm: 2.5, lg: 3 },
   boxShadow: "0 22px 48px rgba(15, 23, 42, 0.16)",
 };
@@ -496,39 +609,162 @@ const statusOverlaySx = {
   position: "absolute",
   inset: 0,
   background:
-    "linear-gradient(155deg, rgba(4,31,52,0.94) 0%, rgba(10,61,98,0.86) 54%, rgba(0,91,150,0.72) 100%)",
+    "linear-gradient(155deg, rgba(4,31,52,0.96) 0%, rgba(10,61,98,0.90) 50%, rgba(0,91,150,0.72) 100%)",
 };
 
-const logoWrapSx = {
-  width: 62,
-  height: 62,
+const terminalTitleSx = {
+  fontSize: { xs: 30, sm: 36, lg: 40 },
+  lineHeight: 1.02,
+  fontWeight: 950,
+  color: "#fff",
+  letterSpacing: 0,
+};
+
+const terminalSubtitleSx = {
+  mt: 1,
+  maxWidth: 280,
+  fontSize: 14,
+  lineHeight: 1.55,
+  fontWeight: 800,
+  color: "rgba(255,255,255,0.74)",
+};
+
+const timeCardSx = {
+  p: { xs: 1.6, sm: 1.9 },
+  borderRadius: "8px",
+  bgcolor: "rgba(255,255,255,0.13)",
+  border: "1px solid rgba(255,255,255,0.20)",
+  backdropFilter: "blur(14px)",
+};
+
+const timeTextSx = {
+  fontSize: { xs: 40, md: 50 },
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#fff",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const dateTextSx = {
+  mt: 0.9,
+  fontSize: 13.5,
+  fontWeight: 850,
+  color: "rgba(255,255,255,0.76)",
+};
+
+const terminalStatusSx = {
+  p: 1.45,
+  borderRadius: "8px",
+  bgcolor: "rgba(72,201,176,0.13)",
+  border: "1px solid rgba(72,201,176,0.24)",
+  backdropFilter: "blur(12px)",
+};
+
+const statusIconSx = {
+  width: 40,
+  height: 40,
   borderRadius: "8px",
   display: "grid",
   placeItems: "center",
-  bgcolor: "rgba(255,255,255,0.94)",
-  border: "1px solid rgba(255,255,255,0.36)",
+  flexShrink: 0,
+  bgcolor: "rgba(255,255,255,0.14)",
+  color: "#fff",
 };
 
-const stationBlockSx = {
-  p: 1.7,
+const terminalInfoCardSx = {
+  display: "flex",
+  alignItems: "center",
+  gap: 1.2,
+  p: 1.35,
   borderRadius: "8px",
-  bgcolor: "rgba(255,255,255,0.12)",
-  border: "1px solid rgba(255,255,255,0.22)",
-  color: "#fff",
-  backdropFilter: "blur(12px)",
+  bgcolor: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.16)",
 };
+
+const infoLabelSx = {
+  fontSize: 11.5,
+  fontWeight: 950,
+  color: "rgba(255,255,255,0.58)",
+  textTransform: "uppercase",
+  letterSpacing: 0.7,
+};
+
+const infoValueSx = {
+  mt: 0.25,
+  fontSize: 14,
+  lineHeight: 1.3,
+  fontWeight: 950,
+  color: "#fff",
+};
+
 
 const mainPanelSx = {
   minHeight: { xs: 500, lg: "auto" },
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  p: { xs: 2, sm: 3, md: 5 },
+  p: { xs: 1.4, sm: 2.2, md: 2.7 },
   borderRadius: "8px",
   bgcolor: "rgba(255,255,255,0.94)",
   border: "1px solid rgba(148,163,184,0.22)",
   boxShadow: "0 22px 48px rgba(15, 23, 42, 0.10)",
+  overflow: "hidden",
 };
+
+const mainContentCardSx = (compact = false) => ({
+  width: "100%",
+  maxWidth: compact ? 880 : 980,
+  p: compact ? { xs: 1.35, sm: 1.7, md: 2 } : { xs: 1.6, sm: 2.2, md: 3 },
+  borderRadius: "8px",
+  bgcolor: "#FFFFFF",
+  border: "1px solid rgba(148,163,184,0.20)",
+  boxShadow: "0 18px 44px rgba(15,23,42,0.08)",
+  maxHeight: compact ? "100%" : "none",
+});
+
+const stepStripSx = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 0.8,
+  width: { xs: "100%", md: 330 },
+  p: 0.65,
+  borderRadius: "8px",
+  bgcolor: "#F4F8FA",
+  border: "1px solid rgba(148,163,184,0.22)",
+};
+
+const stepItemSx = (isActive, isComplete) => ({
+  minHeight: 46,
+  px: 0.8,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 0.8,
+  borderRadius: "8px",
+  bgcolor: isActive ? "#FFFFFF" : "transparent",
+  color: isActive || isComplete ? "#0A3D62" : "#64748B",
+  border: isActive ? "1px solid rgba(0,91,150,0.16)" : "1px solid transparent",
+  boxShadow: isActive ? "0 8px 18px rgba(15,23,42,0.07)" : "none",
+});
+
+const stepDotSx = (isActive, isComplete) => ({
+  width: 24,
+  height: 24,
+  borderRadius: "8px",
+  display: "grid",
+  placeItems: "center",
+  flexShrink: 0,
+  bgcolor: isComplete ? "#16A34A" : isActive ? "#005B96" : "rgba(100,116,139,0.12)",
+  color: isActive || isComplete ? "#fff" : "#64748B",
+  fontSize: 12,
+  fontWeight: 950,
+});
+
+const stepLabelSx = (isActive) => ({
+  fontSize: { xs: 11, sm: 12 },
+  fontWeight: isActive ? 950 : 850,
+  whiteSpace: "nowrap",
+});
 
 const eyebrowSx = {
   fontSize: 12,
@@ -537,25 +773,25 @@ const eyebrowSx = {
   textTransform: "uppercase",
 };
 
-const headlineSx = {
-  fontSize: { xs: 34, sm: 44, md: 52 },
+const headlineSx = (compact = false) => ({
+  fontSize: compact ? { xs: 28, sm: 36, md: 40 } : { xs: 34, sm: 42, md: 48 },
   lineHeight: 1.02,
   fontWeight: 950,
   color: "#0A3D62",
   letterSpacing: 0,
-};
+});
 
 const errorHeadlineSx = {
-  ...headlineSx,
+  ...headlineSx(false),
   fontSize: { xs: 31, sm: 44, md: 52 },
 };
 
-const bodyTextSx = {
-  fontSize: { xs: 16, sm: 18 },
-  lineHeight: 1.5,
+const bodyTextSx = (compact = false) => ({
+  fontSize: compact ? { xs: 14.5, sm: 15.5 } : { xs: 16, sm: 17 },
+  lineHeight: compact ? 1.35 : 1.45,
   fontWeight: 800,
   color: "#64748B",
-};
+});
 
 const accountGridSx = {
   display: "grid",
@@ -565,10 +801,12 @@ const accountGridSx = {
 };
 
 const accountButtonSx = {
-  minHeight: { xs: 116, sm: 138 },
+  position: "relative",
+  overflow: "hidden",
+  minHeight: { xs: 108, sm: 132 },
   justifyContent: "flex-start",
-  gap: 1.8,
-  p: 2,
+  gap: 1.35,
+  p: { xs: 1.6, sm: 1.9 },
   borderRadius: "8px",
   borderWidth: 1,
   borderColor: "rgba(10,61,98,0.16)",
@@ -577,23 +815,148 @@ const accountButtonSx = {
   textAlign: "left",
   textTransform: "none",
   boxShadow: "0 12px 26px rgba(15,23,42,0.06)",
+  transition: "transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    borderRadius: "8px",
+    background: "linear-gradient(135deg, rgba(0,91,150,0.10), rgba(72,201,176,0.10))",
+    opacity: 0,
+    transition: "opacity 180ms ease",
+    pointerEvents: "none",
+  },
   "&:hover": {
+    transform: "translateY(-3px)",
     borderColor: "#005B96",
-    bgcolor: "#F7FBFD",
-    boxShadow: "0 16px 32px rgba(0,91,150,0.12)",
+    bgcolor: "#FFFFFF",
+    boxShadow: "0 18px 34px rgba(0,91,150,0.16)",
+    "&::before": { opacity: 1 },
+    "& .account-icon": {
+      bgcolor: "#005B96",
+      color: "#fff",
+      boxShadow: "0 10px 20px rgba(0,91,150,0.22)",
+    },
+    "& .account-action": {
+      bgcolor: "#005B96",
+      color: "#fff",
+    },
+  },
+  "&:focus-visible": {
+    outline: "3px solid rgba(72,201,176,0.45)",
+    outlineOffset: 3,
   },
 };
 
 const accountIconSx = {
-  width: 54,
-  height: 54,
+  position: "relative",
+  zIndex: 1,
+  width: 52,
+  height: 52,
   borderRadius: "8px",
   display: "grid",
   placeItems: "center",
   bgcolor: "rgba(0,91,150,0.10)",
   color: "#005B96",
   flexShrink: 0,
+  transition: "background-color 180ms ease, color 180ms ease, box-shadow 180ms ease",
   "& .MuiSvgIcon-root": { fontSize: 30 },
+};
+
+const accountLabelSx = {
+  fontSize: { xs: 20, md: 23 },
+  lineHeight: 1.1,
+  fontWeight: 950,
+  color: "#102033",
+};
+
+const accountCaptionSx = {
+  mt: 0.45,
+  fontSize: 13,
+  fontWeight: 850,
+  color: "#64748B",
+};
+
+const accountArrowSx = {
+  position: "relative",
+  zIndex: 1,
+  display: { xs: "none", sm: "inline-flex" },
+  alignItems: "center",
+  justifyContent: "center",
+  alignSelf: "flex-end",
+  px: 1,
+  py: 0.55,
+  borderRadius: "8px",
+  bgcolor: "rgba(0,91,150,0.08)",
+  color: "#005B96",
+  fontSize: 11.5,
+  fontWeight: 950,
+  transition: "background-color 180ms ease, color 180ms ease",
+};
+
+const visionStatementSx = {
+  display: "flex",
+  alignItems: "stretch",
+  gap: 1.2,
+  p: { xs: 1.15, sm: 1.25 },
+  borderRadius: "8px",
+  bgcolor: "#F8FBFC",
+  border: "1px solid rgba(0,91,150,0.14)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
+};
+
+const visionAccentSx = {
+  width: 4,
+  borderRadius: 999,
+  flexShrink: 0,
+  bgcolor: "#005B96",
+};
+
+const visionLabelSx = {
+  fontSize: 11,
+  lineHeight: 1.1,
+  fontWeight: 950,
+  color: "#005B96",
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+};
+
+const visionTextSx = {
+  mt: 0.45,
+  minWidth: 0,
+  fontSize: { xs: 12.5, sm: 13, md: 13.5 },
+  lineHeight: 1.32,
+  fontWeight: 850,
+  color: "#1F3346",
+  maxWidth: 780,
+};
+
+const formPanelSx = {
+  width: "100%",
+  maxWidth: 620,
+  p: { xs: 1.5, sm: 2 },
+  borderRadius: "8px",
+  bgcolor: "#F8FBFC",
+  border: "1px solid rgba(0,91,150,0.12)",
+};
+
+const selectedAccountSx = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 1.2,
+  minWidth: 0,
+};
+
+const selectedAccountIconSx = {
+  width: 48,
+  height: 48,
+  borderRadius: "8px",
+  display: "grid",
+  placeItems: "center",
+  bgcolor: "rgba(0,91,150,0.10)",
+  color: "#005B96",
+  flexShrink: 0,
+  "& .MuiSvgIcon-root": { fontSize: 27 },
 };
 
 const inputSx = {
@@ -611,25 +974,58 @@ const inputSx = {
 
 const otpInputSx = {
   width: "100%",
-  maxWidth: 360,
+  maxWidth: 340,
   "& .MuiOutlinedInput-root": {
-    minHeight: 76,
+    minHeight: { xs: 62, sm: 66 },
     borderRadius: "8px",
     bgcolor: "#FFFFFF",
     color: "#0A3D62",
   },
 };
 
-const otpPanelSx = {
-  p: { xs: 2, sm: 3 },
+const otpShellSx = {
+  width: "100%",
+  maxWidth: 540,
+  p: { xs: 1.4, sm: 1.8, md: 2 },
   borderRadius: "8px",
   border: "1px solid rgba(0,91,150,0.14)",
   bgcolor: "#F8FBFC",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.06)",
+};
+
+const otpIconSx = {
+  width: 52,
+  height: 52,
+  borderRadius: "8px",
+  display: "grid",
+  placeItems: "center",
+  bgcolor: "rgba(0,91,150,0.10)",
+  color: "#005B96",
+  border: "1px solid rgba(0,91,150,0.16)",
+};
+
+const otpUserNameSx = {
+  mt: 0.35,
+  maxWidth: 420,
+  fontSize: { xs: 18, sm: 21 },
+  lineHeight: 1.18,
+  fontWeight: 950,
+  color: "#102033",
+  overflowWrap: "anywhere",
+};
+
+const timerPanelSx = {
+  width: "100%",
+  maxWidth: 360,
+  p: 1,
+  borderRadius: "8px",
+  bgcolor: "#FFFFFF",
+  border: "1px solid rgba(148,163,184,0.20)",
 };
 
 const primaryButtonSx = {
   width: "100%",
-  minHeight: 62,
+  minHeight: 56,
   borderRadius: "8px",
   px: 3,
   fontSize: 16,
@@ -647,7 +1043,7 @@ const primaryButtonSx = {
 
 const secondaryButtonSx = {
   width: "100%",
-  minHeight: 62,
+  minHeight: 56,
   borderRadius: "8px",
   px: 3,
   fontSize: 16,

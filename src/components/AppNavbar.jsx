@@ -281,6 +281,7 @@ function AppNavbar({
     platformBranding,
     onOpenHelp,
     onOpenGuide,
+    guideLabel = 'Guide',
     a11yPrefs,
     setA11yPrefs,
     mobileOpen,
@@ -470,7 +471,7 @@ function AppNavbar({
                                     startIcon={<MenuBookRounded fontSize="small" />}
                                     sx={{ ...ghostBtnSx, px: 1.75, py: 0.85, fontSize: '0.82rem' }}
                                 >
-                                    Guide
+                                    {guideLabel}
                                 </Button>
                             )}
 
@@ -626,7 +627,7 @@ function AppNavbar({
                                     >
                                         <Stack direction="row" spacing={1.2} alignItems="center">
                                             <MenuBookRounded fontSize="small" />
-                                            <Typography variant="body2" fontWeight={600}>System Guide</Typography>
+                                            <Typography variant="body2" fontWeight={600}>{guideLabel}</Typography>
                                         </Stack>
                                     </MenuItem>
                                 )}
