@@ -1688,7 +1688,6 @@ const HrAttendanceAnalytics = ({
         { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
         { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
         { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
-        { key: "lateRate", label: "Late %", align: "right", render: (row) => formatPercent(row.lateRate) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
         { key: "trend", label: "Trend", align: "right", render: (row) => <Typography sx={{ color: Number(row.attendanceRate || 0) >= 85 ? theme.success : theme.danger, fontWeight: 950 }}>{Number(row.attendanceRate || 0) >= 85 ? "↑" : "↓"}</Typography> },
     ];
@@ -1698,7 +1697,6 @@ const HrAttendanceAnalytics = ({
         { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
         { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
         { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
-        { key: "lateRate", label: "Late %", align: "right", render: (row) => formatPercent(row.lateRate) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
     ];
     const renderAttendanceTrendCard = (height = { xs: 270, sm: 310, lg: 360 }) => (
@@ -2849,7 +2847,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const referenceSearchText = String(deferredReferenceSearch || "").trim().toLowerCase();
 
     const filteredRecords = useMemo(
-        () => processedRecords.filter((row) => {
+        () => processedRecords.sort((a, b) => a.employeeId.localeCompare(b.employeeId)).filter((row) => {
             if (!referenceSearchText) return true;
             return [
                 row.employeeId,
@@ -2865,7 +2863,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     );
 
     const filteredSummaryRows = useMemo(
-        () => processedSummaryRows.filter((row) => {
+        () => processedSummaryRows.sort((a, b) => a.employeeId.localeCompare(b.employeeId)).filter((row) => {
             if (!referenceSearchText) return true;
             return [
                 row.employeeId,
@@ -3115,7 +3113,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             },
             {
                 label: "Records needing cleanup",
-                text: `${formatNumber(hrRecordGroups.missingCheckoutRecords.length)} missing checkout rows and ${formatNumber(hrRecordGroups.lateRecords.length)} late records are visible in this scope.`,
+                text: `${formatNumber(hrRecordGroups.missingCheckoutRecords.length)} missing checkout rows are visible in this scope.`,
                 tone: hrRecordGroups.missingCheckoutRecords.length ? theme.warning : theme.secondary,
             },
             {
@@ -3155,6 +3153,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "daysAbsent", label: "Absent", minWidth: 90 },
             { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
         ],
+        staffScope: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "station", label: "Station", minWidth: 140 },
+            { key: "department", label: "Department", minWidth: 150 },
+        ],
         hodTeam: [
             { key: "employeeId", label: "Employee ID", minWidth: 105 },
             { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
@@ -3187,8 +3191,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
             { key: "punctualityRate", label: "Punctuality", minWidth: 110, render: (row) => formatPercent(row.punctualityRate) },
             { key: "absenteeismRate", label: "Absenteeism", minWidth: 110, render: (row) => formatPercent(row.absenteeismRate) },
-            { key: "lateRate", label: "Late %", minWidth: 80, render: (row) => formatPercent(row.lateRate) },
-            { key: "onLeaveDays", label: "Leave Days", minWidth: 105 },
             { key: "averageWorkingHours", label: "Avg Hours", minWidth: 105, render: (row) => formatDuration(row.averageWorkingHours) },
         ],
     }), [theme]);
@@ -3209,18 +3211,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const hrSecondaryMetricCards = useMemo(() => [
         { key: "attendanceRate", title: "Attendance", value: formatPercent(kpis?.attendanceRate), subtitle: "", icon: <PieChartRounded />, tone: theme.secondary },
         { key: "punctualityRate", title: "Punctuality", value: formatPercent(kpis?.punctualityRate), subtitle: "", icon: <CheckCircleRounded />, tone: theme.success },
-        { key: "lateRecords", title: "Late", value: formatNumber(hrRecordGroups.lateRecords.length), subtitle: "", icon: <HourglassBottomRounded />, tone: theme.warning },
         { key: "averageWorkingHours", title: "Avg Hours", value: formatDuration(hrWorkloadMetrics.averageWorkingHours), subtitle: "", icon: <AssessmentRounded />, tone: theme.primary },
         { key: "overtimeHours", title: "Overtime", value: formatDuration(hrWorkloadMetrics.overtimeHours), subtitle: "", icon: <TrendingUpRounded />, tone: theme.purple },
         { key: "missingCheckout", title: "Missing Out", value: formatNumber(hrRecordGroups.missingCheckoutRecords.length), subtitle: "", icon: <WarningAmberRounded />, tone: theme.danger },
-        { key: "lostWorkingHours", title: "Lost Hours", value: formatDuration(hrWorkloadMetrics.lostWorkingHours), subtitle: "", icon: <TrendingDownRounded />, tone: theme.danger },
         { key: "biometricReadiness", title: "Biometric", value: formatPercent(biometricAnalytics?.enrollmentRate), subtitle: "", icon: <ShieldRounded />, tone: theme.accent },
     ], [biometricAnalytics, hrRecordGroups, hrWorkloadMetrics, kpis, theme]);
-
-    const hodLateTodayRows = useMemo(() => {
-        const todayKey = getDateInputValue();
-        return hrRecordGroups.lateRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
-    }, [hrRecordGroups.lateRecords]);
 
     const hodDutyTodayRows = useMemo(() => {
         const todayKey = getDateInputValue();
@@ -3316,19 +3311,16 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
             { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
             { key: "dutyRecords", title: "Duty", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
-            { key: "lateRecords", title: "Late", value: formatNumber(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), subtitle: percentage(hodLateTodayRows.length || hrRecordGroups.lateRecords.length), icon: <HourglassBottomRounded />, tone: theme.danger },
         ];
-    }, [hodLateTodayRows.length, hrRecordGroups.dutyRecords.length, hrRecordGroups.lateRecords.length, kpis, theme]);
+    }, [hrRecordGroups.dutyRecords.length, kpis, theme]);
 
     const hodSpotlightCards = useMemo(() => {
         const bestAttendance = hodTeamRows[0];
-        const mostLate = [...hodTeamRows].sort((a, b) => Number(b.lateCount || 0) - Number(a.lateCount || 0))[0];
         const mostAbsent = [...hodTeamRows].sort((a, b) => Number(b.daysAbsent || 0) - Number(a.daysAbsent || 0))[0];
         const mostOvertime = [...hodTeamRows].sort((a, b) => Number(b.overtimeHours || 0) - Number(a.overtimeHours || 0))[0];
         const belowExpected = [...hodTeamRows].sort((a, b) => Number(b.belowExpectedHours || 0) - Number(a.belowExpectedHours || 0))[0];
         return [
             { key: "hodBestAttendance", title: "Best Attendance", value: bestAttendance?.name || "N/A", subtitle: formatPercent(bestAttendance?.attendanceRate), icon: <CheckCircleRounded />, tone: theme.success },
-            { key: "hodMostLate", title: "Most Late", value: mostLate?.name || "N/A", subtitle: `${formatNumber(mostLate?.lateCount || 0)} days`, icon: <HourglassBottomRounded />, tone: theme.danger },
             { key: "hodMostAbsent", title: "Most Absence", value: mostAbsent?.name || "N/A", subtitle: `${formatNumber(mostAbsent?.daysAbsent || 0)} days`, icon: <WarningAmberRounded />, tone: theme.warning },
             { key: "hodMostOvertime", title: "Most Overtime", value: mostOvertime?.name || "N/A", subtitle: formatDuration(mostOvertime?.overtimeHours || 0), icon: <TrendingUpRounded />, tone: theme.secondary },
             { key: "hodBelowExpectedHours", title: "Below Hours", value: belowExpected?.name || "N/A", subtitle: formatDuration(belowExpected?.belowExpectedHours || 0), icon: <TrendingDownRounded />, tone: theme.danger },
@@ -3342,7 +3334,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         }));
 
         return {
-            totalStaff: { title: "Total Staff in Scope", subtitle: scopeLabel, rows: processedSummaryRows, columns: detailColumns.summary },
+            totalStaff: { title: "Total Staff in Scope", subtitle: scopeLabel, rows: processedSummaryRows, columns: detailColumns.staffScope },
             hodTeamMembers: { title: "Department Team Members", subtitle: `${supervisorDepartment || "Department"} at ${supervisorStation || "assigned station"}`, rows: hodTeamRows, columns: detailColumns.hodTeam },
             presentToday: { title: "Present Today", subtitle: "Staff with a clock-in today", rows: scopedTodayRows.present, columns: detailColumns.people },
             absentToday: { title: "Absent Today", subtitle: "Staff without a clock-in and not on approved leave today", rows: scopedTodayRows.absent, columns: detailColumns.people },
@@ -3356,18 +3348,14 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             departmentHeatmap: { title: "Department Attendance Heatmap", subtitle: "Weekday attendance rates for all configured departments", rows: departmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
             stationHeatmap: { title: "Station / Centre Attendance Heatmap", subtitle: "Weekday attendance rates for all configured stations", rows: stationHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Station", rowKey: "station" },
             hodDepartmentHeatmap: { title: `${supervisorDepartment || "Department"} Attendance Heatmap`, subtitle: `${supervisorStation || "Assigned station"} weekday attendance pattern`, rows: hodDepartmentHeatmapRows, columns: [], variant: "heatmap", rowLabel: "Department", rowKey: "department" },
-            lateRecords: { title: "Late Records", subtitle: "Late clock-ins in the selected scope", rows: hrRecordGroups.lateRecords, columns: detailColumns.records },
             averageWorkingHours: { title: "Completed Working Hours", subtitle: "Records with clock-in and clock-out", rows: hrRecordGroups.completedRecords, columns: [...detailColumns.records, { key: "workedHours", label: "Hours", minWidth: 90, render: (row) => formatDuration(getRecordHours(row)) }] },
             overtimeHours: { title: "Overtime Records", subtitle: "Completed records above 8 hours", rows: withHours(hrRecordGroups.overtimeRecords), columns: [...detailColumns.records, { key: "workedHoursLabel", label: "Worked", minWidth: 90 }] },
             missingCheckout: { title: "Missing Checkout Records", subtitle: "Open or system-closed attendance records", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
-            lostWorkingHours: { title: "Lost Working Hour Drivers", subtitle: "Short completed days and absent days", rows: [...hrRecordGroups.shortHourRecords, ...processedSummaryRows.filter((row) => Number(row.daysAbsent || 0) > 0)], columns: [...detailColumns.summary, { key: "workedHours", label: "Worked", minWidth: 90, render: (row) => row.workedHours ? formatDuration(row.workedHours) : "Absence" }] },
             biometricReadiness: { title: "Biometric Readiness", subtitle: "Scoped enrolment and device readiness totals", rows: [{ id: "biometric", name: "Biometric Readiness", staff: Number(kpis?.totalEmployees || 0), attendanceRate: biometricAnalytics?.enrollmentRate || 0, punctualityRate: biometricAnalytics?.deviceUptime || 0, absenteeismRate: 100 - Number(biometricAnalytics?.enrollmentRate || 0), lateCount: biometricAnalytics?.inactiveDevices || 0, onLeaveDays: biometricAnalytics?.lostDevices || 0, averageWorkingHours: 0 }], columns: detailColumns.performance },
             outsideClocking: { title: "Duty Records", subtitle: "Outside-clocking records in the selected scope", rows: hrRecordGroups.outsideRecords, columns: detailColumns.records },
             openSessions: { title: "Open Sessions", subtitle: "Clock-ins without completed clock-outs", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
-            hodRepeatedLate: { title: "Repeated Late Arrivals", subtitle: "Team members with two or more late records in the selected period", rows: hodTeamRows.filter((row) => Number(row.lateCount || 0) >= 2), columns: detailColumns.hodTeam },
             hodBelowExpectedHours: { title: "Below Expected Hours", subtitle: "Team members with completed days below expected hours", rows: hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0), columns: detailColumns.hodTeam },
             hodBestAttendance: { title: "Best Attendance", subtitle: "Top department attendance performer", rows: hodTeamRows.slice(0, 1), columns: detailColumns.hodTeam },
-            hodMostLate: { title: "Most Late", subtitle: "Team member with the highest late count", rows: [...hodTeamRows].sort((a, b) => Number(b.lateCount || 0) - Number(a.lateCount || 0)).slice(0, 1), columns: detailColumns.hodTeam },
             hodMostAbsent: { title: "Most Absence", subtitle: "Team member with the highest absent days", rows: [...hodTeamRows].sort((a, b) => Number(b.daysAbsent || 0) - Number(a.daysAbsent || 0)).slice(0, 1), columns: detailColumns.hodTeam },
             hodMostOvertime: { title: "Most Overtime", subtitle: "Team member with the highest overtime hours", rows: [...hodTeamRows].sort((a, b) => Number(b.overtimeHours || 0) - Number(a.overtimeHours || 0)).slice(0, 1), columns: detailColumns.hodTeam },
         };
@@ -3967,8 +3955,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 formatPercent(row.attendanceRate),
                 formatPercent(row.punctualityRate),
                 formatPercent(row.absenteeismRate),
-                formatPercent(row.lateRate),
-                formatNumber(row.onLeaveDays),
                 formatDuration(row.averageWorkingHours),
             ]);
             const heatmapRows = (rows, rowKey) => rows.map((row) => [
@@ -3990,11 +3976,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 2: { cellWidth: 145, halign: "left" },
             };
             const trendColumnStyles = {
-                0: { cellWidth: 64, halign: "left", fontStyle: "bold" },
-                1: { cellWidth: 45, halign: "right" },
-                2: { cellWidth: 45, halign: "right" },
-                3: { cellWidth: 45, halign: "right" },
-                4: { cellWidth: 82, halign: "center", fontStyle: "bold" },
+                0: { cellWidth: 82, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 58, halign: "right" },
+                2: { cellWidth: 58, halign: "right" },
+                3: { cellWidth: 83, halign: "center", fontStyle: "bold" },
             };
             const comparisonColumnStyles = {
                 0: { cellWidth: 128, halign: "left", fontStyle: "bold" },
@@ -4002,23 +3987,20 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 2: { cellWidth: 77, halign: "center" },
             };
             const teamColumnStyles = {
-                0: { cellWidth: 68, halign: "left", fontStyle: "bold" },
-                1: { cellWidth: 48, halign: "center" },
-                2: { cellWidth: 35, halign: "center" },
-                3: { cellWidth: 25, halign: "right" },
-                4: { cellWidth: 28, halign: "right" },
-                5: { cellWidth: 34, halign: "center" },
-                6: { cellWidth: 43, halign: "center" },
+                0: { cellWidth: 76, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 52, halign: "center" },
+                2: { cellWidth: 42, halign: "center" },
+                3: { cellWidth: 32, halign: "right" },
+                4: { cellWidth: 36, halign: "center" },
+                5: { cellWidth: 43, halign: "center" },
             };
             const performanceColumnStyles = {
-                0: { cellWidth: 60, halign: "left", fontStyle: "bold" },
-                1: { cellWidth: 24, halign: "right" },
-                2: { cellWidth: 34, halign: "center" },
-                3: { cellWidth: 39, halign: "center" },
-                4: { cellWidth: 32, halign: "center" },
-                5: { cellWidth: 28, halign: "center" },
-                6: { cellWidth: 26, halign: "right" },
-                7: { cellWidth: 38, halign: "center" },
+                0: { cellWidth: 84, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 34, halign: "right" },
+                2: { cellWidth: 44, halign: "center" },
+                3: { cellWidth: 50, halign: "center" },
+                4: { cellWidth: 37, halign: "center" },
+                5: { cellWidth: 32, halign: "center" },
             };
             const heatmapColumnStyles = {
                 0: { cellWidth: 86, halign: "left", fontStyle: "bold" },
@@ -4056,12 +4038,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             }
             addTable({
                 title: isSupervisorScope ? "Department Attendance Trend" : "Attendance Rate Over Time",
-                head: [["Trend Date", "Present", "Absent", "Late", "Attendance Rate"]],
+                head: [["Trend Date", "Present", "Absent", "Attendance Rate"]],
                 body: chartData.map((item) => [
                     item.date || item.label,
                     formatNumber(item.present),
                     formatNumber(item.absent),
-                    formatNumber(item.late),
                     formatPercent(item.attendance),
                 ]),
                 columnStyles: trendColumnStyles,
@@ -4079,12 +4060,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 });
                 addTable({
                     title: "Team Attendance Overview",
-                    head: [["Employee", "Today", "Attendance", "Late", "Absent", "Avg Hours", "Status"]],
+                    head: [["Employee", "Today", "Attendance", "Absent", "Avg Hours", "Status"]],
                     body: hodTeamRows.map((row) => [
                         row.name || row.email || "Unknown",
                         row.todayStatus,
                         formatPercent(row.attendanceRate),
-                        formatNumber(row.lateCount),
                         formatNumber(row.daysAbsent),
                         formatDuration(row.averageHours),
                         row.status,
@@ -4094,7 +4074,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             } else {
                 addTable({
                     title: isStationScopedHr ? "Department Performance" : "Station / Centre Performance",
-                    head: [[isStationScopedHr ? "Department" : "Station / Centre", "Staff", "Attendance", "Punctuality", "Absent", "Late %", "Leave Days", "Avg Hours"]],
+                    head: [[isStationScopedHr ? "Department" : "Station / Centre", "Staff", "Attendance", "Punctuality", "Absent", "Avg Hours"]],
                     body: performanceRows(visiblePerformanceRows),
                     columnStyles: performanceColumnStyles,
                     styles: { fontSize: 6.9 },
@@ -4102,7 +4082,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 if (!isStationScopedHr) {
                     addTable({
                         title: "Department Performance",
-                        head: [["Department", "Staff", "Attendance", "Punctuality", "Absent", "Late %", "Leave Days", "Avg Hours"]],
+                        head: [["Department", "Staff", "Attendance", "Punctuality", "Absent", "Avg Hours"]],
                         body: performanceRows(configuredDepartmentPerformanceRows),
                         columnStyles: performanceColumnStyles,
                         styles: { fontSize: 6.9 },
@@ -4882,10 +4862,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                     <Grid item xs={12} lg={6}>
                                         <SectionCard title="Department Performance" theme={theme}>
                                             <TableContainer sx={{ overflowX: "auto" }}>
-                                                <Table size="small" stickyHeader sx={{ minWidth: 800 }}>
+                                                <Table size="small" stickyHeader sx={{ minWidth: 720 }}>
                                                     <TableHead>
                                                         <TableRow>
-                                                            {["Department", "Staff", "Attendance", "Punctuality", "Absenteeism", "Late", "Early", "Trend"].map((heading) => (
+                                                            {["Department", "Staff", "Attendance", "Punctuality", "Absenteeism", "Early", "Trend"].map((heading) => (
                                                                 <TableCell key={heading} align={heading === "Department" ? "left" : "right"} sx={{ fontSize: 10, fontWeight: 950, color: theme.primary, bgcolor: "#fff", borderColor: theme.border }}>{heading}</TableCell>
                                                             ))}
                                                         </TableRow>
@@ -4900,7 +4880,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                                                     <TableCell align="right" sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(rate, theme) }}>{formatPercent(rate)}</TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: 12 }}>{formatPercent(department.punctualityRate)}</TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: 12 }}>{formatPercent(department.absenteeismRate)}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 12 }}>{formatNumber(department.totalLateCount)}</TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: 12 }}>{formatNumber(department.earlyDepartures || 0)}</TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: 14, fontWeight: 950, color: rate >= 85 ? theme.success : theme.danger }}>{rate >= 85 ? "↑" : "↓"}</TableCell>
                                                                 </TableRow>
@@ -5175,8 +5154,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 900, bgcolor: "#fff" }}>Station</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Staff</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Late</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Leave Days</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Attendance</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -5187,8 +5164,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                                 <Typography sx={{ fontSize: 12, fontWeight: 800, color: theme.text, overflowWrap: "anywhere" }}>{station.name}</Typography>
                                             </TableCell>
                                             <TableCell align="right">{formatNumber(station.staff)}</TableCell>
-                                            <TableCell align="right">{formatNumber(station.lateCount)}</TableCell>
-                                            <TableCell align="right">{formatNumber(station.onLeaveDays)}</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 900, color: getAttendanceColor(station.attendanceRate, theme) }}>{formatPercent(station.attendanceRate)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -5232,8 +5207,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 900, bgcolor: "#fff" }}>Department</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Staff</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Late</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Leave Days</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 900, bgcolor: "#fff" }}>Attendance</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -5244,8 +5217,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                                 <Typography sx={{ fontSize: 12, fontWeight: 800, color: theme.text, overflowWrap: "anywhere" }}>{department.name}</Typography>
                                             </TableCell>
                                             <TableCell align="right">{formatNumber(department.staff)}</TableCell>
-                                            <TableCell align="right">{formatNumber(department.lateCount)}</TableCell>
-                                            <TableCell align="right">{formatNumber(department.onLeaveDays)}</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 900, color: getAttendanceColor(department.attendanceRate, theme) }}>{formatPercent(department.attendanceRate)}</TableCell>
                                         </TableRow>
                                     ))}
