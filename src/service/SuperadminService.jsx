@@ -155,6 +155,50 @@ export const createSuperadmin = async (payload) => {
 
 };
 
+/* =====================================================
+   DATABASE BACKUPS
+===================================================== */
+
+export const getBackupOverview = async () => {
+  const res = await Api.get("/superadmin/backups");
+  return res.data;
+};
+
+export const getLocalBackups = async () => {
+  const res = await Api.get("/superadmin/backups/local");
+  return res.data;
+};
+
+export const getConfiguredNetworkBackups = async () => {
+  const res = await Api.get("/superadmin/backups/network");
+  return res.data;
+};
+
+export const readCustomNetworkBackups = async (networkPath) => {
+  const res = await Api.post("/superadmin/backups/network/read", { networkPath });
+  return res.data;
+};
+
+export const createManualBackup = async () => {
+  const res = await Api.post("/superadmin/backups/manual");
+  return res.data;
+};
+
+export const retryNetworkBackupSync = async (backupId) => {
+  const res = await Api.post("/superadmin/backups/network/retry-sync", { backupId });
+  return res.data;
+};
+
+export const restoreDatabaseBackup = async (payload) => {
+  const res = await Api.post("/superadmin/backups/restore", payload);
+  return res.data;
+};
+
+export const getBackupOperation = async (operationId) => {
+  const res = await Api.get(`/superadmin/backups/operations/${operationId}`);
+  return res.data;
+};
+
 
 
 /* =====================================================
@@ -189,5 +233,15 @@ export default {
 
   // Users
   createSuperadmin,
+
+  // Backups
+  getBackupOverview,
+  getLocalBackups,
+  getConfiguredNetworkBackups,
+  readCustomNetworkBackups,
+  createManualBackup,
+  retryNetworkBackupSync,
+  restoreDatabaseBackup,
+  getBackupOperation,
 
 };

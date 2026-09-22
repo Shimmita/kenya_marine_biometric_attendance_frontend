@@ -1,6 +1,7 @@
 import {
   Add as AddIcon,
   AccessTimeRounded,
+  BackupRounded,
   Business,
   CheckCircleRounded,
   CloudUpload,
@@ -63,6 +64,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClockingPoints, updateClockingPoint } from '../../service/ClockingPointService';
 import SuperadminAPI from '../../service/SuperadminService';
 import { applyPlatformConfigToCoreData } from '../CoreDataDetails';
+import BackupManagement from './BackupManagement';
 import SuperAdminDashBoardTab from './SuperAdminDashBoard';
 
 const normalizeDropdowns = (value) => {
@@ -418,6 +420,7 @@ const controlTabs = [
   { label: 'Attendance', description: 'Clocking rules, working days, alerts, and message templates.', icon: <AccessTimeRounded /> },
   { label: 'Dropdowns', description: 'Controlled lists used by forms and operational workflows.', icon: <Inventory2Rounded /> },
   { label: 'Departments', description: 'Organization departments available across user records.', icon: <WorkspacesRounded /> },
+  { label: 'Backup Management', description: 'Automated database backups, network copies, and restore controls.', icon: <BackupRounded /> },
 ];
 
 const MetricTile = ({ icon, label, value, detail, color = '#0A3D62' }) => (
@@ -2050,6 +2053,8 @@ const ConfigPanel = ({ onConfigLoaded }) => {
             </Stack>
           </Paper>
         )}
+
+        {tab === 6 && <BackupManagement />}
 
         <Dialog
           open={maintenanceOpen}
