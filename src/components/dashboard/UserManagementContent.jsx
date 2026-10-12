@@ -35,6 +35,7 @@ import {
     getAllSupervisors,
     getAllUsers,
     resetUserBiometrics,
+    resetUserMobileApp,
     resetUserPassword,
     toggleUserActive,
     updateUserDepartment,
@@ -994,6 +995,25 @@ const UserManagementContent = ({ readOnly = false }) => {
         }
     }
 
+    const handleResetMobileApp = async (id) => {
+        if (!window.confirm("Reset this user's mobile app enrollment? They will need to enroll the app again.")) return;
+
+        try {
+            setLoading(true);
+            setUpdatingId(id);
+
+            const response = await resetUserMobileApp(id);
+            await refreshUsers(id);
+
+            alert(response?.message || "User mobile app enrollment reset successfully. They will need to enroll again.");
+        } catch (e) {
+            alert(e);
+        } finally {
+            setUpdatingId(null);
+            setLoading(false);
+        }
+    };
+
     const clearAllFilters = () => {
         setSearchTerm("");
         setRankFilter("");
@@ -1127,6 +1147,7 @@ const UserManagementContent = ({ readOnly = false }) => {
                     onResetPassword={handleResetPassword}
 
                     onResetBiometrics={handleResetBiometrics}
+                    onResetMobileApp={handleResetMobileApp}
                 />
 
 

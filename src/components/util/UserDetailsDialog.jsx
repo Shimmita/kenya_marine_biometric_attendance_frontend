@@ -8,6 +8,7 @@ import {
     KeyRounded,
     LocationOnRounded,
     ManageAccountsRounded,
+    PhoneAndroidRounded,
     PersonRounded,
     PowerSettingsNewRounded,
     SaveRounded,
@@ -372,6 +373,7 @@ export default function UserDetailsDialog({
     onToggleActive,
     onDeleteUser,
     onResetBiometrics,
+    onResetMobileApp,
     onResetPassword,
     hideActionsTab = false,
     hideRoleRankManagement = false
@@ -415,6 +417,7 @@ export default function UserDetailsDialog({
     const canAssignSupervisor = ["admin", "hr", "ceo", "superadmin"].includes(currentUserRank);
     const canManageLifecycle = ["hr", "superadmin", "admin"].includes(currentUserRank);
     const canResetBiometrics = ["admin", "hr", "superadmin"].includes(currentUserRank);
+    const canResetMobileApp = currentUserRank === "superadmin";
     const canResetPassword = ["admin", "superadmin"].includes(currentUserRank);
 
     useEffect(() => {
@@ -1078,7 +1081,7 @@ export default function UserDetailsDialog({
                         <Section
                             icon={<ShieldRounded fontSize="small" />}
                             title="Security Actions"
-                            description="Use these actions when a device, biometric profile, or password needs controlled recovery."
+                            description="Use these actions when a mobile enrollment, biometric profile, or password needs controlled recovery."
                         >
                             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
                                 <ActionButton
@@ -1088,6 +1091,14 @@ export default function UserDetailsDialog({
                                     disabled={disabledBase || !canResetBiometrics || !onResetBiometrics}
                                 >
                                     Reset User Biometrics
+                                </ActionButton>
+                                <ActionButton
+                                    tone="warning"
+                                    startIcon={<PhoneAndroidRounded />}
+                                    onClick={() => onResetMobileApp?.(user._id)}
+                                    disabled={disabledBase || !canResetMobileApp || !onResetMobileApp}
+                                >
+                                    Reset Mobile App
                                 </ActionButton>
                                 <ActionButton
                                     tone="blue"

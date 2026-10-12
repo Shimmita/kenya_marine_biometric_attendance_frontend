@@ -184,6 +184,15 @@ export const resetUserBiometrics = async (userId) => {
     }
 }
 
+export const resetUserMobileApp = async (userId) => {
+    try {
+        const res = await api.put(`/admin/user/${userId}/reset-mobile-app`);
+        return res.data;
+    } catch (err) {
+        console.error("Error resetting user mobile app enrollment:", err);
+        throw err.response?.data?.message || "Failed to reset user mobile app enrollment";
+    }
+}
 
 export const resetUserPassword = async (userId) => {
     try {
