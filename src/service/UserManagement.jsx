@@ -82,10 +82,10 @@ export const updateUserStation = async (userId, station) => {
 };
 
 
-export const updateUserOnLeave = async (userId, isOnLeave) => {
+export const updateUserOnLeave = async (userId, leaveData) => {
     try {
         const res = await api.put(`/admin/user/${userId}/update-on-leave`, {
-            isOnLeave
+            ...leaveData
         });
         return res.data;
     } catch (err) {

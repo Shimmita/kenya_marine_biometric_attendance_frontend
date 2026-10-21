@@ -223,7 +223,7 @@ const UserManagementContent = () => {
     const handleDepartmentSave = async (id, dept) => { try { setUpdatingId(id); await updateUserDepartment(id, dept); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleSupervisorChange = async (id, supervisor) => { try { setUpdatingId(id); await updateUserSupervisor(id, supervisor); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
     const handleStationSave = async (id, station) => { try { setUpdatingId(id); await updateUserStation(id, station === "none" ? null : station); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
-    const handleOnLeaveChange = async (id, value) => { try { setUpdatingId(id); await updateUserOnLeave(id, value === "yes"); await refreshUsers(id); } catch (e) { alert(e); } finally { setUpdatingId(null); } };
+    const handleOnLeaveChange = async (id, value) => { try { setUpdatingId(id); await updateUserOnLeave(id, value); await refreshUsers(id); return true; } catch (e) { alert(e); return false; } finally { setUpdatingId(null); } };
 
     if (loading) {
         return (

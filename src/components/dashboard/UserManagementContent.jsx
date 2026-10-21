@@ -911,10 +911,9 @@ const UserManagementContent = ({ readOnly = false }) => {
 
     const handleOnLeaveChange = async (id, value) => {
         try {
-            setLoading(true);
             setUpdatingId(id);
 
-            await updateUserOnLeave(id, value === "yes");
+            await updateUserOnLeave(id, value);
 
             const updatedUser = await getUserProfile();
             dispatch(updateUserCurrentUserRedux(updatedUser));
@@ -922,12 +921,13 @@ const UserManagementContent = ({ readOnly = false }) => {
             await refreshUsers(id);
 
             alert("User leave status updated successfully");
+            return true;
 
         } catch (e) {
             alert(e);
+            return false;
         } finally {
             setUpdatingId(null);
-            setLoading(false);
         }
     };
 

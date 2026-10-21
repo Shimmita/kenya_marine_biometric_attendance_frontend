@@ -385,6 +385,13 @@ export default function UserDetailsDialog({
     const [tab, setTab] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
+    const [leaveStatus, setLeaveStatus] = useState("no");
+    const [leaveForm, setLeaveForm] = useState({
+        startDate: "",
+        endDate: "",
+        reason: "",
+        otherReason: ""
+    });
     const [clockOutside, setClockOutside] = useState("no");
     const [clockingPointAccess, setClockingPointAccess] = useState("no");
     const [formData, setFormData] = useState({
@@ -395,6 +402,9 @@ export default function UserDetailsDialog({
 
     const today = getLocalDateInputValue();
     const isUpdatingUser = Boolean(isLoading || (user?._id && updatingId === user._id));
+    const leaveDetails = user?.leaveDetails;
+    const leaveUserId = user?._id;
+    const leaveUserIsOnLeave = user?.isOnLeave;
 
     const selectedSupervisor = useMemo(() => {
         if (!user?.supervisor) return "";
@@ -432,6 +442,25 @@ export default function UserDetailsDialog({
         });
         setError("");
     }, [open, user?._id]);
+
+    useEffect(() => {
+        if (!open || !leaveUserId) return;
+        setLeaveStatus(leaveUserIsOnLeave ? "yes" : "no");
+        setLeaveForm({
+            startDate: normalizeDateInput(leaveDetails?.startDate),
+            endDate: normalizeDateInput(leaveDetails?.endDate),
+            reason: leaveDetails?.reason || "",
+            otherReason: leaveDetails?.otherReason || ""
+        });
+    }, [
+        open,
+        leaveUserId,
+        leaveUserIsOnLeave,
+        leaveDetails?.startDate,
+        leaveDetails?.endDate,
+        leaveDetails?.reason,
+        leaveDetails?.otherReason
+    ]);
 
     useEffect(() => {
         if (!user) return;
@@ -475,6 +504,61 @@ export default function UserDetailsDialog({
         if (!err) return fallback;
         if (typeof err === "string") return err;
         return err?.message || fallback;
+    };
+
+    const handleLeaveStatusChange = async (event) => {
+        const value = event.target.value;
+        setError("");
+
+        if (value === "yes") {
+            setLeaveStatus("yes");
+            return;
+        }
+
+        if (!user.isOnLeave) {
+            setLeaveStatus("no");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const updated = await onOnLeaveChange?.(user._id, { isOnLeave: false });
+            if (updated !== false) setLeaveStatus("no");
+        } catch (err) {
+            setError(normalizeError(err, "Failed to update leave status."));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLeaveSubmit = async () => {
+        setError("");
+        if (!leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason) {
+            setError("Start date, end date, and reason are required.");
+            return;
+        }
+        if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
+            setError("End date cannot be before start date.");
+            return;
+        }
+        if (leaveForm.reason === "other" && !leaveForm.otherReason.trim()) {
+            setError("Please provide the other leave reason.");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const updated = await onOnLeaveChange?.(user._id, {
+                isOnLeave: true,
+                ...leaveForm,
+                otherReason: leaveForm.reason === "other" ? leaveForm.otherReason.trim() : ""
+            });
+            if (updated !== false) setLeaveStatus("yes");
+        } catch (err) {
+            setError(normalizeError(err, "Failed to update leave status."));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleClockOutsideChange = async (event) => {
@@ -895,8 +979,8 @@ export default function UserDetailsDialog({
                                 >
                                     <FormControl fullWidth size="small">
                                         <Select
-                                            value={user.isOnLeave ? "yes" : "no"}
-                                            onChange={(event) => onOnLeaveChange?.(user._id, event.target.value)}
+                                            value={leaveStatus}
+                                            onChange={handleLeaveStatusChange}
                                             disabled={disabledBase || !canManageLeaveStatus || !onOnLeaveChange}
                                             sx={selectSx}
                                             MenuProps={menuProps}
@@ -907,6 +991,107 @@ export default function UserDetailsDialog({
                                     </FormControl>
                                 </FieldBlock>
                             </Box>
+
+                            {leaveStatus === "yes" && (
+                                <Box
+                                    sx={{
+                                        mt: 2,
+                                        p: 1.5,
+                                        borderRadius: "8px",
+                                        border: `1px solid ${colors.line}`,
+                                        bgcolor: "rgba(248,250,252,0.78)"
+                                    }}
+                                >
+                                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1.2fr" }, gap: 1.5 }}>
+                                        <FieldBlock label="Start Date">
+                                            <TextField
+                                                fullWidth
+                                                type="date"
+                                                size="small"
+                                                value={leaveForm.startDate}
+                                                onChange={(event) => setLeaveForm((previous) => ({ ...previous, startDate: event.target.value }))}
+                                                inputProps={{ min: today }}
+                                                disabled={disabledBase || !canManageLeaveStatus}
+                                                sx={textFieldSx}
+                                            />
+                                        </FieldBlock>
+
+                                        <FieldBlock label="End Date">
+                                            <TextField
+                                                fullWidth
+                                                type="date"
+                                                size="small"
+                                                value={leaveForm.endDate}
+                                                onChange={(event) => setLeaveForm((previous) => ({ ...previous, endDate: event.target.value }))}
+                                                inputProps={{ min: leaveForm.startDate || today }}
+                                                disabled={disabledBase || !canManageLeaveStatus}
+                                                sx={textFieldSx}
+                                            />
+                                        </FieldBlock>
+
+                                        <FieldBlock label="Reason">
+                                            <FormControl fullWidth size="small">
+                                                <Select
+                                                    value={leaveForm.reason}
+                                                    onChange={(event) => setLeaveForm((previous) => ({
+                                                        ...previous,
+                                                        reason: event.target.value,
+                                                        otherReason: event.target.value === "other" ? previous.otherReason : ""
+                                                    }))}
+                                                    disabled={disabledBase || !canManageLeaveStatus}
+                                                    sx={selectSx}
+                                                    MenuProps={menuProps}
+                                                    displayEmpty
+                                                >
+                                                    <MenuItem value="" disabled>Select reason</MenuItem>
+                                                    <MenuItem value="sickness">Sickness</MenuItem>
+                                                    <MenuItem value="maternity">Maternity</MenuItem>
+                                                    <MenuItem value="paternity">Paternity</MenuItem>
+                                                    <MenuItem value="other">Other</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </FieldBlock>
+
+                                        {leaveForm.reason === "other" && (
+                                            <FieldBlock label="Other Reason">
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    value={leaveForm.otherReason}
+                                                    onChange={(event) => setLeaveForm((previous) => ({ ...previous, otherReason: event.target.value }))}
+                                                    disabled={disabledBase || !canManageLeaveStatus}
+                                                    inputProps={{ maxLength: 300 }}
+                                                    sx={textFieldSx}
+                                                />
+                                            </FieldBlock>
+                                        )}
+                                    </Box>
+
+                                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "stretch", sm: "center" }} justifyContent="space-between" sx={{ mt: 1.5 }}>
+                                        <Typography sx={{ color: colors.muted, fontSize: "0.76rem", lineHeight: 1.45 }}>
+                                            Saving this leave status records its dates and reason on the user profile.
+                                        </Typography>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={isUpdatingUser ? <CircularProgress size={16} color="inherit" /> : <SaveRounded />}
+                                            onClick={handleLeaveSubmit}
+                                            disabled={disabledBase || !canManageLeaveStatus || !leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason || (leaveForm.reason === "other" && !leaveForm.otherReason.trim())}
+                                            sx={{
+                                                minHeight: 42,
+                                                px: 2,
+                                                borderRadius: "8px",
+                                                textTransform: "none",
+                                                fontWeight: 850,
+                                                bgcolor: colors.secondary,
+                                                boxShadow: "0 10px 20px rgba(0,91,150,0.18)",
+                                                "&:hover": { bgcolor: colors.primary }
+                                            }}
+                                        >
+                                            Save Leave
+                                        </Button>
+                                    </Stack>
+                                </Box>
+                            )}
                         </Section>
                     </Stack>
                 )}
