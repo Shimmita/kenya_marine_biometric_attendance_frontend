@@ -87,6 +87,7 @@ import coreDataDetails, {
     applyPlatformConfigToCoreData,
     getActiveTheme,
 } from "../CoreDataDetails";
+import { safeNewDate } from "../util/DateTimeFormater";
 
 const EAT_TIMEZONE = "Africa/Nairobi";
 const HEATMAP_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
