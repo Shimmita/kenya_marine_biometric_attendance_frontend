@@ -81,6 +81,7 @@ import {
 } from "../../service/ClockingService";
 import KMFRILogo from "../../images/kmfri_logo.png";
 import * as SuperadminAPI from "../../service/SuperadminService";
+import { fetchAllLeavesAdmin, fetchDepartmentLeaves } from "../../service/LeaveService";
 import { createExportVerification, updateExportVerificationContent } from "../../service/VerificationService";
 import coreDataDetails, {
     applyPlatformConfigToCoreData,
@@ -137,6 +138,36 @@ const formatRangeLabel = (startDate, endDate) => {
 };
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
+const padDatePart = (value) => String(value).padStart(2, "0");
+const toLocalDayStart = (value) => {
+    const parsed = safeNewDate(value);
+    if (!parsed) return null;
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+};
+const countLeaveDaysInRange = (leaves = [], email, rangeStart, rangeEnd) => {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const periodStart = toLocalDayStart(rangeStart);
+    const periodEnd = toLocalDayStart(rangeEnd);
+    if (!normalizedEmail || !periodStart || !periodEnd || periodStart > periodEnd) return 0;
+
+    const leaveDays = new Set();
+    (Array.isArray(leaves) ? leaves : []).forEach((leave) => {
+        if (String(leave?.status || "").toLowerCase() !== "approved") return;
+        if (String(leave?.email || "").trim().toLowerCase() !== normalizedEmail) return;
+
+        const leaveStart = toLocalDayStart(leave.startDate);
+        const leaveEnd = toLocalDayStart(leave.endDate);
+        if (!leaveStart || !leaveEnd) return;
+
+        const overlapStart = leaveStart > periodStart ? leaveStart : periodStart;
+        const overlapEnd = leaveEnd < periodEnd ? leaveEnd : periodEnd;
+        for (const day = new Date(overlapStart); overlapStart <= overlapEnd && day <= overlapEnd; day.setDate(day.getDate() + 1)) {
+            const dayKey = `${day.getFullYear()}-${padDatePart(day.getMonth() + 1)}-${padDatePart(day.getDate())}`;
+            if (getWorkingDaysCount(dayKey, dayKey) > 0) leaveDays.add(dayKey);
+        }
+    });
+    return leaveDays.size;
+};
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 const safePercent = (value) => Math.max(0, Math.min(Number(value || 0), 100));
 const chartMinWidth = (length, itemWidth = 96, minWidth = 720) => Math.max(minWidth, Number(length || 0) * itemWidth);
@@ -2191,8 +2222,8 @@ const AttendanceSummary = ({
                 <Table size="small" stickyHeader>
                     <TableHead>
                         <TableRow>
-                            {["Employee", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"].map((heading) => (
-                                <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent"].includes(heading) ? "right" : "left"}>
+                            {["Employee", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Leave", "Attendance"].map((heading) => (
+                                <TableCell key={heading} sx={{ fontWeight: 900, bgcolor: "#fff", whiteSpace: "nowrap" }} align={["Total Days", "Working Days", "Present", "Absent", "Leave"].includes(heading) ? "right" : "left"}>
                                     {heading}
                                 </TableCell>
                             ))}
@@ -2211,32 +2242,17 @@ const AttendanceSummary = ({
                                 <TableCell align="right">{formatNumber(row.workingDays)}</TableCell>
                                 <TableCell align="right">{formatNumber(row.daysPresent)}</TableCell>
                                 <TableCell align="right">{formatNumber(row.daysAbsent)}</TableCell>
-                                <TableCell sx={{ minWidth: 140 }}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={safePercent(row.attendanceRate)}
-                                            sx={{
-                                                width: 72,
-                                                height: 7,
-                                                borderRadius: 10,
-                                                bgcolor: "rgba(100,116,139,0.16)",
-                                                "& .MuiLinearProgress-bar": {
-                                                    bgcolor: getAttendanceColor(row.attendanceRate, theme),
-                                                    borderRadius: 10,
-                                                },
-                                            }}
-                                        />
-                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(row.attendanceRate, theme) }}>
-                                            {formatPercent(row.attendanceRate)}
-                                        </Typography>
-                                    </Stack>
+                                <TableCell align="right">{formatNumber(row.daysOnLeave)}</TableCell>
+                                <TableCell sx={{ minWidth: 90 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 900, color: getAttendanceColor(row.attendanceRate, theme) }}>
+                                        {formatPercent(row.attendanceRate)}
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
                         ))}
                         {!paginatedSummaryRows.length && (
                             <TableRow>
-                                <TableCell colSpan={8}>
+                                <TableCell colSpan={9}>
                                     <EmptyState label={referenceLoading ? "Loading attendance summary..." : "No summary rows match the selected scope."} theme={theme} />
                                 </TableCell>
                             </TableRow>
@@ -2312,6 +2328,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const [productivityAnalytics, setProductivityAnalytics] = useState([]);
     const [records, setRecords] = useState([]);
     const [summaryRows, setSummaryRows] = useState([]);
+    const [leaveRecords, setLeaveRecords] = useState([]);
     const [referenceLoading, setReferenceLoading] = useState(false);
     const [referenceError, setReferenceError] = useState("");
     const [referenceSearch, setReferenceSearch] = useState("");
@@ -2499,9 +2516,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         setReferenceError("");
 
         try {
-            const [recordsResult, summaryResult] = await Promise.allSettled([
+            const [recordsResult, summaryResult, leavesResult] = await Promise.allSettled([
                 fetchOverallAttendanceRecords(params),
                 fetchOverallAttendanceSummary(params),
+                isSupervisorScope ? fetchDepartmentLeaves() : fetchAllLeavesAdmin(),
             ]);
 
             if (recordsResult.status === "fulfilled") {
@@ -2516,6 +2534,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 setSummaryRows([]);
             }
 
+            if (leavesResult.status === "fulfilled") {
+                setLeaveRecords(Array.isArray(leavesResult.value) ? leavesResult.value : leavesResult.value?.leaves || []);
+            } else {
+                setLeaveRecords([]);
+            }
+
             if (recordsResult.status !== "fulfilled" || summaryResult.status !== "fulfilled") {
                 const reason = recordsResult.reason || summaryResult.reason;
                 setReferenceError(
@@ -2527,7 +2551,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         } finally {
             setReferenceLoading(false);
         }
-    }, [params]);
+    }, [isSupervisorScope, params]);
 
     useEffect(() => {
         loadReferenceData();
@@ -2838,10 +2862,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 workingDays: workingDaysInReferenceRange,
                 daysPresent,
                 daysAbsent: Number(row.daysAbsent || 0),
+                daysOnLeave: countLeaveDaysInRange(leaveRecords, row.email, effectiveFilters.startDate, effectiveFilters.endDate),
                 attendanceRate,
             };
         }).sort(compareEmployeeThenId),
-        [summaryRows, totalDaysInReferenceRange, workingDaysInReferenceRange]
+        [effectiveFilters.endDate, effectiveFilters.startDate, leaveRecords, summaryRows, totalDaysInReferenceRange, workingDaysInReferenceRange]
     );
 
     const referenceSearchText = String(deferredReferenceSearch || "").trim().toLowerCase();
@@ -4202,7 +4227,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Attendance"]],
+                head: [["No.", "Employee ID", "Name", "Role", "Department", "Total Days", "Working Days", "Present", "Absent", "Leave", "Attendance"]],
                 body: filteredSummaryRows.map((row, index) => [
                     index + 1,
                     row.employeeId,
@@ -4213,6 +4238,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     row.workingDays,
                     row.daysPresent,
                     row.daysAbsent,
+                    row.daysOnLeave,
                     formatPercent(row.attendanceRate),
                 ]),
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center" },
