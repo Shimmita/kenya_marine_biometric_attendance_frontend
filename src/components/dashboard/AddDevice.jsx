@@ -38,7 +38,7 @@ import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchBiometricStatus, registerFingerprint } from '../../service/Biometrics';
 import { fetchMyDevices, removeDevice } from '../../service/DeviceService';
-import { getDeviceFingerprint } from '../../service/Fingerprinting';
+import { getDeviceFingerprint, getDeviceInstallationId } from '../../service/Fingerprinting';
 import coreDataDetails from '../CoreDataDetails';
 import detectCurrentDevice from '../util/DeviceDetection';
 
@@ -159,6 +159,7 @@ const AddDeviceContent = () => {
     const [alreadyEnrolled,       setAlreadyEnrolled]       = useState(false);
     const [currentDeviceReady,    setCurrentDeviceReady]    = useState(false);
     const [deviceHashFingerPrint, setDeviceHashFingerPrint] = useState();
+    const [deviceInstallationId, setDeviceInstallationId] = useState('');
     const [maxDevices,            setMaxDevices]            = useState(DEFAULT_MAX_DEVICES);
     const [removeTarget,          setRemoveTarget]          = useState(null);
     const [removing,              setRemoving]              = useState(false);
@@ -171,12 +172,14 @@ const AddDeviceContent = () => {
         setLoading(true); setFetchError('');
         try {
             const fp = await getDeviceFingerprint();
+            const installationId = await getDeviceInstallationId();
             const [data, biometricStatus] = await Promise.all([
                 fetchMyDevices(),
                 fetchBiometricStatus(fp),
             ]);
             setDevices(Array.isArray(data) ? data : (data.devices ?? []));
             setDeviceHashFingerPrint(fp);
+            setDeviceInstallationId(installationId);
             setCurrentDeviceReady(Boolean(biometricStatus?.currentDeviceRegistered));
             setMaxDevices(Number(biometricStatus?.maxDevices) || DEFAULT_MAX_DEVICES);
         } catch (err) {
@@ -195,9 +198,18 @@ const AddDeviceContent = () => {
         () => devices.filter(device => !device.device_lost),
         [devices]
     );
-    const currentDeviceRecord = devices.find(d => d.device_fingerprint === deviceHashFingerPrint);
+    const exactInstallationDevice = devices.find(
+        d => d.installation_id === deviceInstallationId
+    );
+    const legacyFingerprintMatches = devices.filter(
+        d => !d.installation_id && d.device_fingerprint === deviceHashFingerPrint
+    );
+    const currentDeviceRecord = exactInstallationDevice ||
+        (legacyFingerprintMatches.length === 1 ? legacyFingerprintMatches[0] : null);
     const currentDeviceLost = Boolean(currentDeviceRecord?.device_lost);
-    const isCurrentEnrolled = !currentDeviceLost && (currentDeviceReady || activeDevices.some(d => d.device_fingerprint === deviceHashFingerPrint));
+    const isCurrentEnrolled = !currentDeviceLost && (
+        currentDeviceReady || Boolean(currentDeviceRecord && !currentDeviceRecord.device_lost)
+    );
 
     const handleEnroll = async () => {
         if (isCurrentEnrolled) { setAlreadyEnrolled(true); return; }
@@ -275,7 +287,7 @@ const AddDeviceContent = () => {
                             </Box>
                             <Box sx={{ flex: 1 }}>
                                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, fontWeight: 500 }}>
-                                    This device (OS + browser combination) is already enrolled. Check the list below.
+                                    This browser installation is already enrolled. Check the list below.
                                 </Typography>
                             </Box>
                             <Button size="small" onClick={() => setAlreadyEnrolled(false)}
@@ -298,11 +310,11 @@ const AddDeviceContent = () => {
             {/* ── Info cards ── */}
             <InfoCard icon={<DevicesOther sx={{ fontSize: 18 }} />} accent={colorPalette.seafoamGreen}
                 title="Multi-Device Clocking"
-                body="Register additional devices — laptops, desktops, or smartphones — so you are never limited to a single clocking point. Each enrolled device creates a unique fingerprint tied to your account, enabling seamless clock-ins from any of your registered devices without affecting your attendance record."
+                body="Register additional browser installations — laptops, desktops, or smartphones — so you are never limited to a single clocking point. Each installation is linked to your account with a persistent device identity; browser fingerprints are supporting signals and may be shared by different devices."
             />
             <InfoCard icon={<Shield sx={{ fontSize: 18 }} />} accent={colorPalette.cyanFresh}
                 title="Security & Eligibility"
-                body={`• Only devices not previously enrolled by any user may be added.  • Each device is fingerprinted using browser + OS metadata to prevent duplicate registrations.  • Approved lost devices are blocked and no longer consume active slots.  • You may have a maximum of ${maxDevices} active enrolled devices at any time.`}
+                body={`• A browser installation is linked to your account; a matching browser fingerprint on another account does not block enrollment.  • Approved lost installations are blocked and no longer consume active slots.  • You may have a maximum of ${maxDevices} active enrolled devices at any time.`}
             />
             <InfoCard icon={<InfoOutlined sx={{ fontSize: 18 }} />} accent={colorPalette.warmSand}
                 title="Best Practice"

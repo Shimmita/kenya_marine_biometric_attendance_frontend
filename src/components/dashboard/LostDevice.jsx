@@ -226,7 +226,13 @@ const LostDeviceContent = () => {
         if (Object.keys(e).length) { setErrors(e); return; }
         setSubmitting(true); setSubmitError('');
         try {
-            await submitLostDeviceRequest({ description: reason.trim(), startDate: fromDate, endDate: toDate, device_fingerprint: selectedDevice.device_fingerprint });
+            await submitLostDeviceRequest({
+                description: reason.trim(),
+                startDate: fromDate,
+                endDate: toDate,
+                device_id: selectedDevice._id,
+                device_fingerprint: selectedDevice.device_fingerprint,
+            });
             setConfirmed(false); setSelectedDevice(null); setFromDate(''); setToDate(''); setReason(''); setErrors({});
             setSubmitted(true);
             if (submittedTimerRef.current) clearTimeout(submittedTimerRef.current);
