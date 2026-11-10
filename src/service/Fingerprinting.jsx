@@ -1,9 +1,11 @@
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 let deviceFingerprintPromise;
-const DEVICE_INSTALLATION_ID_KEY = "kmfri_device_installation_id";
-let deviceInstallationIdPromise;
 
+/**
+ * FingerprintJS visitorId. Deterministic hash of browser/hardware traits, so
+ * look-alike devices (same model, OS and browser version) can share it.
+ */
 export const getDeviceFingerprint = async () => {
   if (!deviceFingerprintPromise) {
     deviceFingerprintPromise = FingerprintJS.load()
@@ -14,35 +16,51 @@ export const getDeviceFingerprint = async () => {
   return deviceFingerprintPromise;
 };
 
-export const getDeviceInstallationId = async () => {
-  if (!deviceInstallationIdPromise) {
-    deviceInstallationIdPromise = Promise.resolve().then(() => {
-      try {
-        const existingId = window.localStorage.getItem(DEVICE_INSTALLATION_ID_KEY);
-        if (existingId && /^[a-f0-9]{48}$/.test(existingId)) return existingId;
+// Survives logout: logout only removes "persist:root".
+const DEVICE_INSTALL_ID_KEY = 'kmfri:device_install_id';
+const DEVICE_INSTALL_ID_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
-        const cryptoApi = window.crypto;
-        if (!cryptoApi?.getRandomValues) {
-          throw new Error("Secure random generation is unavailable.");
-        }
+let cachedDeviceInstallId = '';
 
-        const randomBytes = new Uint8Array(24);
-        cryptoApi.getRandomValues(randomBytes);
-        const installationId = Array.from(randomBytes, (byte) =>
-          byte.toString(16).padStart(2, "0")
-        ).join("");
+const generateDeviceInstallId = () => {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
 
-        window.localStorage.setItem(DEVICE_INSTALLATION_ID_KEY, installationId);
-        return installationId;
-      } catch (error) {
-        console.warn(
-          "Persistent device identity is unavailable; using legacy fingerprint matching for this session.",
-          error
-        );
-        return "";
-      }
-    });
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Random ID created once per browser install and kept in localStorage.
+ * Lets the server tell "same browser on another account" apart from a
+ * different device that merely shares a fingerprint.
+ * Never throws: returns '' if storage/crypto are unavailable (server then
+ * falls back to its legacy fingerprint-only rule).
+ */
+export const getDeviceInstallId = () => {
+  if (cachedDeviceInstallId) return cachedDeviceInstallId;
+
+  try {
+    const stored = window.localStorage.getItem(DEVICE_INSTALL_ID_KEY);
+    if (stored && DEVICE_INSTALL_ID_PATTERN.test(stored)) {
+      cachedDeviceInstallId = stored;
+      return cachedDeviceInstallId;
+    }
+  } catch {
+    // storage blocked: fall through and keep an in-memory ID for this session
   }
 
-  return deviceInstallationIdPromise;
+  try {
+    cachedDeviceInstallId = generateDeviceInstallId();
+  } catch {
+    return '';
+  }
+
+  try {
+    window.localStorage.setItem(DEVICE_INSTALL_ID_KEY, cachedDeviceInstallId);
+  } catch {
+    // ignore: ID still works for this session
+  }
+
+  return cachedDeviceInstallId;
 };
