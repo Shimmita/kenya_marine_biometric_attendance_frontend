@@ -1,4 +1,5 @@
 import api from "./Api";
+import { getDeviceInstallId } from "./Fingerprinting";
 
 // submit lost device 
 export const submitLostDeviceRequest = async (payload) => {
@@ -39,7 +40,7 @@ export const respondToLostDevice = async (requestId, action) => {
 // add new device for multiple clocking
 export const addNewDevice = async (payload) => {
     try {
-        const res = await api.post("/device/add", payload);
+        const res = await api.post("/device/add", { ...payload, device_install_id: getDeviceInstallId() });
         return res.data;
     } catch (err) {
         throw err.response?.data?.message || "Failed to add device";

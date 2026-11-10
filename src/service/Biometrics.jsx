@@ -5,6 +5,7 @@ import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
 } from "@simplewebauthn/browser";
+import { getDeviceInstallId } from "./Fingerprinting";
 
 /**
  * Ensure browser/device supports WebAuthn
@@ -61,7 +62,11 @@ export const fetchBiometricStatus = async (device_fingerprint) => {
  * Register fingerprint/device biometric
  * Runs once per device enrollment
  */
-export const registerFingerprint = async (device = {}) => {
+export const registerFingerprint = async (deviceDetails = {}) => {
+  // Per-browser install ID lets the server tell look-alike devices apart
+  // (FingerprintJS visitorIds can collide on identical models).
+  const device = { ...deviceDetails, device_install_id: getDeviceInstallId() };
+
   try {
     await ensureWebAuthnSupport();
 
@@ -69,7 +74,10 @@ export const registerFingerprint = async (device = {}) => {
     const { data: options } = await api.get(
       "/biometric/register/challenge",
       {
-        params: { device_fingerprint: device.device_fingerprint },
+        params: {
+          device_fingerprint: device.device_fingerprint,
+          device_install_id: device.device_install_id,
+        },
         ...biometricRequestConfig,
       }
     );
@@ -163,6 +171,7 @@ export const verifyFingerprint = async (
         selectedStation,
         userCoords,
         device_fingerprint,
+        device_install_id: getDeviceInstallId(),
         outsideLocation,
         isWithinGeofence,
         expectedAction,
