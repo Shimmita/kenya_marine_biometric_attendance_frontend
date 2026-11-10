@@ -206,7 +206,7 @@ const RecordMobileCard = ({ row }) => (
                 {[
                     ['In Location', row.inLocation],
                     ['Out Location', row.outLocation],
-                    ['Why Out', row.whyOut || '—'],
+                    ['Why Out', row.whyOut || ''],
                 ].map(([label, value]) => (
                     <Grid item xs={12} key={label}>
                         <Typography variant="caption" fontWeight={900} color="text.disabled" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>
@@ -606,7 +606,7 @@ export default function AttendanceHistoryContent() {
                     normalizeExportValue(r.clockOut),
                     normalizeExportTextValue(r.inLocation),
                     normalizeExportTextValue(r.outLocation),
-                    normalizeExportTextValue(r.whyOut),
+                    r.whyOut ? normalizeExportTextValue(r.whyOut) : '',
                 ]),
                 startY: doc.lastAutoTable.finalY + 6,
                 theme: "striped",
@@ -875,7 +875,7 @@ export default function AttendanceHistoryContent() {
                                                 <TableCell sx={{ ...G.tableCell, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>{row.clockOut}</TableCell>
                                                 <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.inLocation}</Typography></TableCell>
                                                 <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 250 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, overflowWrap: 'anywhere' }}>{row.outLocation}</Typography></TableCell>
-                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 300 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{row.whyOut || '—'}</Typography></TableCell>
+                                                <TableCell sx={{ ...G.tableCell, whiteSpace: 'normal', maxWidth: 300 }}><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{row.whyOut || ''}</Typography></TableCell>
                                             </Motion.tr>
                                         ))}
                             </TableBody>

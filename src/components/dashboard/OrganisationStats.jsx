@@ -88,6 +88,7 @@ import coreDataDetails, {
     getActiveTheme,
 } from "../CoreDataDetails";
 import { safeNewDate } from "../util/DateTimeFormater";
+import getWorkingDaysCount from "../util/GetWorkingDays";
 
 const EAT_TIMEZONE = "Africa/Nairobi";
 const HEATMAP_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -169,8 +170,12 @@ const countLeaveDaysInRange = (leaves = [], email, rangeStart, rangeEnd) => {
     });
     return leaveDays.size;
 };
-const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
-const safePercent = (value) => Math.max(0, Math.min(Number(value || 0), 100));
+const safePercent = (value) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(numeric, 100)) : 0;
+};
+// Every rate on this dashboard is a share of a whole, so it is bounded to 0-100%.
+const formatPercent = (value) => `${safePercent(value).toFixed(1)}%`;
 const chartMinWidth = (length, itemWidth = 96, minWidth = 720) => Math.max(minWidth, Number(length || 0) * itemWidth);
 const formatDelta = (value, suffix = "%") => {
     const numeric = Number(value || 0);
@@ -275,6 +280,27 @@ const getRecordHours = (record) => {
     return Math.max((end - start) / 3600000, 0);
 };
 
+// Mirrors the backend rule: a working day longer than this is a data anomaly
+// (e.g. a forgotten clock-out), not real worked time.
+const MAX_REALISTIC_DAILY_HOURS = 16;
+
+// Average hours worked per attended person-day. System auto clock-outs are
+// assumed times, so they are excluded along with anomalous sessions.
+const getAverageDailyHours = (records = []) => {
+    const personDays = new Map();
+    records.forEach((record) => {
+        if (record.clockOut === "System") return;
+        const hours = getRecordHours(record);
+        if (hours <= 0 || hours > MAX_REALISTIC_DAILY_HOURS) return;
+        const key = `${String(record.email || record.employeeId || record.name || "").toLowerCase()}:${getRecordDateKey(record.rawClockIn)}`;
+        personDays.set(key, (personDays.get(key) || 0) + hours);
+    });
+    if (!personDays.size) return 0;
+    let total = 0;
+    personDays.forEach((hours) => { total += Math.min(hours, MAX_REALISTIC_DAILY_HOURS); });
+    return total / personDays.size;
+};
+
 const getNairobiHourDecimal = (value) => {
     if (!value) return 0;
     const date = new Date(value);
@@ -334,7 +360,9 @@ const formatDialogExportValue = (row, column) => {
     if (["attendanceRate", "punctualityRate", "absenteeismRate", "lateRate", "percent"].includes(key) || HEATMAP_WEEKDAYS.includes(key)) return formatPercent(value);
     if (key === "workedHours" && !value && Number(row?.daysAbsent || 0) > 0) return "Absence";
     if (["averageWorkingHours", "averageHours", "workedHours"].includes(key)) return formatDuration(value);
-    if (["staff", "value", "lateCount", "daysAbsent", "daysPresent", "workingDays", "totalDays", "onLeaveDays"].includes(key)) return formatNumber(value);
+    if (["staff", "value", "lateCount", "daysAbsent", "daysPresent", "workingDays", "totalDays", "onLeaveDays", "clockIns", "outsideClockIns"].includes(key)) return formatNumber(value);
+    // "Why Out" is intentionally blank when no outside-clocking reason was given.
+    if (key === "whyOut") return value ? String(value) : "";
     return getPdfSafeValue(value);
 };
 
@@ -356,6 +384,9 @@ const buildPdfColumnStyles = (columns, availableWidth) => {
         inLocation: 45,
         outLocation: 45,
         reason: 44,
+        whyOut: 40,
+        clockIns: 18,
+        outsideClockIns: 18,
         leaveType: 30,
         leaveStart: 24,
         leaveEnd: 24,
@@ -395,6 +426,8 @@ const buildPdfColumnStyles = (columns, availableWidth) => {
         "averageHours",
         "workedHours",
         "workedHoursLabel",
+        "clockIns",
+        "outsideClockIns",
     ]);
     const totalPreferred = columns.reduce((sum, column) => sum + (preferredWidths[column.key] || 28), 0) || availableWidth;
     const scale = Math.min(1, availableWidth / totalPreferred);
@@ -1718,7 +1751,6 @@ const HrAttendanceAnalytics = ({
         { key: "name", label: "Station / Centre", minWidth: 125, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
         { key: "staff", label: "Staff", align: "right" },
         { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
-        { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
         { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
         { key: "trend", label: "Trend", align: "right", render: (row) => <Typography sx={{ color: Number(row.attendanceRate || 0) >= 85 ? theme.success : theme.danger, fontWeight: 950 }}>{Number(row.attendanceRate || 0) >= 85 ? "↑" : "↓"}</Typography> },
@@ -1727,7 +1759,6 @@ const HrAttendanceAnalytics = ({
         { key: "name", label: "Department", minWidth: 135, render: (row) => <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
         { key: "staff", label: "Staff", align: "right" },
         { key: "attendanceRate", label: "Attendance", align: "right", render: (row) => formatPercent(row.attendanceRate) },
-        { key: "punctualityRate", label: "Punctuality", align: "right", render: (row) => formatPercent(row.punctualityRate) },
         { key: "absenteeismRate", label: "Absent", align: "right", render: (row) => formatPercent(row.absenteeismRate) },
         { key: "averageWorkingHours", label: "Avg Hours", align: "right", render: (row) => formatDuration(row.averageWorkingHours) },
     ];
@@ -1785,7 +1816,7 @@ const HrAttendanceAnalytics = ({
                 <Box
                     sx={{
                         display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(6, minmax(0, 1fr))" },
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: `repeat(${Math.min(primaryMetricCards.length, 6) || 1}, minmax(0, 1fr))` },
                         gap: 1,
                     }}
                 >
@@ -1796,7 +1827,7 @@ const HrAttendanceAnalytics = ({
                 <Box
                     sx={{
                         display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))", xl: isStationScopedHr ? "repeat(5, minmax(0, 1fr))" : "repeat(8, minmax(0, 1fr))" },
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: `repeat(${Math.min(secondaryMetricCards.length, 4) || 1}, minmax(0, 1fr))` },
                         gap: 1,
                         mt: 1,
                     }}
@@ -1972,7 +2003,7 @@ const ReferenceStatsGrid = ({ theme, referenceMetrics }) => (
     <Box
         sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "repeat(5, minmax(0, 1fr))" },
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
             gap: 1.2,
             mb: 1.5,
         }}
@@ -1980,7 +2011,6 @@ const ReferenceStatsGrid = ({ theme, referenceMetrics }) => (
         <StatCard title="Reference Records" value={formatNumber(referenceMetrics.records)} subtitle="Clocking rows in scope" icon={<HistoryRounded />} tone={theme.secondary} theme={theme} />
         <StatCard title="Summary Staff" value={formatNumber(referenceMetrics.summaryRows)} subtitle="People in summary" icon={<GroupsRounded />} tone={theme.accent} theme={theme} />
         <StatCard title="Open Sessions" value={formatNumber(referenceMetrics.openSessions)} subtitle="Missing clock-out" icon={<WarningAmberRounded />} tone={referenceMetrics.openSessions ? theme.warning : theme.success} theme={theme} />
-        <StatCard title="Late Records" value={formatNumber(referenceMetrics.lateRecords)} subtitle="Late arrivals in period" icon={<HourglassBottomRounded />} tone={referenceMetrics.lateRecords ? theme.danger : theme.success} theme={theme} />
         <StatCard title="Avg Summary Rate" value={formatPercent(referenceMetrics.averageAttendance)} subtitle="Mean staff attendance" icon={<TableChartRounded />} tone={theme.primary} theme={theme} />
     </Box>
 );
@@ -1992,7 +2022,7 @@ const attendanceRecordColumns = [
     { key: "clockOut", label: "Clock Out", width: 95 },
     { key: "inLocation", label: "In Location", width: 225 },
     { key: "outLocation", label: "Out Location", width: 225 },
-    { key: "department", label: "Department", width: 190 },
+    { key: "whyOut", label: "Why Out", width: 190 },
 ];
 
 const AttendanceRecords = ({
@@ -2109,7 +2139,7 @@ const AttendanceRecords = ({
                                 <TableCell sx={{ width: 225, borderRight: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top" }}>
                                     <Typography sx={{ fontSize: 11, color: theme.muted, overflowWrap: "anywhere" }}>{row.outLocation}</Typography>
                                 </TableCell>
-                                <TableCell sx={{ width: 190, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top", overflowWrap: "anywhere" }}>{row.department}</TableCell>
+                                <TableCell sx={{ width: 190, borderBottom: `1px solid ${theme.border}`, verticalAlign: "top", overflowWrap: "anywhere" }}>{row.whyOut}</TableCell>
                             </TableRow>
                         ))}
                         {!paginatedRecords.length && (
@@ -2671,9 +2701,26 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             })),
         [sortedDepartments]
     );
+    // Configured stations/departments are used to pad tables with zero rows so that
+    // areas without data still appear. That padding must respect the active filters,
+    // otherwise a report for one station lists every other station as well.
+    const activeStationFilter = String(effectiveFilters.station || "").trim();
+    const activeDepartmentFilter = String(effectiveFilters.department || "").trim();
+    const scopedStationOptions = useMemo(() => {
+        if (activeStationFilter) return [activeStationFilter];
+        // A department filter narrows staff; only stations that actually host it apply.
+        if (activeDepartmentFilter) return [];
+        return filterOptions.stations;
+    }, [activeDepartmentFilter, activeStationFilter, filterOptions.stations]);
+    const scopedDepartmentOptions = useMemo(() => {
+        if (activeDepartmentFilter) return [activeDepartmentFilter];
+        // A station filter narrows staff; only departments present at that station apply.
+        if (activeStationFilter) return [];
+        return filterOptions.departments;
+    }, [activeDepartmentFilter, activeStationFilter, filterOptions.departments]);
     const configuredStationPerformanceRows = useMemo(() => {
         const rowByStation = new Map(stationPerformanceRows.map((row) => [normalizeStationAccessName(row.name), row]));
-        return uniqueValues([...filterOptions.stations, ...stationPerformanceRows.map((row) => row.name)]).map((station) => {
+        return uniqueValues([...scopedStationOptions, ...stationPerformanceRows.map((row) => row.name)]).map((station) => {
             const existing = rowByStation.get(normalizeStationAccessName(station));
             return existing || {
                 id: `station-${station}`,
@@ -2690,10 +2737,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 totalOvertime: 0,
             };
         });
-    }, [filterOptions.stations, stationPerformanceRows]);
+    }, [scopedStationOptions, stationPerformanceRows]);
     const configuredDepartmentPerformanceRows = useMemo(() => {
         const rowByDepartment = new Map(departmentPerformanceRows.map((row) => [String(row.name || "").trim().toLowerCase(), row]));
-        return uniqueValues([...filterOptions.departments, ...departmentPerformanceRows.map((row) => row.name)]).map((department) => {
+        return uniqueValues([...scopedDepartmentOptions, ...departmentPerformanceRows.map((row) => row.name)]).map((department) => {
             const existing = rowByDepartment.get(String(department || "").trim().toLowerCase());
             return existing || {
                 id: `department-${department}`,
@@ -2709,7 +2756,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 averageWorkingHours: 0,
             };
         });
-    }, [departmentPerformanceRows, filterOptions.departments]);
+    }, [departmentPerformanceRows, scopedDepartmentOptions]);
     const qualitySignalRows = useMemo(
         () => [
             { name: "Attendance", value: safePercent(kpis?.attendanceRate), fill: theme.secondary },
@@ -2833,6 +2880,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             inLocation: formatLocationLabel(record, true),
             outLocation: formatLocationLabel(record, false),
             reason: compactTitleCase(record.outSideReason || record.outsideReason || ""),
+            // Blank (never "N/A") when no outside-clocking reason was recorded.
+            whyOut: (() => {
+                const reason = String(record.outSideReason || record.outsideReason || "").trim();
+                return reason ? compactTitleCase(reason) : "";
+            })(),
+            clockedOutside: Boolean(record.clockedOutSide),
+            canClockOutside: Boolean(record.canClockOutside),
             station: record.station || "Unassigned",
             department: record.department || "Unassigned",
             role: record.role || "",
@@ -2847,8 +2901,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const processedSummaryRows = useMemo(
         () => summaryRows.map((row, index) => {
             const daysPresent = Number(row.daysPresent || 0);
-            const attendanceRate = workingDaysInReferenceRange > 0
-                ? (daysPresent / workingDaysInReferenceRange) * 100
+            // The backend's present + absent days span its configured working days
+            // (holidays excluded), so prefer that as the denominator.
+            const backendWorkingDays = daysPresent + Number(row.daysAbsent || 0);
+            const expectedDays = backendWorkingDays > 0 ? backendWorkingDays : workingDaysInReferenceRange;
+            const attendanceRate = expectedDays > 0
+                ? safePercent((daysPresent / expectedDays) * 100)
                 : 0;
 
             return {
@@ -2881,6 +2939,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 row.email,
                 row.station,
                 row.department,
+                row.whyOut,
                 row.role,
                 row.timing,
             ].some((value) => String(value || "").toLowerCase().includes(referenceSearchText));
@@ -2957,9 +3016,17 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 status: record.timing === "Late" ? "Late" : "Present",
             }));
 
-        const present = Array.isArray(kpis?.todayDetails?.present) && kpis.todayDetails.present.length
+        const presentSource = Array.isArray(kpis?.todayDetails?.present) && kpis.todayDetails.present.length
             ? kpis.todayDetails.present.map(normalizePerson)
             : fallbackPresent;
+        // A person can clock in more than once a day; list each person once.
+        const presentByPerson = new Map();
+        presentSource.forEach((row) => {
+            const key = String(row.email || row.employeeId || row.name || "").toLowerCase();
+            if (!key) return;
+            if (!presentByPerson.has(key)) presentByPerson.set(key, row);
+        });
+        const present = Array.from(presentByPerson.values());
         const absent = Array.isArray(kpis?.todayDetails?.absent)
             ? kpis.todayDetails.absent.map((entry) => ({ ...normalizePerson(entry), status: "Absent" }))
             : [];
@@ -2975,10 +3042,49 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     }, [kpis, processedRecords]);
 
     const hrRecordGroups = useMemo(() => {
-        const outsideRecords = processedRecords.filter((record) => {
-            const location = `${record.inLocation || ""} ${record.outLocation || ""}`.toLowerCase();
-            return record.reason || location.includes("off premise") || record.inLocation !== "In Premise" || record.outLocation !== "In Premise";
+        // Clock-ins made under outside-clocking access (stamped by the backend at clock-in).
+        const outsideRecords = processedRecords.filter((record) => record.clockedOutside);
+
+        // Clock Outside: one row per person who holds outside-clocking access
+        // (currently, or as evidenced by an outside clock-in) and clocked in at
+        // least once in the selected period.
+        const clockOutsidePeople = new Map();
+        processedRecords.forEach((record) => {
+            if (!record.clockedOutside && !record.canClockOutside) return;
+            const key = String(record.email || record.employeeId || record.name || "").toLowerCase();
+            if (!key) return;
+            const existing = clockOutsidePeople.get(key);
+            const recordTime = new Date(record.rawClockIn || 0).getTime();
+            if (!existing) {
+                clockOutsidePeople.set(key, {
+                    ...record,
+                    id: `clock-outside-${key}`,
+                    clockIns: 1,
+                    outsideClockIns: record.clockedOutside ? 1 : 0,
+                    latestTime: recordTime,
+                    whyOut: record.whyOut || "",
+                    whyOutTime: record.whyOut ? recordTime : 0,
+                });
+                return;
+            }
+            existing.clockIns += 1;
+            if (record.clockedOutside) existing.outsideClockIns += 1;
+            if (recordTime > existing.latestTime) {
+                existing.latestTime = recordTime;
+                existing.date = record.date;
+                existing.rawDate = record.rawDate;
+                existing.clockIn = record.clockIn;
+                existing.clockOut = record.clockOut;
+                existing.inLocation = record.inLocation;
+                existing.outLocation = record.outLocation;
+            }
+            // Most recent stated reason wins; blank when they never gave one.
+            if (record.whyOut && recordTime >= existing.whyOutTime) {
+                existing.whyOut = record.whyOut;
+                existing.whyOutTime = recordTime;
+            }
         });
+        const clockOutsideRows = Array.from(clockOutsidePeople.values()).sort(compareEmployeeThenId);
         const lateRecords = processedRecords.filter((record) => record.timing === "Late");
         const missingCheckoutRecords = processedRecords.filter((record) => record.status === "Open" || record.clockOut === "System");
         const overtimeRecords = processedRecords
@@ -2991,7 +3097,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
 
         return {
             outsideRecords,
-            dutyRecords: outsideRecords,
+            dutyRecords: clockOutsideRows,
             lateRecords,
             missingCheckoutRecords,
             overtimeRecords,
@@ -3001,16 +3107,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     }, [processedRecords]);
 
     const hrWorkloadMetrics = useMemo(() => {
-        const overtimeHours = hrRecordGroups.overtimeRecords.reduce((sum, record) => sum + Math.max(Number(record.workedHours || 0) - 8, 0), 0);
         const lostWorkingHours = hrRecordGroups.shortHourRecords.reduce((sum, record) => sum + Math.max(8 - Number(record.workedHours || 0), 0), 0)
             + processedSummaryRows.reduce((sum, row) => sum + Number(row.daysAbsent || 0) * 8, 0);
+        const averageWorkingHours = getAverageDailyHours(hrRecordGroups.completedRecords);
 
         return {
-            overtimeHours,
             lostWorkingHours,
-            averageWorkingHours: hrRecordGroups.completedRecords.length
-                ? hrRecordGroups.completedRecords.reduce((sum, record) => sum + getRecordHours(record), 0) / hrRecordGroups.completedRecords.length
-                : Number(kpis?.averageWorkingHours || 0),
+            averageWorkingHours: averageWorkingHours || Number(kpis?.averageWorkingHours || 0),
         };
     }, [hrRecordGroups, kpis, processedSummaryRows]);
 
@@ -3095,13 +3198,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     }, [effectiveFilters.endDate, effectiveFilters.startDate, processedRecords, processedSummaryRows]);
 
     const departmentHeatmapRows = useMemo(
-        () => buildHeatmapRows("department", filterOptions.departments),
-        [buildHeatmapRows, filterOptions.departments]
+        () => buildHeatmapRows("department", scopedDepartmentOptions),
+        [buildHeatmapRows, scopedDepartmentOptions]
     );
 
     const stationHeatmapRows = useMemo(
-        () => buildHeatmapRows("station", filterOptions.stations),
-        [buildHeatmapRows, filterOptions.stations]
+        () => buildHeatmapRows("station", scopedStationOptions),
+        [buildHeatmapRows, scopedStationOptions]
     );
 
     const hodDepartmentHeatmapRows = useMemo(
@@ -3125,31 +3228,37 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
         [kpis, theme]
     );
 
-    const hrKeyInsights = useMemo(
-        () => [
+    const hrKeyInsights = useMemo(() => {
+        // Independent of the user's sort/band filters: always the true leader among
+        // areas that actually have staff in scope.
+        const pickHighestAttendance = (rows = [], nameKey) => rows
+            .filter((row) => Number(row.staffCount || 0) > 0 && row[nameKey])
+            .reduce((best, row) => (!best || Number(row.attendanceRate || 0) > Number(best.attendanceRate || 0) ? row : best), null);
+        const highestStation = pickHighestAttendance(stations, "station");
+        const highestDepartment = pickHighestAttendance(departments, "department");
+
+        return [
             {
                 label: "Attendance movement",
                 text: `${formatDelta(attendanceDelta || 0, "pp")} compared to ${previousPeriodLabel}.`,
                 tone: Number(attendanceDelta || 0) >= 0 ? theme.success : theme.danger,
             },
             {
-                label: "Punctuality movement",
-                text: `${formatDelta(punctualityDelta || 0, "pp")} compared to the previous period.`,
-                tone: Number(punctualityDelta || 0) >= 0 ? theme.success : theme.warning,
+                label: "Highest attendance station",
+                text: highestStation
+                    ? `${highestStation.station} leads at ${formatPercent(highestStation.attendanceRate)} attendance.`
+                    : "No station attendance data in this scope.",
+                tone: theme.success,
             },
             {
-                label: "Records needing cleanup",
-                text: `${formatNumber(hrRecordGroups.missingCheckoutRecords.length)} missing checkout rows are visible in this scope.`,
-                tone: hrRecordGroups.missingCheckoutRecords.length ? theme.warning : theme.secondary,
+                label: "Highest attendance department",
+                text: highestDepartment
+                    ? `${highestDepartment.department} leads at ${formatPercent(highestDepartment.attendanceRate)} attendance.`
+                    : "No department attendance data in this scope.",
+                tone: theme.secondary,
             },
-            {
-                label: "Lowest attendance area",
-                text: `${lowestStation?.station || topDepartment?.department || "No area"} has the lowest visible attendance signal.`,
-                tone: theme.danger,
-            },
-        ],
-        [attendanceDelta, hrRecordGroups, lowestStation, previousPeriodLabel, punctualityDelta, theme, topDepartment]
-    );
+        ];
+    }, [attendanceDelta, departments, previousPeriodLabel, stations, theme]);
 
     const detailColumns = useMemo(() => ({
         people: [
@@ -3197,6 +3306,16 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "averageHours", label: "Avg Hours", minWidth: 95, render: (row) => formatDuration(row.averageHours) },
             { key: "status", label: "Status", minWidth: 120 },
         ],
+        clockOutside: [
+            { key: "employeeId", label: "Employee ID", minWidth: 105 },
+            { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "station", label: "Station", minWidth: 130 },
+            { key: "department", label: "Department", minWidth: 140 },
+            { key: "clockIns", label: "Clock-ins", minWidth: 85, render: (row) => formatNumber(row.clockIns) },
+            { key: "outsideClockIns", label: "Outside", minWidth: 80, render: (row) => formatNumber(row.outsideClockIns) },
+            { key: "date", label: "Last Clock-in", minWidth: 115 },
+            { key: "whyOut", label: "Why Out", minWidth: 160 },
+        ],
         hodDuty: [
             { key: "employeeId", label: "Employee ID", minWidth: 105 },
             { key: "name", label: "Name", minWidth: 170, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
@@ -3215,9 +3334,15 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "name", label: "Name", minWidth: 160, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
             { key: "staff", label: "Staff", minWidth: 80 },
             { key: "attendanceRate", label: "Attendance", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
-            { key: "punctualityRate", label: "Punctuality", minWidth: 110, render: (row) => formatPercent(row.punctualityRate) },
             { key: "absenteeismRate", label: "Absenteeism", minWidth: 110, render: (row) => formatPercent(row.absenteeismRate) },
-            { key: "averageWorkingHours", label: "Avg Hours", minWidth: 105, render: (row) => formatDuration(row.averageWorkingHours) },
+            { key: "averageWorkingHours", label: "Avg Hours / Day", minWidth: 120, render: (row) => formatDuration(row.averageWorkingHours) },
+        ],
+        biometric: [
+            { key: "name", label: "Name", minWidth: 160, render: (row) => <Typography sx={{ fontSize: 12, fontWeight: 900, color: theme.text }} noWrap>{row.name}</Typography> },
+            { key: "staff", label: "Staff", minWidth: 80 },
+            { key: "attendanceRate", label: "Enrolment", minWidth: 110, render: (row) => formatPercent(row.attendanceRate) },
+            { key: "punctualityRate", label: "Device Uptime", minWidth: 120, render: (row) => formatPercent(row.punctualityRate) },
+            { key: "absenteeismRate", label: "Not Enrolled", minWidth: 110, render: (row) => formatPercent(row.absenteeismRate) },
         ],
     }), [theme]);
 
@@ -3230,23 +3355,21 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
             { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
             { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
-            { key: "dutyRecords", title: "Duty", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
+            { key: "dutyRecords", title: "Clock Outside", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
         ];
     }, [hrRecordGroups, kpis, theme]);
 
     const hrSecondaryMetricCards = useMemo(() => [
         { key: "attendanceRate", title: "Attendance", value: formatPercent(kpis?.attendanceRate), subtitle: "", icon: <PieChartRounded />, tone: theme.secondary },
-        { key: "punctualityRate", title: "Punctuality", value: formatPercent(kpis?.punctualityRate), subtitle: "", icon: <CheckCircleRounded />, tone: theme.success },
         { key: "averageWorkingHours", title: "Avg Hours", value: formatDuration(hrWorkloadMetrics.averageWorkingHours), subtitle: "", icon: <AssessmentRounded />, tone: theme.primary },
-        { key: "overtimeHours", title: "Overtime", value: formatDuration(hrWorkloadMetrics.overtimeHours), subtitle: "", icon: <TrendingUpRounded />, tone: theme.purple },
         { key: "missingCheckout", title: "Missing Out", value: formatNumber(hrRecordGroups.missingCheckoutRecords.length), subtitle: "", icon: <WarningAmberRounded />, tone: theme.danger },
         { key: "biometricReadiness", title: "Biometric", value: formatPercent(biometricAnalytics?.enrollmentRate), subtitle: "", icon: <ShieldRounded />, tone: theme.accent },
     ], [biometricAnalytics, hrRecordGroups, hrWorkloadMetrics, kpis, theme]);
 
     const hodDutyTodayRows = useMemo(() => {
         const todayKey = getDateInputValue();
-        return hrRecordGroups.dutyRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
-    }, [hrRecordGroups.dutyRecords]);
+        return hrRecordGroups.outsideRecords.filter((record) => getRecordDateKey(record.rawDate) === todayKey);
+    }, [hrRecordGroups.outsideRecords]);
 
     const hodLeaveRows = useMemo(
         () => scopedTodayRows.onLeave.map((row) => ({
@@ -3289,7 +3412,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             }, 0);
             const lateToday = todayRecords.some((record) => record.timing === "Late");
             const todayStatus = dutyEmails.has(email)
-                ? "Duty"
+                ? "Clock Outside"
                 : leaveEmails.has(email)
                     ? "On Leave"
                     : absentEmails.has(email)
@@ -3336,7 +3459,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { key: "presentToday", title: "Present", value: formatNumber(kpis?.presentToday), subtitle: percentage(kpis?.presentToday), icon: <CheckCircleRounded />, tone: theme.success },
             { key: "absentToday", title: "Absent", value: formatNumber(kpis?.absentToday), subtitle: percentage(kpis?.absentToday), icon: <WarningAmberRounded />, tone: theme.danger },
             { key: "onLeaveToday", title: "On Leave", value: formatNumber(kpis?.onLeaveToday), subtitle: percentage(kpis?.onLeaveToday), icon: <EventAvailableRounded />, tone: theme.warning },
-            { key: "dutyRecords", title: "Duty", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
+            { key: "dutyRecords", title: "Clock Outside", value: formatNumber(hrRecordGroups.dutyRecords.length), subtitle: percentage(hrRecordGroups.dutyRecords.length), icon: <ShieldRounded />, tone: theme.secondary },
         ];
     }, [hrRecordGroups.dutyRecords.length, kpis, theme]);
 
@@ -3366,7 +3489,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             absentToday: { title: "Absent Today", subtitle: "Staff without a clock-in and not on approved leave today", rows: scopedTodayRows.absent, columns: detailColumns.people },
             onLeaveToday: { title: "On Leave Today", subtitle: "Approved leave in today's scope", rows: scopedTodayRows.onLeave, columns: [...detailColumns.people, { key: "leaveType", label: "Leave Type", minWidth: 140 }, { key: "leaveStart", label: "From", minWidth: 115 }, { key: "leaveEnd", label: "To", minWidth: 115 }] },
             leaveRecords: { title: "Leave Records", subtitle: "Approved leave records visible today", rows: hodLeaveRows, columns: detailColumns.hodDuty },
-            dutyRecords: { title: "Duty Records", subtitle: "Outside-clocking records in the selected scope", rows: hrRecordGroups.dutyRecords, columns: detailColumns.records },
+            dutyRecords: { title: "Clock Outside", subtitle: "Staff with outside-clocking access who clocked in during the selected period (one row per person)", rows: hrRecordGroups.dutyRecords, columns: detailColumns.clockOutside },
             attendanceRate: { title: "Attendance Rate Contributors", subtitle: "Staff summary behind the selected attendance rate", rows: processedSummaryRows, columns: detailColumns.summary },
             punctualityRate: { title: "Punctuality by Record", subtitle: "On-time and late records in the selected scope", rows: processedRecords, columns: detailColumns.records },
             stationPerformance: { title: "All Station / Centre Performance", subtitle: "Configured stations with attendance metrics in the selected scope", rows: configuredStationPerformanceRows, columns: detailColumns.performance },
@@ -3377,8 +3500,8 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             averageWorkingHours: { title: "Completed Working Hours", subtitle: "Records with clock-in and clock-out", rows: hrRecordGroups.completedRecords, columns: [...detailColumns.records, { key: "workedHours", label: "Hours", minWidth: 90, render: (row) => formatDuration(getRecordHours(row)) }] },
             overtimeHours: { title: "Overtime Records", subtitle: "Completed records above 8 hours", rows: withHours(hrRecordGroups.overtimeRecords), columns: [...detailColumns.records, { key: "workedHoursLabel", label: "Worked", minWidth: 90 }] },
             missingCheckout: { title: "Missing Checkout Records", subtitle: "Open or system-closed attendance records", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
-            biometricReadiness: { title: "Biometric Readiness", subtitle: "Scoped enrolment and device readiness totals", rows: [{ id: "biometric", name: "Biometric Readiness", staff: Number(kpis?.totalEmployees || 0), attendanceRate: biometricAnalytics?.enrollmentRate || 0, punctualityRate: biometricAnalytics?.deviceUptime || 0, absenteeismRate: 100 - Number(biometricAnalytics?.enrollmentRate || 0), lateCount: biometricAnalytics?.inactiveDevices || 0, onLeaveDays: biometricAnalytics?.lostDevices || 0, averageWorkingHours: 0 }], columns: detailColumns.performance },
-            outsideClocking: { title: "Duty Records", subtitle: "Outside-clocking records in the selected scope", rows: hrRecordGroups.outsideRecords, columns: detailColumns.records },
+            biometricReadiness: { title: "Biometric Readiness", subtitle: "Scoped enrolment and device readiness totals", rows: [{ id: "biometric", name: "Biometric Readiness", staff: Number(kpis?.totalEmployees || 0), attendanceRate: biometricAnalytics?.enrollmentRate || 0, punctualityRate: biometricAnalytics?.deviceUptime || 0, absenteeismRate: 100 - Number(biometricAnalytics?.enrollmentRate || 0), lateCount: biometricAnalytics?.inactiveDevices || 0, onLeaveDays: biometricAnalytics?.lostDevices || 0, averageWorkingHours: 0 }], columns: detailColumns.biometric },
+            outsideClocking: { title: "Clock Outside", subtitle: "Staff with outside-clocking access who clocked in during the selected period (one row per person)", rows: hrRecordGroups.dutyRecords, columns: detailColumns.clockOutside },
             openSessions: { title: "Open Sessions", subtitle: "Clock-ins without completed clock-outs", rows: hrRecordGroups.missingCheckoutRecords, columns: detailColumns.records },
             hodBelowExpectedHours: { title: "Below Expected Hours", subtitle: "Team members with completed days below expected hours", rows: hodTeamRows.filter((row) => Number(row.belowExpectedHours || 0) > 0), columns: detailColumns.hodTeam },
             hodBestAttendance: { title: "Best Attendance", subtitle: "Top department attendance performer", rows: hodTeamRows.slice(0, 1), columns: detailColumns.hodTeam },
@@ -3416,12 +3539,12 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             { name: "Early Departures", count: earlyDepartureCount, fill: theme.purple },
             { name: "Missing In", count: Number(complianceAnalytics?.totalMissingClockIns || 0), fill: theme.danger },
             { name: "Missing Out", count: Number(complianceAnalytics?.totalMissingClockOuts || 0), fill: theme.warning },
-            { name: "Duty", count: outsideClockingCount, fill: theme.secondary },
+            { name: "Clock Outside", count: hrRecordGroups.dutyRecords.length, fill: theme.secondary },
             { name: "Open Sessions", count: referenceMetrics.openSessions, fill: theme.accent },
             { name: "Inactive Devices", count: Number(biometricAnalytics?.inactiveDevices || 0), fill: theme.muted },
             { name: "Lost Devices", count: Number(biometricAnalytics?.lostDevices || 0), fill: theme.danger },
         ],
-        [biometricAnalytics, complianceAnalytics, earlyDepartureCount, kpis, lateToday, outsideClockingCount, referenceMetrics.openSessions, theme]
+        [biometricAnalytics, complianceAnalytics, earlyDepartureCount, hrRecordGroups.dutyRecords.length, kpis, lateToday, referenceMetrics.openSessions, theme]
     );
 
     const attendanceDistributionRows = useMemo(
@@ -3431,13 +3554,13 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 { key: "presentToday", name: "Present", value: Number(kpis?.presentToday || 0), color: theme.success },
                 { key: "absentToday", name: "Absent", value: Number(kpis?.absentToday || 0), color: theme.danger },
                 { key: "onLeaveToday", name: "On Leave", value: Number(kpis?.onLeaveToday || 0), color: theme.warning },
-                { key: "outsideClocking", name: "Duty", value: outsideClockingCount, color: theme.purple },
+                { key: "outsideClocking", name: "Clock Outside", value: hrRecordGroups.dutyRecords.length, color: theme.purple },
             ].map((row) => ({
                 ...row,
                 percent: (Number(row.value || 0) / total) * 100,
             }));
         },
-        [kpis, outsideClockingCount, theme]
+        [hrRecordGroups.dutyRecords.length, kpis, theme]
     );
 
     const attendanceQualityRows = useMemo(
@@ -3461,9 +3584,10 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
     const reportingStationTotal = useMemo(
         () => {
             if (isSupervisorStationLockedScope || isStationScopedHr) return supervisorStation ? 1 : reportingStationCount;
-            return Math.max(filterOptions.stations.length, reportingStationCount);
+            if (activeStationFilter) return 1;
+            return Math.max(scopedStationOptions.length, reportingStationCount);
         },
-        [filterOptions.stations.length, isStationScopedHr, isSupervisorStationLockedScope, reportingStationCount, supervisorStation]
+        [activeStationFilter, isStationScopedHr, isSupervisorStationLockedScope, reportingStationCount, scopedStationOptions.length, supervisorStation]
     );
 
     const analyticsCopy = useMemo(() => {
@@ -3979,7 +4103,6 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 row.name || "Unassigned",
                 formatNumber(row.staff),
                 formatPercent(row.attendanceRate),
-                formatPercent(row.punctualityRate),
                 formatPercent(row.absenteeismRate),
                 formatDuration(row.averageWorkingHours),
             ]);
@@ -4021,12 +4144,11 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 5: { cellWidth: 43, halign: "center" },
             };
             const performanceColumnStyles = {
-                0: { cellWidth: 84, halign: "left", fontStyle: "bold" },
-                1: { cellWidth: 34, halign: "right" },
-                2: { cellWidth: 44, halign: "center" },
-                3: { cellWidth: 50, halign: "center" },
-                4: { cellWidth: 37, halign: "center" },
-                5: { cellWidth: 32, halign: "center" },
+                0: { cellWidth: 101, halign: "left", fontStyle: "bold" },
+                1: { cellWidth: 36, halign: "right" },
+                2: { cellWidth: 50, halign: "center" },
+                3: { cellWidth: 46, halign: "center" },
+                4: { cellWidth: 48, halign: "center" },
             };
             const heatmapColumnStyles = {
                 0: { cellWidth: 86, halign: "left", fontStyle: "bold" },
@@ -4100,7 +4222,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
             } else {
                 addTable({
                     title: isStationScopedHr ? "Department Performance" : "Station / Centre Performance",
-                    head: [[isStationScopedHr ? "Department" : "Station / Centre", "Staff", "Attendance", "Punctuality", "Absent", "Avg Hours"]],
+                    head: [[isStationScopedHr ? "Department" : "Station / Centre", "Staff", "Attendance", "Absent", "Avg Hours / Day"]],
                     body: performanceRows(visiblePerformanceRows),
                     columnStyles: performanceColumnStyles,
                     styles: { fontSize: 6.9 },
@@ -4108,7 +4230,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                 if (!isStationScopedHr) {
                     addTable({
                         title: "Department Performance",
-                        head: [["Department", "Staff", "Attendance", "Punctuality", "Absent", "Avg Hours"]],
+                        head: [["Department", "Staff", "Attendance", "Absent", "Avg Hours / Day"]],
                         body: performanceRows(configuredDepartmentPerformanceRows),
                         columnStyles: performanceColumnStyles,
                         styles: { fontSize: 6.9 },
@@ -4175,7 +4297,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
 
             autoTable(doc, {
                 startY: 45,
-                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "In Location", "Out Location", "Department"]],
+                head: [["No.", "Employee ID", "Name", "Date", "Clock In", "Clock Out", "In Location", "Out Location", "Why Out"]],
                 body: filteredRecords.map((row, index) => [
                     index + 1,
                     row.employeeId,
@@ -4185,7 +4307,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                     row.clockOut,
                     row.inLocation,
                     row.outLocation,
-                    row.department,
+                    row.whyOut || "",
                 ]),
                 headStyles: { fillColor: [10, 61, 98], textColor: 255, halign: "center", lineWidth: 0.15, lineColor: [148, 163, 184] },
                 styles: { fontSize: 6.5, cellPadding: 1.25, halign: "center", overflow: "linebreak", valign: "middle", lineWidth: 0.12, lineColor: [203, 213, 225] },
@@ -4994,7 +5116,7 @@ const OrganisationStats = ({ user, readOnly = false, initialTab = "analytics", s
                                 <OverviewMetricCard title="Early Departures" value={formatNumber(earlyDepartureCount)} subtitle="Selected period" icon={<TrendingDownRounded />} tone={theme.warning} theme={theme} />
                             </Grid>
                             <Grid item xs={6} sm={3}>
-                                <OverviewMetricCard title="Duty" value={formatNumber(outsideClockingCount)} subtitle="Outside clocking records" icon={<ShieldRounded />} tone={theme.secondary} theme={theme} />
+                                <OverviewMetricCard title="Clock Outside" value={formatNumber(hrRecordGroups.dutyRecords.length)} subtitle="Staff who clocked with outside access" icon={<ShieldRounded />} tone={theme.secondary} theme={theme} />
                             </Grid>
                         </Grid>
                     </SectionCard>
